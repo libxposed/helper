@@ -4,9 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.lang.reflect.AccessibleObject;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Member;
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -25,11 +23,6 @@ abstract class BaseFinder<T extends Member, S> {
 
     public S filter(@NonNull Predicate<T> predicate) {
         stream = stream.filter(predicate);
-        return (S) this;
-    }
-
-    public S filterByName(@NonNull String name) {
-        stream = stream.filter(member -> member.getName().equals(name));
         return (S) this;
     }
 
@@ -88,97 +81,6 @@ abstract class BaseFinder<T extends Member, S> {
     }
 
     /**
-     * Filter methods/constructors if they have static modifier.
-     *
-     * @return this
-     */
-    public S filterStatic() {
-        return filter(ModifierHelper::isStatic);
-    }
-
-    /**
-     * Filter methods/constructors if they not have static modifier.
-     *
-     * @return this
-     */
-    public S filterNonStatic() {
-        return filter(ModifierHelper::isNotStatic);
-    }
-
-    /**
-     * Filter methods/constructors if they have final modifier.
-     *
-     * @return this
-     */
-    public S filterFinal() {
-        return filter(ModifierHelper::isFinal);
-    }
-
-
-    /**
-     * Filter methods/constructors if they not have final modifier.
-     *
-     * @return this
-     */
-    public S filterNonFinal() {
-        return filter(ModifierHelper::isNotFinal);
-    }
-
-    /**
-     * Filter methods/constructors if they have synchronized modifier.
-     *
-     * @return this
-     */
-    public S filterSynchronized() {
-        return filter(ModifierHelper::isSynchronized);
-    }
-
-    /**
-     * Filter methods/constructors if they not have synchronized modifier.
-     *
-     * @return this
-     */
-    public S filterNonSynchronized() {
-        return filter(ModifierHelper::isNotSynchronized);
-    }
-
-    /**
-     * Filter methods/constructors if they have native modifier.
-     *
-     * @return this
-     */
-    public S filterNative() {
-        return filter(ModifierHelper::isNative);
-    }
-
-    /**
-     * Filter methods/constructors if they have native modifier.
-     *
-     * @return this
-     */
-    public S filterNonNative() {
-        return filter(ModifierHelper::isNotNative);
-    }
-
-    /**
-     * Filter methods/constructors if they have abstract modifier.
-     *
-     * @return this
-     */
-    public S filterAbstract() {
-        return filter(ModifierHelper::isAbstract);
-    }
-
-    /**
-     * Filter methods/constructors if they not have abstract modifier.
-     *
-     * @return this
-     */
-    public S filterNonAbstract() {
-        return filter(ModifierHelper::isNotAbstract);
-    }
-
-    /**
      * Filter methods/constructors by parameter types, make sure length is same as target method parameter types length.
      *
      * @param parameterTypes parameter types, use null to skip check some parameters.
@@ -186,9 +88,7 @@ abstract class BaseFinder<T extends Member, S> {
      */
     public S filterByParameterTypes(Class<?>... parameterTypes) {
         return filter(member -> {
-            var paramTypes = (member instanceof Method) ?
-                    ((Method) member).getParameterTypes() :
-                    ((Constructor<?>) member).getParameterTypes();
+            var paramTypes = getParameterTypes(member);
 
             if (paramTypes.length != parameterTypes.length) {
                 return false;
@@ -213,9 +113,7 @@ abstract class BaseFinder<T extends Member, S> {
      * @return this
      */
     public S filterByParameterCount(int parameterCount) {
-        return filter(member -> (member instanceof Method) ?
-                ((Method) member).getParameterTypes().length == parameterCount :
-                ((Constructor<?>) member).getParameterTypes().length == parameterCount);
+        return filter(member -> getParameterTypes(member).length == parameterCount);
     }
 
     /**
@@ -271,7 +169,7 @@ abstract class BaseFinder<T extends Member, S> {
      * @throws NoSuchMethodException if the method/constructor not found
      */
     @NonNull
-    public T findFirst() throws NoSuchMethodException {
+    public T first() throws NoSuchMethodException {
         var m = stream.findFirst().orElse(null);
         if (m == null) {
             throw new NoSuchMethodException();
@@ -286,7 +184,7 @@ abstract class BaseFinder<T extends Member, S> {
      * @return first method/constructor or null
      */
     @Nullable
-    public T findFirstOrNull() {
+    public T firstOrNull() {
         var m = stream.findFirst().orElse(null);
         if (m == null) {
             return null;
@@ -294,4 +192,6 @@ abstract class BaseFinder<T extends Member, S> {
         ((AccessibleObject) m).setAccessible(true);
         return m;
     }
+
+    protected abstract Class<?>[] getParameterTypes(T member);
 }

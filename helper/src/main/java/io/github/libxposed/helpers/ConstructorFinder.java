@@ -7,33 +7,16 @@ import java.lang.reflect.Constructor;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.stream.Collector;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
  * Helper for quick and elegant to find constructor(s).
  */
 @SuppressWarnings("unused")
-public class ConstructorFinder<C> extends BaseFinder<Constructor<C>, ConstructorFinder<C>> {
-    @SuppressWarnings("unchecked")
-    private ConstructorFinder(@NonNull Class<C> clazz) {
-        super(Arrays.stream((Constructor<C>[]) clazz.getDeclaredConstructors()));
-    }
-
-    @SuppressWarnings("unchecked")
-    private ConstructorFinder(@NonNull String className, @Nullable ClassLoader classLoader) throws ClassNotFoundException {
-        this((Class<C>) Class.forName(className, false, Objects.requireNonNullElse(classLoader, ClassLoader.getSystemClassLoader())));
-    }
-
-    private ConstructorFinder(@NonNull String className) throws ClassNotFoundException {
-        this(className, null);
-    }
-
-    private ConstructorFinder(@NonNull Constructor<C>[] constructors) {
-        super(Arrays.stream(constructors));
-    }
-
-    private ConstructorFinder(@NonNull Iterable<Constructor<C>> constructors) {
-        super(StreamSupport.stream(constructors.spliterator(), false));
+public final class ConstructorFinder<C> extends BaseFinder<Constructor<C>, ConstructorFinder<C>> {
+    private ConstructorFinder(@NonNull Stream<Constructor<C>> stream) {
+        super(stream);
     }
 
     /**
@@ -42,8 +25,9 @@ public class ConstructorFinder<C> extends BaseFinder<Constructor<C>, Constructor
      * @param clazz class
      * @return ConstructorFinder
      */
-    public static <C> ConstructorFinder<C> fromClass(@NonNull Class<C> clazz) {
-        return new ConstructorFinder<>(clazz);
+    @SuppressWarnings("unchecked")
+    public static <C> ConstructorFinder<C> from(@NonNull Class<C> clazz) {
+        return new ConstructorFinder<>(Arrays.stream((Constructor<C>[]) clazz.getDeclaredConstructors()));
     }
 
     /**
@@ -55,8 +39,9 @@ public class ConstructorFinder<C> extends BaseFinder<Constructor<C>, Constructor
      * @return ConstructorFinder
      * @throws ClassNotFoundException when the class is not found
      */
-    public static <C> ConstructorFinder<C> fromClassName(@NonNull String className, @Nullable ClassLoader classLoader) throws ClassNotFoundException {
-        return new ConstructorFinder<>(className, classLoader);
+    @SuppressWarnings("unchecked")
+    public static <C> ConstructorFinder<C> from(@NonNull String className, @Nullable ClassLoader classLoader) throws ClassNotFoundException {
+        return from((Class<C>) Class.forName(className, false, Objects.requireNonNullElse(classLoader, ClassLoader.getSystemClassLoader())));
     }
 
     /**
@@ -67,8 +52,8 @@ public class ConstructorFinder<C> extends BaseFinder<Constructor<C>, Constructor
      * @return ConstructorFinder
      * @throws ClassNotFoundException when the class is not found
      */
-    public static <C> ConstructorFinder<C> fromClassName(@NonNull String className) throws ClassNotFoundException {
-        return new ConstructorFinder<>(className, null);
+    public static <C> ConstructorFinder<C> from(@NonNull String className) throws ClassNotFoundException {
+        return from(className, null);
     }
 
     /**
@@ -77,8 +62,8 @@ public class ConstructorFinder<C> extends BaseFinder<Constructor<C>, Constructor
      * @param constructors constructor array
      * @return ConstructorFinder
      */
-    public static <C> ConstructorFinder<C> fromArray(@NonNull Constructor<C>[] constructors) {
-        return new ConstructorFinder<>(constructors);
+    public static <C> ConstructorFinder<C> from(@NonNull Constructor<C>[] constructors) {
+        return new ConstructorFinder<>(Arrays.stream(constructors));
     }
 
     /**
@@ -87,8 +72,13 @@ public class ConstructorFinder<C> extends BaseFinder<Constructor<C>, Constructor
      * @param constructors Iterable constructor
      * @return ConstructorFinder
      */
-    public static <C> ConstructorFinder<C> fromIterable(@NonNull Iterable<Constructor<C>> constructors) {
-        return new ConstructorFinder<>(constructors);
+    public static <C> ConstructorFinder<C> from(@NonNull Iterable<Constructor<C>> constructors) {
+        return new ConstructorFinder<>(StreamSupport.stream(constructors.spliterator(), false));
+    }
+
+    @Override
+    protected Class<?>[] getParameterTypes(Constructor<C> member) {
+        return member.getParameterTypes();
     }
 
     @NonNull
