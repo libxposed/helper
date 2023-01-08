@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "LibXposed"
+rootProject.name = "libxposed"
 include(":helper")
