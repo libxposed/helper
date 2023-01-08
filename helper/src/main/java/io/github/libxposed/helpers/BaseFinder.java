@@ -142,17 +142,6 @@ abstract class BaseFinder<T extends Member, S> {
     }
 
     /**
-     * Collect the methods/constructors.
-     *
-     * @param collector collector
-     * @param <R>       the result type of the reduction operation
-     * @param <A>       the mutable accumulation type of the reduction operation (often hidden as an implementation detail)
-     * @return collected result
-     */
-    @NonNull
-    public abstract <R, A> R collect(@NonNull Collector<T, A, R> collector);
-
-    /**
      * Collect the methods/constructor to a list.
      *
      * @return collected list
@@ -194,4 +183,18 @@ abstract class BaseFinder<T extends Member, S> {
     }
 
     protected abstract Class<?>[] getParameterTypes(T member);
+
+    /**
+     * Collect the methods/constructors.
+     *
+     * @param collector collector
+     * @param <R>       the result type of the reduction operation
+     * @param <A>       the mutable accumulation type of the reduction operation (often hidden as an implementation detail)
+     * @return collected result
+     */
+    @NonNull
+    public <R, A> R collect(@NonNull Collector<T, A, R> collector) {
+        onEach(member -> ((AccessibleObject) member).setAccessible(true));
+        return stream.collect(collector);
+    }
 }

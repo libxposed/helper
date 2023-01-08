@@ -6,7 +6,6 @@ import androidx.annotation.Nullable;
 import java.lang.reflect.Constructor;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.stream.Collector;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -79,12 +78,5 @@ public final class ConstructorFinder<C> extends BaseFinder<Constructor<C>, Const
     @Override
     protected Class<?>[] getParameterTypes(Constructor<C> member) {
         return member.getParameterTypes();
-    }
-
-    @NonNull
-    @Override
-    public <R, A> R collect(@NonNull Collector<Constructor<C>, A, R> collector) {
-        onEach(method -> method.setAccessible(true));
-        return stream.collect(collector);
     }
 }

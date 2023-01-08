@@ -9,7 +9,6 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Predicate;
-import java.util.stream.Collector;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -241,20 +240,5 @@ public final class MethodFinder extends BaseFinder<Method, MethodFinder> {
      */
     public MethodFinder filterByReturnType(@NonNull Class<?> returnType) {
         return filter(method -> method.getReturnType().equals(returnType));
-    }
-
-    /**
-     * Collect the methods.
-     *
-     * @param collector collector
-     * @param <R>       the result type of the reduction operation
-     * @param <A>       the mutable accumulation type of the reduction operation (often hidden as an implementation detail)
-     * @return collected result
-     */
-    @NonNull
-    @Override
-    public <R, A> R collect(@NonNull Collector<Method, A, R> collector) {
-        onEach(method -> method.setAccessible(true));
-        return stream.collect(collector);
     }
 }
