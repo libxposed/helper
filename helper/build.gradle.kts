@@ -26,6 +26,5 @@ android {
 }
 
 dependencies {
-    compileOnly("de.robv.android.xposed:api:82")
     compileOnly("androidx.annotation:annotation:1.5.0")
 }
