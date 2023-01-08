@@ -14,7 +14,7 @@ import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@SuppressWarnings("unchecked")
+@SuppressWarnings({"unchecked", "unused"})
 abstract class BaseFinder<T extends Member, S> {
     @NonNull
     protected Stream<T> stream;
