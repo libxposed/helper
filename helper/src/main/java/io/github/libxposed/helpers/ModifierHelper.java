@@ -1,4 +1,4 @@
-package org.lsposed.libxposed.helpers;
+package io.github.libxposed.helpers;
 
 import java.lang.reflect.Member;
 import java.lang.reflect.Modifier;

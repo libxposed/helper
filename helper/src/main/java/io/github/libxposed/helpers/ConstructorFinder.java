@@ -1,4 +1,4 @@
-package org.lsposed.libxposed.helpers;
+package io.github.libxposed.helpers;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
