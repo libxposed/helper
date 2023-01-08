@@ -3,11 +3,8 @@ package io.github.libxposed.helpers;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.lang.reflect.Method;
 import java.util.Arrays;
-import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -17,8 +14,6 @@ import java.util.stream.StreamSupport;
  */
 @SuppressWarnings("unused")
 public final class MethodFinder extends BaseFinder<Method, MethodFinder> {
-    @Nullable
-    private Class<?> clazz;
 
     private MethodFinder(@NonNull Stream<Method> stream) {
         super(stream);
@@ -28,21 +23,22 @@ public final class MethodFinder extends BaseFinder<Method, MethodFinder> {
      * Create MethodFinder with the class.
      *
      * @param clazz                   class
-     * @param findSuperClassPredicate find super class predicate, null if not find
+     * @param findSuperClassPredicate find super class predicate(return true = break, false = continue), null if not find
      * @return MethodFinder
-     * @see #findSuper(Predicate)
      */
     public static MethodFinder from(@NonNull Class<?> clazz, @Nullable Predicate<Class<?>> findSuperClassPredicate) {
         var mf = new MethodFinder(Arrays.stream(clazz.getDeclaredMethods()));
-        mf.clazz = clazz;
         if (findSuperClassPredicate != null) {
-            mf.findSuper(findSuperClassPredicate);
+            var sc = clazz.getSuperclass();
+            while (sc != null) {
+                mf.stream = Stream.concat(mf.stream, Arrays.stream(sc.getDeclaredMethods()));
+                if (findSuperClassPredicate.test(sc))
+                    break;
+
+                sc = sc.getSuperclass();
+            }
         }
         return mf;
-    }
-
-    public static MethodFinder from(@NonNull Class<?> clazz) {
-        return from(clazz, null);
     }
 
     /**
@@ -51,35 +47,12 @@ public final class MethodFinder extends BaseFinder<Method, MethodFinder> {
      *
      * @param className               className
      * @param classLoader             classLoader
-     * @param findSuperClassPredicate find super class predicate, null if not find
+     * @param findSuperClassPredicate find super class predicate(return true = break, false = continue), null if not find
      * @return MethodFinder
      * @throws ClassNotFoundException when the class is not found
-     * @see #findSuper(Predicate)
      */
     public static MethodFinder from(@NonNull String className, @Nullable ClassLoader classLoader, @Nullable Predicate<Class<?>> findSuperClassPredicate) throws ClassNotFoundException {
-        return from(Class.forName(className, false, Objects.requireNonNullElse(classLoader, ClassLoader.getSystemClassLoader())), findSuperClassPredicate);
-    }
-
-    public static MethodFinder from(@NonNull String className, @Nullable ClassLoader classLoader) throws ClassNotFoundException {
-        return from(Class.forName(className, false, Objects.requireNonNullElse(classLoader, ClassLoader.getSystemClassLoader())));
-    }
-
-    /**
-     * Create MethodFinder with the class name.
-     * Will load the class with Class.forName.
-     *
-     * @param className               className
-     * @param findSuperClassPredicate find super class predicate, null if not find
-     * @return MethodFinder
-     * @throws ClassNotFoundException when the class is not found
-     * @see #findSuper(Predicate)
-     */
-    public static MethodFinder from(@NonNull String className, @Nullable Predicate<Class<?>> findSuperClassPredicate) throws ClassNotFoundException {
-        return from(className, null, findSuperClassPredicate);
-    }
-
-    public static MethodFinder from(@NonNull String className) throws ClassNotFoundException {
-        return from(className, null, null);
+        return from(className, classLoader, findSuperClassPredicate);
     }
 
     /**
@@ -169,25 +142,6 @@ public final class MethodFinder extends BaseFinder<Method, MethodFinder> {
     }
 
     /**
-     * Filter methods if they have native modifier.
-     *
-     * @return this
-     */
-    public MethodFinder filterNative() {
-        return filter(ModifierHelper::isNative);
-    }
-
-    /**
-     * Filter methods if they have native modifier.
-     *
-     * @return this
-     */
-    public MethodFinder filterNonNative() {
-        return filter(ModifierHelper::isNotNative);
-    }
-
-
-    /**
      * Filter methods if they have abstract modifier.
      *
      * @return this
@@ -208,28 +162,6 @@ public final class MethodFinder extends BaseFinder<Method, MethodFinder> {
     @Override
     protected Class<?>[] getParameterTypes(Method member) {
         return member.getParameterTypes();
-    }
-
-    /**
-     * Find methods in superclass.
-     * Will do nothing when MethodFinder create from method array or list.
-     *
-     * @param classPredicate predicate to decide the last superclass, return true = last, return false = continue
-     * @return this
-     */
-    private MethodFinder findSuper(@NotNull Predicate<Class<?>> classPredicate) {
-        if (clazz == null)
-            return this;
-
-        var sc = clazz.getSuperclass();
-        while (sc != null) {
-            stream = Stream.concat(stream, Arrays.stream(sc.getDeclaredMethods()));
-            if (classPredicate.test(sc))
-                break;
-
-            sc = sc.getSuperclass();
-        }
-        return this;
     }
 
     /**

@@ -81,6 +81,24 @@ abstract class BaseFinder<T extends Member, S> {
     }
 
     /**
+     * Filter methods/constructors if they have native modifier.
+     *
+     * @return this
+     */
+    public S filterNative() {
+        return filter(ModifierHelper::isNative);
+    }
+
+    /**
+     * Filter methods/constructors if they have native modifier.
+     *
+     * @return this
+     */
+    public S filterNonNative() {
+        return filter(ModifierHelper::isNotNative);
+    }
+
+    /**
      * Filter methods/constructors by parameter types, make sure length is same as target method parameter types length.
      *
      * @param parameterTypes parameter types, use null to skip check some parameters.

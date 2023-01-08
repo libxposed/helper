@@ -5,7 +5,6 @@ import androidx.annotation.Nullable;
 
 import java.lang.reflect.Constructor;
 import java.util.Arrays;
-import java.util.Objects;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -38,21 +37,8 @@ public final class ConstructorFinder<C> extends BaseFinder<Constructor<C>, Const
      * @return ConstructorFinder
      * @throws ClassNotFoundException when the class is not found
      */
-    @SuppressWarnings("unchecked")
     public static <C> ConstructorFinder<C> from(@NonNull String className, @Nullable ClassLoader classLoader) throws ClassNotFoundException {
-        return from((Class<C>) Class.forName(className, false, Objects.requireNonNullElse(classLoader, ClassLoader.getSystemClassLoader())));
-    }
-
-    /**
-     * Create ConstructorFinder with the class name.
-     * Will load the class with Class.forName.
-     *
-     * @param className className
-     * @return ConstructorFinder
-     * @throws ClassNotFoundException when the class is not found
-     */
-    public static <C> ConstructorFinder<C> from(@NonNull String className) throws ClassNotFoundException {
-        return from(className, null);
+        return new ConstructorFinder<C>(className, classLoader);
     }
 
     /**

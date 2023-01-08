@@ -8,6 +8,9 @@ import java.lang.reflect.Modifier;
  */
 @SuppressWarnings("unused")
 public class ModifierHelper {
+    private ModifierHelper() {
+    }
+
     public static boolean isPublic(Member member) {
         return Modifier.isPublic(member.getModifiers());
     }
