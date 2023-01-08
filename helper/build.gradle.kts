@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "org.lsposed.libxposed"
+    namespace = "io.github.libxposed"
     compileSdk = 33
 
     defaultConfig {
