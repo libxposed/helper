@@ -6,6 +6,7 @@ import androidx.annotation.Nullable;
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Member;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collector;
@@ -21,7 +22,7 @@ abstract class BaseFinder<T extends Member, S> {
         this.stream = stream;
     }
 
-    public S filter(@NonNull Predicate<T> predicate) {
+    public final S filter(@NonNull Predicate<T> predicate) {
         stream = stream.filter(predicate);
         return (S) this;
     }
@@ -31,7 +32,7 @@ abstract class BaseFinder<T extends Member, S> {
      *
      * @return this
      */
-    public S filterPublic() {
+    public final S filterPublic() {
         return filter(ModifierHelper::isPublic);
     }
 
@@ -40,7 +41,7 @@ abstract class BaseFinder<T extends Member, S> {
      *
      * @return this
      */
-    public S filterNonPublic() {
+    public final S filterNonPublic() {
         return filter(ModifierHelper::isNotPublic);
     }
 
@@ -49,7 +50,7 @@ abstract class BaseFinder<T extends Member, S> {
      *
      * @return this
      */
-    public S filterProtected() {
+    public final S filterProtected() {
         return filter(ModifierHelper::isProtected);
     }
 
@@ -58,7 +59,7 @@ abstract class BaseFinder<T extends Member, S> {
      *
      * @return this
      */
-    public S filterNonProtected() {
+    public final S filterNonProtected() {
         return filter(ModifierHelper::isNotProtected);
     }
 
@@ -67,7 +68,7 @@ abstract class BaseFinder<T extends Member, S> {
      *
      * @return this
      */
-    public S filterPrivate() {
+    public final S filterPrivate() {
         return filter(ModifierHelper::isPrivate);
     }
 
@@ -76,7 +77,7 @@ abstract class BaseFinder<T extends Member, S> {
      *
      * @return this
      */
-    public S filterNonPrivate() {
+    public final S filterNonPrivate() {
         return filter(ModifierHelper::isNotPrivate);
     }
 
@@ -85,7 +86,7 @@ abstract class BaseFinder<T extends Member, S> {
      *
      * @return this
      */
-    public S filterNative() {
+    public final S filterNative() {
         return filter(ModifierHelper::isNative);
     }
 
@@ -94,8 +95,41 @@ abstract class BaseFinder<T extends Member, S> {
      *
      * @return this
      */
-    public S filterNonNative() {
+    public final S filterNonNative() {
         return filter(ModifierHelper::isNotNative);
+    }
+
+    /**
+     * Filter methods/constructors if they are package private.
+     *
+     * @return this
+     */
+    public final S filterPackagePrivate() {
+        return filter(ModifierHelper::isPackagePrivate);
+    }
+
+    /**
+     * Filter methods/constructors if they are not package private.
+     *
+     * @return this
+     */
+    public final S filterNonPackagePrivate() {
+        return filter(ModifierHelper::isNotPackagePrivate);
+    }
+
+    /**
+     * Filter methods/constructors by their exception types(Full-matches, cannot be null)
+     *
+     * @param e exception types
+     * @return this
+     */
+    public final S filterExceptionType(Class<?>... e) {
+        return filter(m -> {
+            var set1 = Set.of(getExceptionTypes(m));
+            var set2 = Set.of(e);
+
+            return set1.equals(set2);
+        });
     }
 
     /**
@@ -104,7 +138,7 @@ abstract class BaseFinder<T extends Member, S> {
      * @param parameterTypes parameter types, use null to skip check some parameters.
      * @return this
      */
-    public S filterByParameterTypes(Class<?>... parameterTypes) {
+    public final S filterByParameterTypes(Class<?>... parameterTypes) {
         return filter(member -> {
             var paramTypes = getParameterTypes(member);
 
@@ -130,7 +164,7 @@ abstract class BaseFinder<T extends Member, S> {
      * @param parameterCount parameter count
      * @return this
      */
-    public S filterByParameterCount(int parameterCount) {
+    public final S filterByParameterCount(int parameterCount) {
         return filter(member -> getParameterTypes(member).length == parameterCount);
     }
 
@@ -143,7 +177,7 @@ abstract class BaseFinder<T extends Member, S> {
      *
      * @see #onEach(Consumer)
      */
-    public void forEach(@NonNull Consumer<T> consumer) {
+    public final void forEach(@NonNull Consumer<T> consumer) {
         stream.forEach(consumer);
     }
 
@@ -154,7 +188,7 @@ abstract class BaseFinder<T extends Member, S> {
      * @return this
      */
     @SuppressWarnings("UnusedReturnValue")
-    public S onEach(@NonNull Consumer<T> action) {
+    public final S onEach(@NonNull Consumer<T> action) {
         stream = stream.peek(action);
         return (S) this;
     }
@@ -165,7 +199,7 @@ abstract class BaseFinder<T extends Member, S> {
      * @return collected list
      */
     @NonNull
-    public List<T> toList() {
+    public final List<T> toList() {
         return collect(Collectors.toList());
     }
 
@@ -176,7 +210,7 @@ abstract class BaseFinder<T extends Member, S> {
      * @throws NoSuchMethodException if the method/constructor not found
      */
     @NonNull
-    public T first() throws NoSuchMethodException {
+    public final T first() throws NoSuchMethodException {
         var m = stream.findFirst().orElse(null);
         if (m == null) {
             throw new NoSuchMethodException();
@@ -191,7 +225,7 @@ abstract class BaseFinder<T extends Member, S> {
      * @return first method/constructor or null
      */
     @Nullable
-    public T firstOrNull() {
+    public final T firstOrNull() {
         var m = stream.findFirst().orElse(null);
         if (m == null) {
             return null;
@@ -202,6 +236,8 @@ abstract class BaseFinder<T extends Member, S> {
 
     protected abstract Class<?>[] getParameterTypes(T member);
 
+    protected abstract Class<?>[] getExceptionTypes(T member);
+
     /**
      * Collect the methods/constructors.
      *
@@ -211,7 +247,7 @@ abstract class BaseFinder<T extends Member, S> {
      * @return collected result
      */
     @NonNull
-    public <R, A> R collect(@NonNull Collector<T, A, R> collector) {
+    public final <R, A> R collect(@NonNull Collector<T, A, R> collector) {
         onEach(member -> ((AccessibleObject) member).setAccessible(true));
         return stream.collect(collector);
     }

@@ -27,18 +27,13 @@ public final class MethodFinder extends BaseFinder<Method, MethodFinder> {
      * @return MethodFinder
      */
     public static MethodFinder from(@NonNull Class<?> clazz, @Nullable Predicate<Class<?>> findSuperClassPredicate) {
-        var mf = new MethodFinder(Arrays.stream(clazz.getDeclaredMethods()));
-        if (findSuperClassPredicate != null) {
-            var sc = clazz.getSuperclass();
-            while (sc != null) {
-                mf.stream = Stream.concat(mf.stream, Arrays.stream(sc.getDeclaredMethods()));
-                if (findSuperClassPredicate.test(sc))
-                    break;
+        Stream<Method> stream = Stream.empty();
 
-                sc = sc.getSuperclass();
-            }
-        }
-        return mf;
+        do {
+            stream = Stream.concat(stream, Arrays.stream(clazz.getDeclaredMethods()));
+        } while (findSuperClassPredicate != null && !findSuperClassPredicate.test(clazz) && (clazz = clazz.getSuperclass()) != null);
+
+        return new MethodFinder(stream);
     }
 
     /**
@@ -159,11 +154,6 @@ public final class MethodFinder extends BaseFinder<Method, MethodFinder> {
         return filter(ModifierHelper::isNotAbstract);
     }
 
-    @Override
-    protected Class<?>[] getParameterTypes(Method member) {
-        return member.getParameterTypes();
-    }
-
     /**
      * Filter methods by return type.
      *
@@ -172,5 +162,15 @@ public final class MethodFinder extends BaseFinder<Method, MethodFinder> {
      */
     public MethodFinder filterByReturnType(@NonNull Class<?> returnType) {
         return filter(method -> method.getReturnType().equals(returnType));
+    }
+
+    @Override
+    protected Class<?>[] getParameterTypes(Method member) {
+        return member.getParameterTypes();
+    }
+
+    @Override
+    protected Class<?>[] getExceptionTypes(Method member) {
+        return member.getExceptionTypes();
     }
 }

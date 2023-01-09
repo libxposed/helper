@@ -38,7 +38,7 @@ public final class ConstructorFinder<C> extends BaseFinder<Constructor<C>, Const
      * @throws ClassNotFoundException when the class is not found
      */
     public static <C> ConstructorFinder<C> from(@NonNull String className, @Nullable ClassLoader classLoader) throws ClassNotFoundException {
-        return new ConstructorFinder<C>(className, classLoader);
+        return from(className, classLoader);
     }
 
     /**
@@ -64,5 +64,10 @@ public final class ConstructorFinder<C> extends BaseFinder<Constructor<C>, Const
     @Override
     protected Class<?>[] getParameterTypes(Constructor<C> member) {
         return member.getParameterTypes();
+    }
+
+    @Override
+    protected Class<?>[] getExceptionTypes(Constructor<C> member) {
+        return member.getExceptionTypes();
     }
 }
