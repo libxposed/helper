@@ -84,14 +84,6 @@ public class ModifierHelper {
         return !Modifier.isNative(member.getModifiers());
     }
 
-    public static boolean isInterface(Member member) {
-        return Modifier.isInterface(member.getModifiers());
-    }
-
-    public static boolean isNotInterface(Member member) {
-        return !Modifier.isInterface(member.getModifiers());
-    }
-
     public static boolean isAbstract(Member member) {
         return Modifier.isAbstract(member.getModifiers());
     }
@@ -156,19 +148,19 @@ public class ModifierHelper {
         return !Modifier.isAbstract(clazz.getModifiers());
     }
 
-    public static boolean isPackagePrivate(Member member) {
+    public static boolean isPackage(Member member) {
         return isNotPublic(member) && isNotProtected(member) && isNotPrivate(member);
     }
 
-    public static boolean isNotPackagePrivate(Member member) {
-        return !isPackagePrivate(member);
+    public static boolean isNotPackage(Member member) {
+        return !isPackage(member);
     }
 
-    public static boolean isPackagePrivate(Class<?> clazz) {
+    public static boolean isPackage(Class<?> clazz) {
         return isNotPublic(clazz) && isNotProtected(clazz) && isNotPrivate(clazz);
     }
 
-    public static boolean isNotPackagePrivate(Class<?> clazz) {
-        return !isPackagePrivate(clazz);
+    public static boolean isNotPackage(Class<?> clazz) {
+        return !isPackage(clazz);
     }
 }
