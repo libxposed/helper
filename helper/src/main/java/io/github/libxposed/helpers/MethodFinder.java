@@ -160,6 +160,24 @@ public final class MethodFinder extends BaseFinder<Method, MethodFinder> {
     }
 
     /**
+     * Filter methods if they are default method.
+     *
+     * @return this
+     */
+    public MethodFinder filterDefault() {
+        return filter(Method::isDefault);
+    }
+
+    /**
+     * Filter methods if they are not default method.
+     *
+     * @return this
+     */
+    public MethodFinder filterNonDefault() {
+        return filter(m -> !m.isDefault());
+    }
+
+    /**
      * Filter methods by return type.
      *
      * @param returnType return type
