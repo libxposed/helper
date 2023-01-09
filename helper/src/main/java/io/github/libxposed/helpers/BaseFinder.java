@@ -123,7 +123,7 @@ abstract class BaseFinder<T extends Member, S> {
      * @param e exception types
      * @return this
      */
-    public final S filterExceptionType(Class<?>... e) {
+    public final S filterByExceptionType(Class<?>... e) {
         var set1 = Set.of(e);
 
         return filter(m -> {
