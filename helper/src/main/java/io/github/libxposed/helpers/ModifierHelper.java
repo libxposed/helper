@@ -8,7 +8,8 @@ import java.lang.reflect.Modifier;
  */
 @SuppressWarnings("unused")
 public class ModifierHelper {
-    private ModifierHelper() {
+    private ModifierHelper() throws RuntimeException {
+        throw new RuntimeException("Do not create instance of this class.");
     }
 
     public static boolean isPublic(Member member) {
@@ -153,5 +154,21 @@ public class ModifierHelper {
 
     public static boolean isNotAbstract(Class<?> clazz) {
         return !Modifier.isAbstract(clazz.getModifiers());
+    }
+
+    public static boolean isPackagePrivate(Member member) {
+        return isNotPublic(member) && isNotProtected(member) && isNotPrivate(member);
+    }
+
+    public static boolean isNotPackagePrivate(Member member) {
+        return !isPackagePrivate(member);
+    }
+
+    public static boolean isPackagePrivate(Class<?> clazz) {
+        return isNotPublic(clazz) && isNotProtected(clazz) && isNotPrivate(clazz);
+    }
+
+    public static boolean isNotPackagePrivate(Class<?> clazz) {
+        return !isPackagePrivate(clazz);
     }
 }
