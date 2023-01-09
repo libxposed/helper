@@ -23,7 +23,7 @@ public final class MethodFinder extends BaseFinder<Method, MethodFinder> {
      * Create MethodFinder with the class.
      *
      * @param clazz                   class
-     * @param findSuperClassPredicate find super class predicate(return true = break, false = continue), null if not find
+     * @param findSuperClassPredicate find super class predicate(return true = break, false = continue), null if don't find methods in superclass
      * @return MethodFinder
      */
     public static MethodFinder from(@NonNull Class<?> clazz, @Nullable Predicate<Class<?>> findSuperClassPredicate) {
@@ -31,7 +31,12 @@ public final class MethodFinder extends BaseFinder<Method, MethodFinder> {
 
         do {
             stream = Stream.concat(stream, Arrays.stream(clazz.getDeclaredMethods()));
-        } while (findSuperClassPredicate != null && !findSuperClassPredicate.test(clazz) && (clazz = clazz.getSuperclass()) != null);
+            stream = Stream.concat(stream, Arrays.stream(clazz.getInterfaces())
+                    .flatMap(c -> Arrays.stream(c.getDeclaredMethods()).filter(Method::isDefault)));
+        } while (findSuperClassPredicate != null &&
+                !findSuperClassPredicate.test(clazz) &&
+                (clazz = clazz.getSuperclass()) != Object.class &&
+                clazz != null);
 
         return new MethodFinder(stream);
     }
@@ -42,7 +47,7 @@ public final class MethodFinder extends BaseFinder<Method, MethodFinder> {
      *
      * @param className               className
      * @param classLoader             classLoader
-     * @param findSuperClassPredicate find super class predicate(return true = break, false = continue), null if not find
+     * @param findSuperClassPredicate find super class predicate(return true = break, false = continue), null if don't find methods in superclass
      * @return MethodFinder
      * @throws ClassNotFoundException when the class is not found
      */
