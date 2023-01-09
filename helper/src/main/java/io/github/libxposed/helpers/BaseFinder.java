@@ -197,6 +197,16 @@ abstract class BaseFinder<T extends Member, S> {
     }
 
     /**
+     * Filter methods/constructors by parameter types with predicate.
+     *
+     * @param predicate predicate
+     * @return this
+     */
+    public final S filterByParameterTypes(Predicate<Class<?>[]> predicate) {
+        return filter(member -> predicate.test(getParameterTypes(member)));
+    }
+
+    /**
      * Filter methods/constructors by parameter count.
      *
      * @param parameterCount parameter count
