@@ -32,7 +32,7 @@ public final class MethodFinder extends BaseFinder<Method, MethodFinder> {
         do {
             stream = Stream.concat(stream, Arrays.stream(clazz.getDeclaredMethods()));
             stream = Stream.concat(stream, Arrays.stream(clazz.getInterfaces())
-                    .flatMap(c -> Arrays.stream(c.getDeclaredMethods()).filter(Method::isDefault)));
+                    .flatMap(c -> Arrays.stream(c.getDeclaredMethods())));
         } while (findSuperClassPredicate != null &&
                 !findSuperClassPredicate.test(clazz) &&
                 (clazz = clazz.getSuperclass()) != Object.class &&

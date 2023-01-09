@@ -118,6 +118,44 @@ abstract class BaseFinder<T extends Member, S> {
     }
 
     /**
+     * Filter methods/constructors if they have vararg modifier.
+     *
+     * @return this
+     */
+    public final S filterVarargs() {
+        return filter(ModifierHelper::isVarargs);
+    }
+
+    /**
+     * Filter methods/constructors if they not have vararg modifier.
+     *
+     * @return this
+     */
+    public final S filterNonVarargs() {
+        return filter(ModifierHelper::isNotVarargs);
+    }
+
+    /**
+     * Filter methods/constructors if their modifiers include the specified modifiers.
+     *
+     * @param mod include modifiers
+     * @return this
+     */
+    public final S filterIncludeModifiers(int mod) {
+        return filter(m -> (m.getModifiers() & mod) != 0);
+    }
+
+    /**
+     * Filter methods/constructors if their modifiers exclude the specified modifiers.
+     *
+     * @param mod exclude modifiers
+     * @return this
+     */
+    public final S filterExcludeModifiers(int mod) {
+        return filter(m -> (m.getModifiers() & mod) == 0);
+    }
+
+    /**
      * Filter methods/constructors by their exception types(Full-matches, cannot be null)
      *
      * @param e exception types
@@ -166,6 +204,16 @@ abstract class BaseFinder<T extends Member, S> {
      */
     public final S filterByParameterCount(int parameterCount) {
         return filter(member -> getParameterTypes(member).length == parameterCount);
+    }
+
+    /**
+     * Filter methods/constructors by parameter count with the predicate.
+     *
+     * @param predicate predicate
+     * @return this
+     */
+    public final S filterByParameterCount(Predicate<Integer> predicate) {
+        return filter(member -> predicate.test(getParameterTypes(member).length));
     }
 
     /**

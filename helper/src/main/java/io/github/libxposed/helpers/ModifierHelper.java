@@ -163,4 +163,13 @@ public class ModifierHelper {
     public static boolean isNotPackage(Class<?> clazz) {
         return !isPackage(clazz);
     }
+
+    public static boolean isVarargs(Member member) {
+        // AccessFlag.VARARG = 0x0080
+        return (member.getModifiers() & 0x0080) != 0;
+    }
+
+    public static boolean isNotVarargs(Member member) {
+        return !isVarargs(member);
+    }
 }
