@@ -104,7 +104,7 @@ abstract class BaseFinder<T extends Member, S> {
      *
      * @return this
      */
-    public final S filterPackagePrivate() {
+    public final S filterPackage() {
         return filter(ModifierHelper::isPackage);
     }
 
@@ -113,7 +113,7 @@ abstract class BaseFinder<T extends Member, S> {
      *
      * @return this
      */
-    public final S filterNonPackagePrivate() {
+    public final S filterNonPackage() {
         return filter(ModifierHelper::isNotPackage);
     }
 
