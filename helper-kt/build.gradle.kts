@@ -1,11 +1,11 @@
 plugins {
     id("com.android.library")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
     namespace = "io.github.libxposed.helper"
     compileSdk = 33
-    buildToolsVersion = "33.0.1"
 
     defaultConfig {
         minSdk = 24
@@ -28,9 +28,13 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
+    kotlinOptions {
+        jvmTarget = "11"
+    }
 }
 
 dependencies {
-    compileOnly("androidx.annotation:annotation:1.5.0")
     compileOnly("io.github.libxposed:api:100")
+    api(project(":helper"))
 }
