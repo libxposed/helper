@@ -279,10 +279,9 @@ sealed interface HookBuilderKt {
     fun firstField(init: FieldMatcherKt.() -> Unit): FieldKt
     fun constructors(init: ConstructorMatcherKt.() -> Unit): LazySequenceKt<ConstructorKt, Constructor<*>, ConstructorMatcherKt>
     fun firstConstructor(init: ConstructorMatcherKt.() -> Unit): ConstructorKt
-    fun strings(init: StringMatcherKt.() -> Unit): LazySequenceKt<StringKt, String, StringMatcherKt>
-    fun firstString(init: StringMatcherKt.() -> Unit): StringKt
+    fun string(init: StringMatcherKt.() -> Unit): StringKt
     val String.exact: StringKt
-    val String.prefix: LazySequenceKt<StringKt, String, StringMatcherKt>
+    val String.prefix: StringKt
     val String.exactClass: ClassKt
     val Class<*>.exact: ClassKt
     val Method.exact: MethodKt

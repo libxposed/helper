@@ -348,7 +348,7 @@ abstract class BaseMatchKtImpl<T, U, Impl>(
     }
 }
 
-abstract class LazySequenceKtImpl<T, U, V, TT, VV>(
+abstract class LazySequenceKtImpl<T, U : Any, V, TT, VV>(
     private val impl: HookBuilder.LazySequence<TT, U, VV>
 ) : HookBuilderKt.LazySequenceKt<T, U, V>
         where V : HookBuilderKt.BaseMatcherKt<T>,
@@ -364,7 +364,7 @@ abstract class LazySequenceKtImpl<T, U, V, TT, VV>(
     }
 
     override fun onMatch(handler: HookBuilderKt.DummyHooker.(Sequence<U>) -> U): T =
-        newImpl(impl.onMatch(Function<Iterable<U>, U> {
+        newImpl(impl.onMatch(HookBuilder.MatchConsumer<Iterable<U>, U> {
             handler(
                 DummyHookerImpl,
                 it.asSequence()
@@ -372,7 +372,7 @@ abstract class LazySequenceKtImpl<T, U, V, TT, VV>(
         }))
 
     override fun onMatch(handler: HookBuilderKt.DummyHooker.(Sequence<U>) -> Unit): HookBuilderKt.LazySequenceKt<T, U, V> =
-        newSequence(impl.onMatch(Consumer<Iterable<U>> { t -> DummyHookerImpl.handler(t.asSequence()) }))
+        newSequence(impl.onMatch(HookBuilder.Consumer<Iterable<U>> { t -> DummyHookerImpl.handler(t.asSequence()) }))
 
     override fun all(init: V.() -> Unit): HookBuilderKt.LazySequenceKt<T, U, V> =
         newSequence(impl.all {
@@ -612,14 +612,8 @@ internal class HookBuilderKtImpl(
             ConstructorMatcherKtImpl(it).init()
         })
 
-    override fun strings(init: HookBuilderKt.StringMatcherKt.() -> Unit): HookBuilderKt.LazySequenceKt<HookBuilderKt.StringKt, KtString, HookBuilderKt.StringMatcherKt> =
-        StringLazySequenceKtImpl(
-            builder.strings {
-                StringMatcherKtImpl(it).init()
-            })
-
-    override fun firstString(init: HookBuilderKt.StringMatcherKt.() -> Unit): HookBuilderKt.StringKt =
-        StringKtImpl(builder.firstString {
+    override fun string(init: HookBuilderKt.StringMatcherKt.() -> Unit): HookBuilderKt.StringKt =
+        StringKtImpl(builder.string {
             StringMatcherKtImpl(it).init()
         })
 
@@ -633,8 +627,8 @@ internal class HookBuilderKtImpl(
         get() = ConstructorKtImpl(builder.exact(this))
     override val ReflectField.exact: HookBuilderKt.FieldKt
         get() = FieldKtImpl(builder.exact(this))
-    override val KtString.prefix: HookBuilderKt.LazySequenceKt<HookBuilderKt.StringKt, KtString, HookBuilderKt.StringMatcherKt>
-        get() = StringLazySequenceKtImpl(builder.prefix(this))
+    override val KtString.prefix: HookBuilderKt.StringKt
+        get() = StringKtImpl(builder.prefix(this))
     override val KtString.exactClass: HookBuilderKt.ClassKt
         get() = ClassKtImpl(builder.exactClass(this))
 

@@ -322,16 +322,13 @@ public interface HookBuilder {
     Class firstClass(@NonNull Consumer<ClassMatcher> matcher);
 
     @NonNull
-    LazySequence<String, java.lang.String, StringMatcher> strings(@NonNull Consumer<StringMatcher> matcher);
-
-    @NonNull
-    String firstString(@NonNull Consumer<StringMatcher> matcher);
+    String string(@NonNull Consumer<StringMatcher> matcher);
 
     @NonNull
     String exact(@NonNull java.lang.String string);
 
     @NonNull
-    LazySequence<String, java.lang.String, StringMatcher> prefix(@NonNull java.lang.String prefix);
+    String prefix(@NonNull java.lang.String prefix);
 
     @NonNull
     Class exactClass(@NonNull java.lang.String name);
