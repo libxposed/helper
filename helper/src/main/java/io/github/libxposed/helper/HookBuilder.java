@@ -5,15 +5,28 @@ import androidx.annotation.Nullable;
 
 import java.io.Serializable;
 import java.util.Map;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
 
 import io.github.libxposed.XposedContextWrapper;
 import io.github.libxposed.XposedModuleInterface;
 
 @SuppressWarnings("unused")
 public interface HookBuilder {
+    @FunctionalInterface
+    interface Consumer<T> {
+        void accept(@NonNull T t);
+    }
+
+    @FunctionalInterface
+    interface Predicate<T> {
+        boolean test(@NonNull T t);
+    }
+
+    @FunctionalInterface
+    interface MatchConsumer<T, U> {
+        @NonNull
+        U accept(@NonNull T t);
+    }
+
     @NonNull
     static MatchResult buildHook(@NonNull XposedContextWrapper ctx, @NonNull XposedModuleInterface.PackageLoadedParam param, Consumer<HookBuilder> consumer) {
         var builder = new HookBuilderImpl(ctx, param);
@@ -36,9 +49,11 @@ public interface HookBuilder {
     }
 
     interface BaseMatcher<T, U> {
+        @NonNull
         T setMatchFirst(boolean matchFirst);
 
-        T setMissReplacement(U replacement);
+        @NonNull
+        T setMissReplacement(@NonNull U replacement);
     }
 
     interface ReflectMatcher<T, U> extends BaseMatcher<T, U> {
@@ -196,7 +211,7 @@ public interface HookBuilder {
         LazySequence<T, U, V> onMatch(@NonNull Consumer<Iterable<U>> consumer);
 
         @NonNull
-        T onMatch(Function<Iterable<U>, U> consumer);
+        T onMatch(MatchConsumer<Iterable<U>, U> consumer);
 
         @NonNull
         ContainerSyntax<T> conjunction();
@@ -282,25 +297,35 @@ public interface HookBuilder {
     @NonNull
     HookBuilder setExceptionHandler(@NonNull Predicate<Throwable> handler);
 
-    LazySequence<Method, java.lang.reflect.Method, MethodMatcher> methods(Consumer<MethodMatcher> matcher);
+    @NonNull
+    LazySequence<Method, java.lang.reflect.Method, MethodMatcher> methods(@NonNull Consumer<MethodMatcher> matcher);
 
-    Method firstMethod(Consumer<MethodMatcher> matcher);
+    @NonNull
+    Method firstMethod(@NonNull Consumer<MethodMatcher> matcher);
 
-    LazySequence<Constructor, java.lang.reflect.Constructor<?>, ConstructorMatcher> constructors(Consumer<ConstructorMatcher> matcher);
+    @NonNull
+    LazySequence<Constructor, java.lang.reflect.Constructor<?>, ConstructorMatcher> constructors(@NonNull Consumer<ConstructorMatcher> matcher);
 
-    Constructor firstConstructor(Consumer<ConstructorMatcher> matcher);
+    @NonNull
+    Constructor firstConstructor(@NonNull Consumer<ConstructorMatcher> matcher);
 
-    LazySequence<Field, java.lang.reflect.Field, FieldMatcher> fields(Consumer<FieldMatcher> matcher);
+    @NonNull
+    LazySequence<Field, java.lang.reflect.Field, FieldMatcher> fields(@NonNull Consumer<FieldMatcher> matcher);
 
-    Field firstField(Consumer<FieldMatcher> matcher);
+    @NonNull
+    Field firstField(@NonNull Consumer<FieldMatcher> matcher);
 
-    LazySequence<Class, java.lang.Class<?>, ClassMatcher> classes(Consumer<ClassMatcher> matcher);
+    @NonNull
+    LazySequence<Class, java.lang.Class<?>, ClassMatcher> classes(@NonNull Consumer<ClassMatcher> matcher);
 
-    Class firstClass(Consumer<ClassMatcher> matcher);
+    @NonNull
+    Class firstClass(@NonNull Consumer<ClassMatcher> matcher);
 
-    LazySequence<String, java.lang.String, StringMatcher> strings(Consumer<StringMatcher> matcher);
+    @NonNull
+    LazySequence<String, java.lang.String, StringMatcher> strings(@NonNull Consumer<StringMatcher> matcher);
 
-    String firstString(Consumer<StringMatcher> matcher);
+    @NonNull
+    String firstString(@NonNull Consumer<StringMatcher> matcher);
 
     @NonNull
     String exact(@NonNull java.lang.String string);
