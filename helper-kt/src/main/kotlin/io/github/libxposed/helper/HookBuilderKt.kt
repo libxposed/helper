@@ -1,7 +1,7 @@
 package io.github.libxposed.helper
 
+import dalvik.system.BaseDexClassLoader
 import io.github.libxposed.XposedInterface
-import io.github.libxposed.XposedModuleInterface
 import java.io.Serializable
 import kotlin.experimental.ExperimentalTypeInference
 import java.lang.Class
@@ -196,8 +196,10 @@ sealed interface HookBuilderKt {
     @Hooker
     sealed interface DummyHooker
 
+    sealed interface BaseMatchKt<T, U>
+
     @Hooker
-    sealed interface BaseMatchKt<T, U> {
+    sealed interface ReflectMatchKt<T, U> : BaseMatchKt<T, U> {
         val key: String?
         operator fun plus(match: T): ContainerSyntaxKt<T>
         operator fun minus(match: T): ContainerSyntaxKt<T>
@@ -290,10 +292,11 @@ sealed interface HookBuilderKt {
 }
 
 fun XposedInterface.buildHooks(
-    param: XposedModuleInterface.PackageLoadedParam,
+    classLoader: BaseDexClassLoader,
+    sourcePath: String,
     init: HookBuilderKt.() -> Unit
 ): HookBuilderKt.MatchResultKt {
-    val builder = HookBuilderKtImpl(this, param)
+    val builder = HookBuilderKtImpl(this, classLoader, sourcePath)
     builder.init()
     return builder.build()
 }

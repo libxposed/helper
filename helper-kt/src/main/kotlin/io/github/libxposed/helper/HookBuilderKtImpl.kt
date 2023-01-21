@@ -2,25 +2,23 @@
 
 package io.github.libxposed.helper
 
+import dalvik.system.BaseDexClassLoader
 import io.github.libxposed.XposedInterface
-import io.github.libxposed.XposedModuleInterface
-import java.util.function.Consumer
-import java.util.function.Function
 import java.lang.reflect.Constructor as ReflectConstructor
 import java.lang.reflect.Field as ReflectField
 import java.lang.reflect.Method as ReflectMethod
 import java.lang.Class as ReflectClass
 import kotlin.String as KtString
 
+val wo: Nothing
+    inline get() = throw UnsupportedOperationException("Write-only property")
+
 abstract class BaseMatcherKtImpl<T, U, Impl>
     (
     protected val impl: Impl
-) : HookBuilderKt.BaseMatcherKt<U>
-        where Impl : HookBuilder.BaseMatcher<Impl, T>,
-              U : HookBuilderKt.BaseMatchKt<U, *>,
-              T : HookBuilder.BaseMatch<T, *> {
+) : HookBuilderKt.BaseMatcherKt<U> where Impl : HookBuilder.BaseMatcher<Impl, T>, U : HookBuilderKt.BaseMatchKt<U, *>, T : HookBuilder.BaseMatch<T, *> {
     final override var matchFirst: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setMatchFirst(value)
         }
@@ -28,32 +26,30 @@ abstract class BaseMatcherKtImpl<T, U, Impl>
 
 abstract class ReflectMatcherKtImpl<T, U, Impl>(
     impl: Impl
-) : BaseMatcherKtImpl<T, U, Impl>(impl), HookBuilderKt.ReflectMatcherKt<U>
-        where Impl : HookBuilder.ReflectMatcher<Impl, T>,
-              U : HookBuilderKt.BaseMatchKt<U, *>,
-              T : HookBuilder.BaseMatch<T, *> {
+) : BaseMatcherKtImpl<T, U, Impl>(impl),
+    HookBuilderKt.ReflectMatcherKt<U> where Impl : HookBuilder.ReflectMatcher<Impl, T>, U : HookBuilderKt.BaseMatchKt<U, *>, T : HookBuilder.BaseMatch<T, *> {
     final override var key: kotlin.String
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setKey(value)
         }
     final override var isPublic: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsPublic(value)
         }
     final override var isPrivate: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsPrivate(value)
         }
     final override var isProtected: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsProtected(value)
         }
     final override var isPackage: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsPackage(value)
         }
@@ -64,65 +60,65 @@ class ClassMatcherKtImpl(impl: HookBuilder.ClassMatcher) :
         impl
     ), HookBuilderKt.ClassMatcherKt {
     override var name: HookBuilderKt.StringKt
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setName((value as StringKtImpl).impl)
         }
     override var superClass: HookBuilderKt.ClassKt
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setSuperClass((value as ClassKtImpl).impl)
         }
     override val containsMethods: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.MethodKt>
-        get() = TODO("Write Only")
+        get() = wo
     override val containsConstructors: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ConstructorKt>
-        get() = TODO("Write Only")
+        get() = wo
     override val containsFields: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.FieldKt>
-        get() = TODO("Write Only")
+        get() = wo
     override val interfaces: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ClassKt>
-        get() = TODO("Write Only")
+        get() = wo
     override var isAbstract: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsAbstract(value)
         }
     override var isStatic: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsStatic(value)
         }
     override var isFinal: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsFinal(value)
         }
     override var key: kotlin.String
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setKey(value)
         }
     override var isPublic: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsPublic(value)
         }
     override var isPrivate: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsPrivate(value)
         }
     override var isProtected: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsProtected(value)
         }
     override var isPackage: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsPackage(value)
         }
     override var missReplacement: HookBuilderKt.ClassKt
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setMissReplacement((value as ClassKtImpl).impl)
         }
@@ -131,22 +127,22 @@ class ClassMatcherKtImpl(impl: HookBuilder.ClassMatcher) :
 class StringMatcherKtImpl(private val impl: HookBuilder.StringMatcher) :
     HookBuilderKt.StringMatcherKt {
     override var exact: KtString
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setExact(value)
         }
     override var prefix: KtString
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setPrefix(value)
         }
     override var matchFirst: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setMatchFirst(value)
         }
     override var missReplacement: HookBuilderKt.StringKt
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setMissReplacement((value as StringKtImpl).impl)
         }
@@ -155,17 +151,14 @@ class StringMatcherKtImpl(private val impl: HookBuilder.StringMatcher) :
 abstract class MemberMatcherKtImpl<T, U, Impl>(
     impl: Impl
 ) : ReflectMatcherKtImpl<T, U, Impl>(impl),
-    HookBuilderKt.MemberMatcherKt<U>
-        where Impl : HookBuilder.MemberMatcher<Impl, T>,
-              U : HookBuilderKt.BaseMatchKt<U, *>,
-              T : HookBuilder.BaseMatch<T, *> {
+    HookBuilderKt.MemberMatcherKt<U> where Impl : HookBuilder.MemberMatcher<Impl, T>, U : HookBuilderKt.BaseMatchKt<U, *>, T : HookBuilder.BaseMatch<T, *> {
     final override var declaringClass: HookBuilderKt.ClassKt
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setDeclaringClass((value as ClassKtImpl).impl)
         }
     final override var isSynthetic: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsSynthetic(value)
         }
@@ -174,40 +167,39 @@ abstract class MemberMatcherKtImpl<T, U, Impl>(
 class FieldMatcherKtImpl(impl: HookBuilder.FieldMatcher) :
     MemberMatcherKtImpl<HookBuilder.Field, HookBuilderKt.FieldKt, HookBuilder.FieldMatcher>(
         impl
-    ),
-    HookBuilderKt.FieldMatcherKt {
+    ), HookBuilderKt.FieldMatcherKt {
     override var name: HookBuilderKt.StringKt
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setName((value as StringKtImpl).impl)
         }
     override var type: HookBuilderKt.ClassKt
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setType((value as ClassKtImpl).impl)
         }
     override var isStatic: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsStatic(value)
         }
     override var isFinal: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsFinal(value)
         }
     override var isTransient: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsTransient(value)
         }
     override var isVolatile: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsVolatile(value)
         }
     override var missReplacement: HookBuilderKt.FieldKt
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setMissReplacement((value as FieldKtImpl).impl)
         }
@@ -216,42 +208,39 @@ class FieldMatcherKtImpl(impl: HookBuilder.FieldMatcher) :
 abstract class ExecutableMatcherKtImpl<T, U, Impl>(
     impl: Impl
 ) : MemberMatcherKtImpl<T, U, Impl>(impl),
-    HookBuilderKt.ExecutableMatcherKt<U>
-        where Impl : HookBuilder.ExecutableMatcher<Impl, T>,
-              U : HookBuilderKt.BaseMatchKt<U, *>,
-              T : HookBuilder.BaseMatch<T, *> {
+    HookBuilderKt.ExecutableMatcherKt<U> where Impl : HookBuilder.ExecutableMatcher<Impl, T>, U : HookBuilderKt.BaseMatchKt<U, *>, T : HookBuilder.BaseMatch<T, *> {
     final override var parameterCounts: Int
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setParameterCount(value)
         }
     final override val parameterTypes: HookBuilderKt.ContainerSyntaxKt<IndexedValue<HookBuilderKt.ClassKt>>
-        get() = TODO("Write Only")
+        get() = wo
 
     @HookBuilderKt.DexAnalysis
     final override val referredStrings: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.StringKt>
-        get() = TODO("Write Only")
+        get() = wo
 
     @HookBuilderKt.DexAnalysis
     final override val assignedFields: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.FieldKt>
-        get() = TODO("Write Only")
+        get() = wo
 
     @HookBuilderKt.DexAnalysis
     final override val invokedMethods: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.MethodKt>
-        get() = TODO("Write Only")
+        get() = wo
 
     @HookBuilderKt.DexAnalysis
     final override val invokedConstructor: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ConstructorKt>
-        get() = TODO("Write Only")
+        get() = wo
 
     @HookBuilderKt.DexAnalysis
     final override var containsOpcodes: Array<Byte>
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setContainsOpcodes(value)
         }
     final override var isVarargs: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsVarargs(value)
         }
@@ -260,45 +249,44 @@ abstract class ExecutableMatcherKtImpl<T, U, Impl>(
 class MethodMatcherKtImpl(impl: HookBuilder.MethodMatcher) :
     ExecutableMatcherKtImpl<HookBuilder.Method, HookBuilderKt.MethodKt, HookBuilder.MethodMatcher>(
         impl
-    ),
-    HookBuilderKt.MethodMatcherKt {
+    ), HookBuilderKt.MethodMatcherKt {
     override var name: HookBuilderKt.StringKt
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setName((value as StringKtImpl).impl)
         }
     override var returnType: HookBuilderKt.ClassKt
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setReturnType((value as ClassKtImpl).impl)
         }
     override var isAbstract: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsAbstract(value)
         }
     override var isStatic: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsStatic(value)
         }
     override var isFinal: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsFinal(value)
         }
     override var isSynchronized: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsSynchronized(value)
         }
     override var isNative: Boolean
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setIsNative(value)
         }
     override var missReplacement: HookBuilderKt.MethodKt
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setMissReplacement((value as MethodKtImpl).impl)
         }
@@ -309,7 +297,7 @@ class ConstructorMatcherKtImpl(impl: HookBuilder.ConstructorMatcher) :
         impl
     ), HookBuilderKt.ConstructorMatcherKt {
     override var missReplacement: HookBuilderKt.ConstructorKt
-        get() = TODO("Write Only")
+        get() = wo
         set(value) {
             impl.setMissReplacement((value as ConstructorKtImpl).impl)
         }
@@ -319,9 +307,13 @@ object DummyHookerImpl : HookBuilderKt.DummyHooker
 
 abstract class BaseMatchKtImpl<T, U, Impl>(
     val impl: Impl
-) : HookBuilderKt.BaseMatchKt<T, U>
-        where Impl : HookBuilder.BaseMatch<Impl, U> {
-    final override val key: kotlin.String?
+) : HookBuilderKt.BaseMatchKt<T, U> where Impl : HookBuilder.BaseMatch<Impl, U>
+
+abstract class ReflectMatchKtImpl<T, U, Impl>(
+    impl: Impl
+) : BaseMatchKtImpl<T, U, Impl>(impl),
+    HookBuilderKt.ReflectMatchKt<T, U> where Impl : HookBuilder.ReflectMatch<Impl, U> {
+    final override val key: KtString?
         get() = impl.key
 
     final override fun onMatch(handler: HookBuilderKt.DummyHooker.(U) -> Unit): T =
@@ -332,27 +324,25 @@ abstract class BaseMatchKtImpl<T, U, Impl>(
     abstract fun newImpl(impl: Impl): T
 
     final override fun div(match: T): HookBuilderKt.ContainerSyntaxKt<T> {
-        TODO("Write Only")
+        TODO("not yet implemented")
     }
 
     final override fun times(match: T): HookBuilderKt.ContainerSyntaxKt<T> {
-        TODO("Write Only")
+        TODO("not yet implemented")
     }
 
     final override fun minus(match: T): HookBuilderKt.ContainerSyntaxKt<T> {
-        TODO("Write Only")
+        TODO("not yet implemented")
     }
 
     final override fun plus(match: T): HookBuilderKt.ContainerSyntaxKt<T> {
-        TODO("Write Only")
+        TODO("not yet implemented")
     }
 }
 
 abstract class LazySequenceKtImpl<T, U : Any, V, TT, VV>(
     private val impl: HookBuilder.LazySequence<TT, U, VV>
-) : HookBuilderKt.LazySequenceKt<T, U, V>
-        where V : HookBuilderKt.BaseMatcherKt<T>,
-              VV : HookBuilder.BaseMatcher<VV, TT> {
+) : HookBuilderKt.LazySequenceKt<T, U, V> where V : HookBuilderKt.BaseMatcherKt<T>, VV : HookBuilder.BaseMatcher<VV, TT> {
     override fun first(): T = newImpl(impl.first())
 
     override fun conjunction(): HookBuilderKt.ContainerSyntaxKt<T> {
@@ -366,8 +356,7 @@ abstract class LazySequenceKtImpl<T, U : Any, V, TT, VV>(
     override fun onMatch(handler: HookBuilderKt.DummyHooker.(Sequence<U>) -> U): T =
         newImpl(impl.onMatch(HookBuilder.MatchConsumer<Iterable<U>, U> {
             handler(
-                DummyHookerImpl,
-                it.asSequence()
+                DummyHookerImpl, it.asSequence()
             )
         }))
 
@@ -391,7 +380,7 @@ abstract class LazySequenceKtImpl<T, U : Any, V, TT, VV>(
 }
 
 class ClassKtImpl(impl: HookBuilder.Class) :
-    BaseMatchKtImpl<HookBuilderKt.ClassKt, ReflectClass<*>, HookBuilder.Class>(
+    ReflectMatchKtImpl<HookBuilderKt.ClassKt, ReflectClass<*>, HookBuilder.Class>(
         impl
     ), HookBuilderKt.ClassKt {
     override val name: HookBuilderKt.StringKt
@@ -414,7 +403,7 @@ class ClassKtImpl(impl: HookBuilder.Class) :
 
 abstract class MemberMatchKtImpl<T, U, Impl : HookBuilder.MemberMatch<Impl, U>>(
     impl: Impl
-) : BaseMatchKtImpl<T, U, Impl>(
+) : ReflectMatchKtImpl<T, U, Impl>(
     impl
 ), HookBuilderKt.MemberMatchKt<T, U> {
     final override val declaringClass: HookBuilderKt.ClassKt
@@ -548,13 +537,16 @@ class FieldKtImpl(impl: HookBuilder.Field) :
     override fun newImpl(impl: HookBuilder.Field): HookBuilderKt.FieldKt = FieldKtImpl(impl)
 }
 
-class StringKtImpl(val impl: HookBuilder.String) : HookBuilderKt.StringKt
+class StringKtImpl(impl: HookBuilder.String) :
+    BaseMatchKtImpl<HookBuilderKt.StringKt, KtString, HookBuilder.String>(impl),
+    HookBuilderKt.StringKt
 
 internal class HookBuilderKtImpl(
     ctx: XposedInterface,
-    param: XposedModuleInterface.PackageLoadedParam,
+    classLoader: BaseDexClassLoader,
+    sourcePath: KtString
 ) : HookBuilderKt {
-    private val builder = HookBuilderImpl(ctx, param)
+    private val builder = HookBuilderImpl(ctx, classLoader, sourcePath)
 
     override var lastMatchResult: HookBuilderKt.MatchResultKt
         get() = TODO("Write Only")
@@ -569,10 +561,9 @@ internal class HookBuilderKtImpl(
         }
 
     override fun methods(init: HookBuilderKt.MethodMatcherKt.() -> Unit): HookBuilderKt.LazySequenceKt<HookBuilderKt.MethodKt, ReflectMethod, HookBuilderKt.MethodMatcherKt> =
-        MethodLazySequenceKtImpl(
-            builder.methods {
-                MethodMatcherKtImpl(it).init()
-            })
+        MethodLazySequenceKtImpl(builder.methods {
+            MethodMatcherKtImpl(it).init()
+        })
 
     override fun firstMethod(init: HookBuilderKt.MethodMatcherKt.() -> Unit): HookBuilderKt.MethodKt =
         MethodKtImpl(builder.firstMethod {
@@ -580,10 +571,9 @@ internal class HookBuilderKtImpl(
         })
 
     override fun classes(init: HookBuilderKt.ClassMatcherKt.() -> Unit): HookBuilderKt.LazySequenceKt<HookBuilderKt.ClassKt, ReflectClass<*>, HookBuilderKt.ClassMatcherKt> =
-        ClassLazySequenceKtImpl(
-            builder.classes {
-                ClassMatcherKtImpl(it).init()
-            })
+        ClassLazySequenceKtImpl(builder.classes {
+            ClassMatcherKtImpl(it).init()
+        })
 
     override fun firstClass(init: HookBuilderKt.ClassMatcherKt.() -> Unit): HookBuilderKt.ClassKt =
         ClassKtImpl(builder.firstClass {
@@ -591,10 +581,9 @@ internal class HookBuilderKtImpl(
         })
 
     override fun fields(init: HookBuilderKt.FieldMatcherKt.() -> Unit): HookBuilderKt.LazySequenceKt<HookBuilderKt.FieldKt, ReflectField, HookBuilderKt.FieldMatcherKt> =
-        FieldLazySequenceKtImpl(
-            builder.fields {
-                FieldMatcherKtImpl(it).init()
-            })
+        FieldLazySequenceKtImpl(builder.fields {
+            FieldMatcherKtImpl(it).init()
+        })
 
     override fun firstField(init: HookBuilderKt.FieldMatcherKt.() -> Unit): HookBuilderKt.FieldKt =
         FieldKtImpl(builder.firstField {
@@ -602,10 +591,9 @@ internal class HookBuilderKtImpl(
         })
 
     override fun constructors(init: HookBuilderKt.ConstructorMatcherKt.() -> Unit): HookBuilderKt.LazySequenceKt<HookBuilderKt.ConstructorKt, ReflectConstructor<*>, HookBuilderKt.ConstructorMatcherKt> =
-        ConstructorLazySequenceKtImpl(
-            builder.constructors {
-                ConstructorMatcherKtImpl(it).init()
-            })
+        ConstructorLazySequenceKtImpl(builder.constructors {
+            ConstructorMatcherKtImpl(it).init()
+        })
 
     override fun firstConstructor(init: HookBuilderKt.ConstructorMatcherKt.() -> Unit): HookBuilderKt.ConstructorKt =
         ConstructorKtImpl(builder.firstConstructor {

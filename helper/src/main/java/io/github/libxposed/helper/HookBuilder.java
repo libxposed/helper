@@ -6,8 +6,8 @@ import androidx.annotation.Nullable;
 import java.io.Serializable;
 import java.util.Map;
 
+import dalvik.system.BaseDexClassLoader;
 import io.github.libxposed.XposedContextWrapper;
-import io.github.libxposed.XposedModuleInterface;
 
 @SuppressWarnings("unused")
 public interface HookBuilder {
@@ -28,13 +28,13 @@ public interface HookBuilder {
     }
 
     @NonNull
-    static MatchResult buildHook(@NonNull XposedContextWrapper ctx, @NonNull XposedModuleInterface.PackageLoadedParam param, Consumer<HookBuilder> consumer) {
-        var builder = new HookBuilderImpl(ctx, param);
+    static MatchResult buildHook(@NonNull XposedContextWrapper ctx, @NonNull BaseDexClassLoader classLoader, @NonNull java.lang.String sourcePath, Consumer<HookBuilder> consumer) {
+        var builder = new HookBuilderImpl(ctx, classLoader, sourcePath);
         consumer.accept(builder);
         return builder.build();
     }
 
-    interface MatchResult extends Serializable, Cloneable {
+    interface MatchResult extends Serializable {
         @NonNull
         Map<java.lang.String, java.lang.Class<?>> getMatchedClasses();
 
@@ -190,6 +190,9 @@ public interface HookBuilder {
     }
 
     interface BaseMatch<T, U> {
+    }
+
+    interface ReflectMatch<T, U> extends BaseMatch<T, U> {
         @Nullable
         java.lang.String getKey();
 
@@ -220,7 +223,7 @@ public interface HookBuilder {
         ContainerSyntax<T> disjunction();
     }
 
-    interface Class extends BaseMatch<Class, java.lang.Class<?>> {
+    interface Class extends ReflectMatch<Class, java.lang.Class<?>> {
         @NonNull
         String getName();
 
@@ -243,7 +246,7 @@ public interface HookBuilder {
         Class getArrayType();
     }
 
-    interface MemberMatch<T, U> extends BaseMatch<T, U> {
+    interface MemberMatch<T, U> extends ReflectMatch<T, U> {
         @NonNull
         Class getDeclaringClass();
     }
@@ -287,7 +290,7 @@ public interface HookBuilder {
         Class getType();
     }
 
-    interface String {
+    interface String extends BaseMatch<String, java.lang.String> {
 
     }
 
