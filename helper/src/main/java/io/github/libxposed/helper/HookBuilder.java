@@ -48,24 +48,24 @@ public interface HookBuilder {
         Map<java.lang.String, java.lang.reflect.Constructor<?>> getMatchedConstructors();
     }
 
-    interface BaseMatcher<T, U> {
+    interface BaseMatcher<Self extends BaseMatcher<Self, Match>, Match extends BaseMatch<Match, ?>> {
         @NonNull
-        T setMatchFirst(boolean matchFirst);
+        Self setMatchFirst(boolean matchFirst);
 
         @NonNull
-        T setMissReplacement(@NonNull U replacement);
+        Self setMissReplacement(@NonNull Match replacement);
     }
 
-    interface ReflectMatcher<T, U> extends BaseMatcher<T, U> {
-        T setKey(@NonNull java.lang.String key);
+    interface ReflectMatcher<Self extends ReflectMatcher<Self, Match>, Match extends ReflectMatch<Match, ?>> extends BaseMatcher<Self, Match> {
+        Self setKey(@NonNull java.lang.String key);
 
-        T setIsPublic(boolean isPublic);
+        Self setIsPublic(boolean isPublic);
 
-        T setIsPrivate(boolean isPrivate);
+        Self setIsPrivate(boolean isPrivate);
 
-        T setIsProtected(boolean isProtected);
+        Self setIsProtected(boolean isProtected);
 
-        T setIsPackage(boolean isPackage);
+        Self setIsPackage(boolean isPackage);
     }
 
     interface ContainerSyntax<T> {
@@ -109,12 +109,12 @@ public interface HookBuilder {
         StringMatcher setPrefix(@NonNull java.lang.String prefix);
     }
 
-    interface MemberMatcher<T, U> extends ReflectMatcher<T, U> {
+    interface MemberMatcher<Self extends MemberMatcher<Self, Match>, Match extends MemberMatch<Match, ?>> extends ReflectMatcher<Self, Match> {
         @NonNull
-        T setDeclaringClass(@NonNull Class declaringClass);
+        Self setDeclaringClass(@NonNull Class declaringClass);
 
         @NonNull
-        T setIsSynthetic(boolean isSynthetic);
+        Self setIsSynthetic(boolean isSynthetic);
     }
 
     interface FieldMatcher extends MemberMatcher<FieldMatcher, Field> {
@@ -137,30 +137,30 @@ public interface HookBuilder {
         FieldMatcher setIsVolatile(boolean isVolatile);
     }
 
-    interface ExecutableMatcher<T, U> extends MemberMatcher<T, U> {
+    interface ExecutableMatcher<Self extends ExecutableMatcher<Self, Match>, Match extends ExecutableMatch<Match, ?>> extends MemberMatcher<Self, Match> {
         @NonNull
-        T setParameterCount(int count);
+        Self setParameterCount(int count);
 
         @NonNull
-        T setParameterTypes(@NonNull ContainerSyntax<Class> parameterTypes);
+        Self setParameterTypes(@NonNull ContainerSyntax<Class> parameterTypes);
 
         @NonNull
-        T setReferredStrings(@NonNull ContainerSyntax<String> referredStrings);
+        Self setReferredStrings(@NonNull ContainerSyntax<String> referredStrings);
 
         @NonNull
-        T setAssignedFields(@NonNull ContainerSyntax<Field> assignedFields);
+        Self setAssignedFields(@NonNull ContainerSyntax<Field> assignedFields);
 
         @NonNull
-        T setInvokedMethods(@NonNull ContainerSyntax<Method> invokedMethods);
+        Self setInvokedMethods(@NonNull ContainerSyntax<Method> invokedMethods);
 
         @NonNull
-        T setInvokedConstructors(@NonNull ContainerSyntax<Constructor> invokedConstructors);
+        Self setInvokedConstructors(@NonNull ContainerSyntax<Constructor> invokedConstructors);
 
         @NonNull
-        T setContainsOpcodes(@NonNull Byte[] opcodes);
+        Self setContainsOpcodes(@NonNull Byte[] opcodes);
 
         @NonNull
-        T setIsVarargs(boolean isVarargs);
+        Self setIsVarargs(boolean isVarargs);
     }
 
     interface MethodMatcher extends ExecutableMatcher<MethodMatcher, Method> {
@@ -189,38 +189,38 @@ public interface HookBuilder {
     interface ConstructorMatcher extends ExecutableMatcher<ConstructorMatcher, Constructor> {
     }
 
-    interface BaseMatch<T, U> {
+    interface BaseMatch<Self extends BaseMatch<Self, Reflect>, Reflect> {
     }
 
-    interface ReflectMatch<T, U> extends BaseMatch<T, U> {
+    interface ReflectMatch<Self extends ReflectMatch<Self, Reflect>, Reflect> extends BaseMatch<Self, Reflect> {
         @Nullable
         java.lang.String getKey();
 
         @NonNull
-        T onMatch(@NonNull Consumer<U> consumer);
+        Self onMatch(@NonNull Consumer<Reflect> consumer);
     }
 
-    interface LazySequence<T, U, V extends BaseMatcher<V, T>> {
+    interface LazySequence<Match extends BaseMatch<Match, Reflect>, Reflect, Matcher extends BaseMatcher<Matcher, Match>> {
         @NonNull
-        T first();
+        Match first();
 
         @NonNull
-        T first(@NonNull Consumer<V> consumer);
+        Match first(@NonNull Consumer<Matcher> consumer);
 
         @NonNull
-        LazySequence<T, U, V> all(@NonNull Consumer<V> consumer);
+        LazySequence<Match, Reflect, Matcher> all(@NonNull Consumer<Matcher> consumer);
 
         @NonNull
-        LazySequence<T, U, V> onMatch(@NonNull Consumer<Iterable<U>> consumer);
+        LazySequence<Match, Reflect, Matcher> onMatch(@NonNull Consumer<Iterable<Reflect>> consumer);
 
         @NonNull
-        T onMatch(MatchConsumer<Iterable<U>, U> consumer);
+        Match onMatch(MatchConsumer<Iterable<Reflect>, Reflect> consumer);
 
         @NonNull
-        ContainerSyntax<T> conjunction();
+        ContainerSyntax<Match> conjunction();
 
         @NonNull
-        ContainerSyntax<T> disjunction();
+        ContainerSyntax<Match> disjunction();
     }
 
     interface Class extends ReflectMatch<Class, java.lang.Class<?>> {
@@ -246,12 +246,12 @@ public interface HookBuilder {
         Class getArrayType();
     }
 
-    interface MemberMatch<T, U> extends ReflectMatch<T, U> {
+    interface MemberMatch<Self extends MemberMatch<Self, Reflect>, Reflect extends java.lang.reflect.Member> extends ReflectMatch<Self, Reflect> {
         @NonNull
         Class getDeclaringClass();
     }
 
-    interface ExecutableMatch<T, U> extends MemberMatch<T, U> {
+    interface ExecutableMatch<Self extends ExecutableMatch<Self, Reflect>, Reflect extends java.lang.reflect.Member> extends MemberMatch<Self, Reflect> {
         @NonNull
         LazySequence<Class, java.lang.Class<?>, ClassMatcher> getParameterTypes();
 

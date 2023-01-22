@@ -8,6 +8,7 @@ import java.lang.Class
 import java.lang.reflect.Method
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
+import java.lang.reflect.Member
 
 @DslMarker
 annotation class Hooker
@@ -41,16 +42,17 @@ sealed interface HookBuilderKt {
         val matchedConstructors: Map<String, Constructor<*>>
     }
 
-    sealed interface BaseMatcherKt<T> {
+    sealed interface BaseMatcherKt<Match> where Match : BaseMatchKt<Match, *> {
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var matchFirst: Boolean
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var missReplacement: T
+        var missReplacement: Match
     }
 
     @Matcher
-    sealed interface ReflectMatcherKt<T> : BaseMatcherKt<T> {
+    sealed interface ReflectMatcherKt<Match> :
+        BaseMatcherKt<Match> where Match : ReflectMatchKt<Match, *> {
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var key: String
 
@@ -67,19 +69,19 @@ sealed interface HookBuilderKt {
         var isPackage: Boolean
     }
 
-    sealed interface ContainerSyntaxKt<T> {
-        operator fun plus(list: ContainerSyntaxKt<T>): ContainerSyntaxKt<T>
-        operator fun plus(list: Iterable<T>): ContainerSyntaxKt<T>
-        operator fun plus(element: T): ContainerSyntaxKt<T>
-        operator fun minus(list: ContainerSyntaxKt<T>): ContainerSyntaxKt<T>
-        operator fun minus(list: Iterable<T>): ContainerSyntaxKt<T>
-        operator fun minus(element: T): ContainerSyntaxKt<T>
-        operator fun times(list: ContainerSyntaxKt<T>): ContainerSyntaxKt<T>
-        operator fun times(list: Iterable<T>): ContainerSyntaxKt<T>
-        operator fun times(element: T): ContainerSyntaxKt<T>
-        operator fun div(list: ContainerSyntaxKt<T>): ContainerSyntaxKt<T>
-        operator fun div(list: Iterable<T>): ContainerSyntaxKt<T>
-        operator fun div(element: T): ContainerSyntaxKt<T>
+    sealed interface ContainerSyntaxKt<Element> {
+        operator fun plus(list: ContainerSyntaxKt<Element>): ContainerSyntaxKt<Element>
+        operator fun plus(list: Iterable<Element>): ContainerSyntaxKt<Element>
+        operator fun plus(element: Element): ContainerSyntaxKt<Element>
+        operator fun minus(list: ContainerSyntaxKt<Element>): ContainerSyntaxKt<Element>
+        operator fun minus(list: Iterable<Element>): ContainerSyntaxKt<Element>
+        operator fun minus(element: Element): ContainerSyntaxKt<Element>
+        operator fun times(list: ContainerSyntaxKt<Element>): ContainerSyntaxKt<Element>
+        operator fun times(list: Iterable<Element>): ContainerSyntaxKt<Element>
+        operator fun times(element: Element): ContainerSyntaxKt<Element>
+        operator fun div(list: ContainerSyntaxKt<Element>): ContainerSyntaxKt<Element>
+        operator fun div(list: Iterable<Element>): ContainerSyntaxKt<Element>
+        operator fun div(element: Element): ContainerSyntaxKt<Element>
     }
 
     sealed interface ClassMatcherKt : ReflectMatcherKt<ClassKt> {
@@ -113,7 +115,8 @@ sealed interface HookBuilderKt {
         var prefix: String
     }
 
-    interface MemberMatcherKt<T> : ReflectMatcherKt<T> {
+    interface MemberMatcherKt<Match> :
+        ReflectMatcherKt<Match> where Match : MemberMatchKt<Match, *> {
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var declaringClass: ClassKt
 
@@ -142,7 +145,8 @@ sealed interface HookBuilderKt {
         var isVolatile: Boolean
     }
 
-    sealed interface ExecutableMatcherKt<T> : MemberMatcherKt<T> {
+    sealed interface ExecutableMatcherKt<Match> :
+        MemberMatcherKt<Match> where Match : ExecutableMatchKt<Match, *> {
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var parameterCounts: Int
 
@@ -196,37 +200,37 @@ sealed interface HookBuilderKt {
     @Hooker
     sealed interface DummyHooker
 
-    sealed interface BaseMatchKt<T, U>
+    sealed interface BaseMatchKt<Self, Reflect>
 
     @Hooker
-    sealed interface ReflectMatchKt<T, U> : BaseMatchKt<T, U> {
+    sealed interface ReflectMatchKt<Self, Reflect> : BaseMatchKt<Self, Reflect> {
         val key: String?
-        operator fun plus(match: T): ContainerSyntaxKt<T>
-        operator fun minus(match: T): ContainerSyntaxKt<T>
-        operator fun times(match: T): ContainerSyntaxKt<T>
-        operator fun div(match: T): ContainerSyntaxKt<T>
-        fun onMatch(handler: DummyHooker.(U) -> Unit): T
+        operator fun plus(match: Self): ContainerSyntaxKt<Self>
+        operator fun minus(match: Self): ContainerSyntaxKt<Self>
+        operator fun times(match: Self): ContainerSyntaxKt<Self>
+        operator fun div(match: Self): ContainerSyntaxKt<Self>
+        fun onMatch(handler: DummyHooker.(Reflect) -> Unit): Self
     }
 
     @OptIn(ExperimentalTypeInference::class)
     @Hooker
-    sealed interface LazySequenceKt<T, U, V> where V : BaseMatcherKt<T> {
-        fun first(): T
-        fun first(init: V.() -> Unit): T
-        fun all(init: V.() -> Unit): LazySequenceKt<T, U, V>
+    sealed interface LazySequenceKt<Match, Reflect, Matcher> where Matcher : BaseMatcherKt<Match>, Match : BaseMatchKt<Match, Reflect> {
+        fun first(): Match
+        fun first(init: Matcher.() -> Unit): Match
+        fun all(init: Matcher.() -> Unit): LazySequenceKt<Match, Reflect, Matcher>
 
         @OverloadResolutionByLambdaReturnType
-        fun onMatch(handler: DummyHooker.(Sequence<U>) -> Unit): LazySequenceKt<T, U, V>
+        fun onMatch(handler: DummyHooker.(Sequence<Reflect>) -> Unit): LazySequenceKt<Match, Reflect, Matcher>
 
         @OverloadResolutionByLambdaReturnType
-        fun onMatch(handler: DummyHooker.(Sequence<U>) -> U): T
+        fun onMatch(handler: DummyHooker.(Sequence<Reflect>) -> Reflect): Match
 
-        fun conjunction(): ContainerSyntaxKt<T>
-        fun disjunction(): ContainerSyntaxKt<T>
+        fun conjunction(): ContainerSyntaxKt<Match>
+        fun disjunction(): ContainerSyntaxKt<Match>
     }
 
 
-    sealed interface ClassKt : BaseMatchKt<ClassKt, Class<*>> {
+    sealed interface ClassKt : ReflectMatchKt<ClassKt, Class<*>> {
         val name: StringKt
         val superClass: ClassKt
         val interfaces: LazySequenceKt<ClassKt, Class<*>, ClassMatcherKt>
@@ -236,11 +240,13 @@ sealed interface HookBuilderKt {
         val arrayType: ClassKt
     }
 
-    sealed interface MemberMatchKt<T, U> : BaseMatchKt<T, U> {
+    sealed interface MemberMatchKt<Self, Reflect> :
+        ReflectMatchKt<Self, Reflect> where Reflect : Member {
         val declaringClass: ClassKt
     }
 
-    sealed interface ExecutableMatchKt<T, U> : MemberMatchKt<T, U> {
+    sealed interface ExecutableMatchKt<Self, Reflect> :
+        MemberMatchKt<Self, Reflect> where Reflect : Member {
         val parameterTypes: LazySequenceKt<ClassKt, Class<*>, ClassMatcherKt>
 
         @DexAnalysis
@@ -271,7 +277,7 @@ sealed interface HookBuilderKt {
         val type: ClassKt
     }
 
-    sealed interface StringKt
+    sealed interface StringKt : BaseMatchKt<StringKt, String>
 
     fun methods(init: MethodMatcherKt.() -> Unit): LazySequenceKt<MethodKt, Method, MethodMatcherKt>
     fun firstMethod(init: MethodMatcherKt.() -> Unit): MethodKt
