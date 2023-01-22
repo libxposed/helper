@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package io.github.libxposed.helper
 
 import dalvik.system.BaseDexClassLoader
@@ -14,7 +16,6 @@ import java.lang.reflect.Member
 annotation class Hooker
 
 @Hooker
-@Suppress("unused")
 sealed interface HookBuilderKt {
     @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
     var lastMatchResult: MatchResultKt
@@ -69,32 +70,33 @@ sealed interface HookBuilderKt {
         var isPackage: Boolean
     }
 
-    sealed interface ContainerSyntaxKt<Element> {
-        operator fun plus(list: ContainerSyntaxKt<Element>): ContainerSyntaxKt<Element>
-        operator fun plus(list: Iterable<Element>): ContainerSyntaxKt<Element>
-        operator fun plus(element: Element): ContainerSyntaxKt<Element>
-        operator fun minus(list: ContainerSyntaxKt<Element>): ContainerSyntaxKt<Element>
-        operator fun minus(list: Iterable<Element>): ContainerSyntaxKt<Element>
-        operator fun minus(element: Element): ContainerSyntaxKt<Element>
-        operator fun times(list: ContainerSyntaxKt<Element>): ContainerSyntaxKt<Element>
-        operator fun times(list: Iterable<Element>): ContainerSyntaxKt<Element>
-        operator fun times(element: Element): ContainerSyntaxKt<Element>
-        operator fun div(list: ContainerSyntaxKt<Element>): ContainerSyntaxKt<Element>
-        operator fun div(list: Iterable<Element>): ContainerSyntaxKt<Element>
-        operator fun div(element: Element): ContainerSyntaxKt<Element>
+    sealed interface ContainerSyntaxKt<Match> where Match : BaseMatchKt<Match, *> {
+        infix fun and(element: Match): ContainerSyntaxKt<Match>
+        infix fun and(element: ContainerSyntaxKt<Match>): ContainerSyntaxKt<Match>
+        infix fun or(element: Match): ContainerSyntaxKt<Match>
+        infix fun or(element: ContainerSyntaxKt<Match>): ContainerSyntaxKt<Match>
+        operator fun not(): ContainerSyntaxKt<Match>
     }
 
-    sealed interface ClassMatcherKt : ReflectMatcherKt<ClassKt> {
+    sealed interface TypeMatcherKt<Match> : ReflectMatcherKt<Match>
+            where Match : TypeMatchKt<Match> {
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var name: StringKt
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var superClass: ClassKt
 
-        val containsMethods: ContainerSyntaxKt<MethodKt>
-        val containsConstructors: ContainerSyntaxKt<ConstructorKt>
-        val containsFields: ContainerSyntaxKt<FieldKt>
-        val interfaces: ContainerSyntaxKt<ClassKt>
+        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
+        var containsMethods: ContainerSyntaxKt<MethodKt>
+
+        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
+        var containsConstructors: ContainerSyntaxKt<ConstructorKt>
+
+        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
+        var containsFields: ContainerSyntaxKt<FieldKt>
+
+        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
+        var interfaces: ContainerSyntaxKt<ClassKt>
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var isAbstract: Boolean
@@ -104,6 +106,13 @@ sealed interface HookBuilderKt {
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var isFinal: Boolean
+    }
+
+    sealed interface ClassMatcherKt : TypeMatcherKt<ClassKt>
+
+    sealed interface ParameterMatcherKt : TypeMatcherKt<ParameterKt> {
+        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
+        var index: Int
     }
 
     @Matcher
@@ -150,19 +159,28 @@ sealed interface HookBuilderKt {
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var parameterCounts: Int
 
-        val parameterTypes: ContainerSyntaxKt<IndexedValue<ClassKt>>
+        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
+        var parameterTypes: ContainerSyntaxKt<ParameterKt>
 
         @DexAnalysis
-        val referredStrings: ContainerSyntaxKt<StringKt>
+        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
+        var referredStrings: ContainerSyntaxKt<StringKt>
 
         @DexAnalysis
-        val assignedFields: ContainerSyntaxKt<FieldKt>
+        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
+        var assignedFields: ContainerSyntaxKt<FieldKt>
 
         @DexAnalysis
-        val invokedMethods: ContainerSyntaxKt<MethodKt>
+        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
+        var accessedFields: ContainerSyntaxKt<FieldKt>
 
         @DexAnalysis
-        val invokedConstructor: ContainerSyntaxKt<ConstructorKt>
+        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
+        var invokedMethods: ContainerSyntaxKt<MethodKt>
+
+        @DexAnalysis
+        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
+        var invokedConstructor: ContainerSyntaxKt<ConstructorKt>
 
         @DexAnalysis
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
@@ -200,15 +218,15 @@ sealed interface HookBuilderKt {
     @Hooker
     sealed interface DummyHooker
 
-    sealed interface BaseMatchKt<Self, Reflect>
+    sealed interface BaseMatchKt<Self, Reflect> where Self : BaseMatchKt<Self, Reflect> {
+        operator fun unaryPlus(): ContainerSyntaxKt<Self>
+        operator fun unaryMinus(): ContainerSyntaxKt<Self>
+    }
 
     @Hooker
-    sealed interface ReflectMatchKt<Self, Reflect> : BaseMatchKt<Self, Reflect> {
+    sealed interface ReflectMatchKt<Self, Reflect> :
+        BaseMatchKt<Self, Reflect> where Self : ReflectMatchKt<Self, Reflect> {
         val key: String?
-        operator fun plus(match: Self): ContainerSyntaxKt<Self>
-        operator fun minus(match: Self): ContainerSyntaxKt<Self>
-        operator fun times(match: Self): ContainerSyntaxKt<Self>
-        operator fun div(match: Self): ContainerSyntaxKt<Self>
         fun onMatch(handler: DummyHooker.(Reflect) -> Unit): Self
     }
 
@@ -225,12 +243,12 @@ sealed interface HookBuilderKt {
         @OverloadResolutionByLambdaReturnType
         fun onMatch(handler: DummyHooker.(Sequence<Reflect>) -> Reflect): Match
 
-        fun conjunction(): ContainerSyntaxKt<Match>
-        fun disjunction(): ContainerSyntaxKt<Match>
+        operator fun unaryPlus(): ContainerSyntaxKt<Match>
+        operator fun unaryMinus(): ContainerSyntaxKt<Match>
     }
 
-
-    sealed interface ClassKt : ReflectMatchKt<ClassKt, Class<*>> {
+    sealed interface TypeMatchKt<Self> :
+        ReflectMatchKt<Self, Class<*>> where Self : TypeMatchKt<Self> {
         val name: StringKt
         val superClass: ClassKt
         val interfaces: LazySequenceKt<ClassKt, Class<*>, ClassMatcherKt>
@@ -240,14 +258,20 @@ sealed interface HookBuilderKt {
         val arrayType: ClassKt
     }
 
+    sealed interface ClassKt : TypeMatchKt<ClassKt> {
+        operator fun get(index: Int): ParameterKt
+    }
+
+    sealed interface ParameterKt : TypeMatchKt<ParameterKt>
+
     sealed interface MemberMatchKt<Self, Reflect> :
-        ReflectMatchKt<Self, Reflect> where Reflect : Member {
+        ReflectMatchKt<Self, Reflect> where Self : MemberMatchKt<Self, Reflect>, Reflect : Member {
         val declaringClass: ClassKt
     }
 
     sealed interface ExecutableMatchKt<Self, Reflect> :
-        MemberMatchKt<Self, Reflect> where Reflect : Member {
-        val parameterTypes: LazySequenceKt<ClassKt, Class<*>, ClassMatcherKt>
+        MemberMatchKt<Self, Reflect> where Self : ExecutableMatchKt<Self, Reflect>, Reflect : Member {
+        val parameterTypes: LazySequenceKt<ParameterKt, Class<*>, ParameterMatcherKt>
 
         @DexAnalysis
         val referredStrings: LazySequenceKt<StringKt, String, StringMatcherKt>
@@ -298,9 +322,7 @@ sealed interface HookBuilderKt {
 }
 
 fun XposedInterface.buildHooks(
-    classLoader: BaseDexClassLoader,
-    sourcePath: String,
-    init: HookBuilderKt.() -> Unit
+    classLoader: BaseDexClassLoader, sourcePath: String, init: HookBuilderKt.() -> Unit
 ): HookBuilderKt.MatchResultKt {
     val builder = HookBuilderKtImpl(this, classLoader, sourcePath)
     builder.init()

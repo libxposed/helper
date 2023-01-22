@@ -68,37 +68,58 @@ public interface HookBuilder {
         Self setIsPackage(boolean isPackage);
     }
 
-    interface ContainerSyntax<T> {
+    interface ContainerSyntax<Match extends BaseMatch<Match, ?>> {
+        @NonNull
+        ContainerSyntax<Match> and(@NonNull Match element);
 
+        @NonNull
+        ContainerSyntax<Match> and(@NonNull ContainerSyntax<Match> predicate);
+
+        @NonNull
+        ContainerSyntax<Match> or(@NonNull Match element);
+
+        @NonNull
+        ContainerSyntax<Match> or(@NonNull ContainerSyntax<Match> predicate);
+
+        @NonNull
+        ContainerSyntax<Match> not();
     }
 
-    interface ClassMatcher extends ReflectMatcher<ClassMatcher, Class> {
+    interface TypeMatcher<Self extends TypeMatcher<Self, Match>, Match extends TypeMatch<Match>> extends ReflectMatcher<Self, Match> {
         @NonNull
-        ClassMatcher setName(@NonNull String name);
+        Self setName(@NonNull String name);
 
         @NonNull
-        ClassMatcher setSuperClass(@NonNull Class superClass);
+        Self setSuperClass(@NonNull Class superClass);
 
         @NonNull
-        ClassMatcher setContainsMethods(@NonNull Consumer<ContainerSyntax<Method>> consumer);
+        Self setContainsMethods(@NonNull ContainerSyntax<Method> syntax);
 
         @NonNull
-        ClassMatcher setContainsConstructors(@NonNull Consumer<ContainerSyntax<Constructor>> consumer);
+        Self setContainsConstructors(@NonNull ContainerSyntax<Constructor> syntax);
 
         @NonNull
-        ClassMatcher setContainsFields(@NonNull Consumer<ContainerSyntax<Field>> consumer);
+        Self setContainsFields(@NonNull ContainerSyntax<Field> syntax);
 
         @NonNull
-        ClassMatcher setInterfaces(@NonNull Consumer<ContainerSyntax<Class>> consumer);
+        Self setInterfaces(@NonNull ContainerSyntax<Class> syntax);
 
         @NonNull
-        ClassMatcher setIsAbstract(boolean isAbstract);
+        Self setIsAbstract(boolean isAbstract);
 
         @NonNull
-        ClassMatcher setIsStatic(boolean isStatic);
+        Self setIsStatic(boolean isStatic);
 
         @NonNull
-        ClassMatcher setIsFinal(boolean isFinal);
+        Self setIsFinal(boolean isFinal);
+    }
+
+    interface ClassMatcher extends TypeMatcher<ClassMatcher, Class> {
+    }
+
+    interface ParameterMatcher extends TypeMatcher<ParameterMatcher, Parameter> {
+        @NonNull
+        ParameterMatcher setIndex(int index);
     }
 
     interface StringMatcher extends BaseMatcher<StringMatcher, String> {
@@ -142,13 +163,16 @@ public interface HookBuilder {
         Self setParameterCount(int count);
 
         @NonNull
-        Self setParameterTypes(@NonNull ContainerSyntax<Class> parameterTypes);
+        Self setParameterTypes(@NonNull ContainerSyntax<Parameter> parameterTypes);
 
         @NonNull
         Self setReferredStrings(@NonNull ContainerSyntax<String> referredStrings);
 
         @NonNull
         Self setAssignedFields(@NonNull ContainerSyntax<Field> assignedFields);
+
+        @NonNull
+        Self setAccessedFields(@NonNull ContainerSyntax<Field> assignedFields);
 
         @NonNull
         Self setInvokedMethods(@NonNull ContainerSyntax<Method> invokedMethods);
@@ -190,6 +214,11 @@ public interface HookBuilder {
     }
 
     interface BaseMatch<Self extends BaseMatch<Self, Reflect>, Reflect> {
+        @NonNull
+        ContainerSyntax<Self> observe();
+
+        @NonNull
+        ContainerSyntax<Self> reverse();
     }
 
     interface ReflectMatch<Self extends ReflectMatch<Self, Reflect>, Reflect> extends BaseMatch<Self, Reflect> {
@@ -223,7 +252,7 @@ public interface HookBuilder {
         ContainerSyntax<Match> disjunction();
     }
 
-    interface Class extends ReflectMatch<Class, java.lang.Class<?>> {
+    interface TypeMatch<Self extends TypeMatch<Self>> extends ReflectMatch<Self, java.lang.Class<?>> {
         @NonNull
         String getName();
 
@@ -246,6 +275,14 @@ public interface HookBuilder {
         Class getArrayType();
     }
 
+    interface Class extends TypeMatch<Class> {
+        @NonNull
+        Parameter asParameter(int index);
+    }
+
+    interface Parameter extends TypeMatch<Parameter> {
+    }
+
     interface MemberMatch<Self extends MemberMatch<Self, Reflect>, Reflect extends java.lang.reflect.Member> extends ReflectMatch<Self, Reflect> {
         @NonNull
         Class getDeclaringClass();
@@ -253,7 +290,7 @@ public interface HookBuilder {
 
     interface ExecutableMatch<Self extends ExecutableMatch<Self, Reflect>, Reflect extends java.lang.reflect.Member> extends MemberMatch<Self, Reflect> {
         @NonNull
-        LazySequence<Class, java.lang.Class<?>, ClassMatcher> getParameterTypes();
+        LazySequence<Parameter, java.lang.Class<?>, ParameterMatcher> getParameterTypes();
 
         @NonNull
         LazySequence<String, java.lang.String, StringMatcher> getReferredStrings();

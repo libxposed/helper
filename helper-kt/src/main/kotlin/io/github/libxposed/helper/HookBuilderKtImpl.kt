@@ -4,6 +4,7 @@ package io.github.libxposed.helper
 
 import dalvik.system.BaseDexClassLoader
 import io.github.libxposed.XposedInterface
+import io.github.libxposed.helper.HookBuilder.ContainerSyntax
 import java.lang.reflect.Member
 import java.lang.reflect.Constructor as ReflectConstructor
 import java.lang.reflect.Field as ReflectField
@@ -14,405 +15,486 @@ import kotlin.String as KtString
 val wo: Nothing
     inline get() = throw UnsupportedOperationException("Write-only property")
 
-abstract class BaseMatcherKtImpl<Base, Match, Impl>
+abstract class BaseMatcherKtImpl<Match, MatchKt, Matcher>
     (
-    protected val impl: Impl
-) : HookBuilderKt.BaseMatcherKt<Match> where Impl : HookBuilder.BaseMatcher<Impl, Base>, Match : HookBuilderKt.BaseMatchKt<Match, *>, Base : HookBuilder.BaseMatch<Base, *> {
+    internal val matcher: Matcher
+) : HookBuilderKt.BaseMatcherKt<MatchKt> where Matcher : HookBuilder.BaseMatcher<Matcher, Match>, MatchKt : HookBuilderKt.BaseMatchKt<MatchKt, *>, Match : HookBuilder.BaseMatch<Match, *> {
     final override var matchFirst: Boolean
         get() = wo
         set(value) {
-            impl.setMatchFirst(value)
+            matcher.setMatchFirst(value)
         }
 }
 
-abstract class ReflectMatcherKtImpl<Base, Match, Impl>(
-    impl: Impl
-) : BaseMatcherKtImpl<Base, Match, Impl>(impl),
-    HookBuilderKt.ReflectMatcherKt<Match> where Impl : HookBuilder.ReflectMatcher<Impl, Base>, Match : HookBuilderKt.ReflectMatchKt<Match, *>, Base : HookBuilder.ReflectMatch<Base, *> {
+abstract class ReflectMatcherKtImpl<Match, MatchKt, Matcher>(
+    matcher: Matcher
+) : BaseMatcherKtImpl<Match, MatchKt, Matcher>(matcher),
+    HookBuilderKt.ReflectMatcherKt<MatchKt> where Matcher : HookBuilder.ReflectMatcher<Matcher, Match>, MatchKt : HookBuilderKt.ReflectMatchKt<MatchKt, *>, Match : HookBuilder.ReflectMatch<Match, *> {
     final override var key: kotlin.String
         get() = wo
         set(value) {
-            impl.setKey(value)
+            matcher.setKey(value)
         }
     final override var isPublic: Boolean
         get() = wo
         set(value) {
-            impl.setIsPublic(value)
+            matcher.setIsPublic(value)
         }
     final override var isPrivate: Boolean
         get() = wo
         set(value) {
-            impl.setIsPrivate(value)
+            matcher.setIsPrivate(value)
         }
     final override var isProtected: Boolean
         get() = wo
         set(value) {
-            impl.setIsProtected(value)
+            matcher.setIsProtected(value)
         }
     final override var isPackage: Boolean
         get() = wo
         set(value) {
-            impl.setIsPackage(value)
+            matcher.setIsPackage(value)
         }
 }
 
-class ClassMatcherKtImpl(impl: HookBuilder.ClassMatcher) :
-    BaseMatcherKtImpl<HookBuilder.Class, HookBuilderKt.ClassKt, HookBuilder.ClassMatcher>(
-        impl
-    ), HookBuilderKt.ClassMatcherKt {
+open class ContainerSyntaxKtImpl<MatchKt, Match>(internal val syntax: ContainerSyntax<Match>) :
+    HookBuilderKt.ContainerSyntaxKt<MatchKt> where MatchKt : HookBuilderKt.BaseMatchKt<MatchKt, *>, Match : HookBuilder.BaseMatch<Match, *> {
+    override fun and(element: MatchKt): HookBuilderKt.ContainerSyntaxKt<MatchKt> {
+        TODO("Not yet implemented")
+    }
+
+    override fun and(element: HookBuilderKt.ContainerSyntaxKt<MatchKt>): HookBuilderKt.ContainerSyntaxKt<MatchKt> {
+        TODO("Not yet implemented")
+    }
+
+    override fun or(element: MatchKt): HookBuilderKt.ContainerSyntaxKt<MatchKt> {
+        TODO("Not yet implemented")
+    }
+
+    override fun or(element: HookBuilderKt.ContainerSyntaxKt<MatchKt>): HookBuilderKt.ContainerSyntaxKt<MatchKt> {
+        TODO("Not yet implemented")
+    }
+
+    override fun not(): HookBuilderKt.ContainerSyntaxKt<MatchKt> {
+        TODO("Not yet implemented")
+    }
+}
+
+@Suppress("UNCHECKED_CAST")
+abstract class TypeMatcherKtImpl<Match, MatchKt, Matcher>(matcher: Matcher) :
+    BaseMatcherKtImpl<Match, MatchKt, Matcher>(
+        matcher
+    ),
+    HookBuilderKt.TypeMatcherKt<MatchKt> where Matcher : HookBuilder.TypeMatcher<Matcher, Match>, MatchKt : HookBuilderKt.TypeMatchKt<MatchKt>, Match : HookBuilder.TypeMatch<Match> {
     override var name: HookBuilderKt.StringKt
         get() = wo
         set(value) {
-            impl.setName((value as StringKtImpl).impl)
+            matcher.setName((value as StringKtImpl).match)
         }
     override var superClass: HookBuilderKt.ClassKt
         get() = wo
         set(value) {
-            impl.setSuperClass((value as ClassKtImpl).impl)
+            matcher.setSuperClass((value as ClassKtImpl).match)
         }
-    override val containsMethods: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.MethodKt>
+    override var containsMethods: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.MethodKt>
         get() = wo
-    override val containsConstructors: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ConstructorKt>
+        set(value) {
+            matcher.setContainsMethods((value as ContainerSyntaxKtImpl<HookBuilderKt.MethodKt, HookBuilder.Method>).syntax)
+        }
+    override var containsConstructors: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ConstructorKt>
         get() = wo
-    override val containsFields: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.FieldKt>
+        set(value) {
+            matcher.setContainsConstructors((value as ContainerSyntaxKtImpl<HookBuilderKt.ConstructorKt, HookBuilder.Constructor>).syntax)
+        }
+    override var containsFields: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.FieldKt>
         get() = wo
-    override val interfaces: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ClassKt>
+        set(value) {
+            matcher.setContainsFields((value as ContainerSyntaxKtImpl<HookBuilderKt.FieldKt, HookBuilder.Field>).syntax)
+        }
+    override var interfaces: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ClassKt>
         get() = wo
+        set(value) {
+            matcher.setInterfaces((value as ContainerSyntaxKtImpl<HookBuilderKt.ClassKt, HookBuilder.Class>).syntax)
+        }
     override var isAbstract: Boolean
         get() = wo
         set(value) {
-            impl.setIsAbstract(value)
+            matcher.setIsAbstract(value)
         }
     override var isStatic: Boolean
         get() = wo
         set(value) {
-            impl.setIsStatic(value)
+            matcher.setIsStatic(value)
         }
     override var isFinal: Boolean
         get() = wo
         set(value) {
-            impl.setIsFinal(value)
+            matcher.setIsFinal(value)
         }
     override var key: kotlin.String
         get() = wo
         set(value) {
-            impl.setKey(value)
+            matcher.setKey(value)
         }
     override var isPublic: Boolean
         get() = wo
         set(value) {
-            impl.setIsPublic(value)
+            matcher.setIsPublic(value)
         }
     override var isPrivate: Boolean
         get() = wo
         set(value) {
-            impl.setIsPrivate(value)
+            matcher.setIsPrivate(value)
         }
     override var isProtected: Boolean
         get() = wo
         set(value) {
-            impl.setIsProtected(value)
+            matcher.setIsProtected(value)
         }
     override var isPackage: Boolean
         get() = wo
         set(value) {
-            impl.setIsPackage(value)
-        }
-    override var missReplacement: HookBuilderKt.ClassKt
-        get() = wo
-        set(value) {
-            impl.setMissReplacement((value as ClassKtImpl).impl)
+            matcher.setIsPackage(value)
         }
 }
 
-class StringMatcherKtImpl(private val impl: HookBuilder.StringMatcher) :
+class ClassMatcherKtImpl(matcher: HookBuilder.ClassMatcher) :
+    TypeMatcherKtImpl<HookBuilder.Class, HookBuilderKt.ClassKt, HookBuilder.ClassMatcher>(
+        matcher
+    ), HookBuilderKt.ClassMatcherKt {
+    override var missReplacement: HookBuilderKt.ClassKt
+        get() = wo
+        set(value) {
+            matcher.setMissReplacement((value as ClassKtImpl).match)
+        }
+}
+
+class ParameterMatcherKtImpl(matcher: HookBuilder.ParameterMatcher) :
+    TypeMatcherKtImpl<HookBuilder.Parameter, HookBuilderKt.ParameterKt, HookBuilder.ParameterMatcher>(
+        matcher
+    ), HookBuilderKt.ParameterMatcherKt {
+    override var index: Int
+        get() = wo
+        set(value) {
+            matcher.setIndex(value)
+        }
+    override var missReplacement: HookBuilderKt.ParameterKt
+        get() = wo
+        set(value) {
+            matcher.setMissReplacement((value as ParameterKtImpl).match)
+        }
+}
+
+class StringMatcherKtImpl(matcher: HookBuilder.StringMatcher) :
+    BaseMatcherKtImpl<HookBuilder.String, HookBuilderKt.StringKt, HookBuilder.StringMatcher>(matcher),
     HookBuilderKt.StringMatcherKt {
     override var exact: KtString
         get() = wo
         set(value) {
-            impl.setExact(value)
+            matcher.setExact(value)
         }
     override var prefix: KtString
         get() = wo
         set(value) {
-            impl.setPrefix(value)
-        }
-    override var matchFirst: Boolean
-        get() = wo
-        set(value) {
-            impl.setMatchFirst(value)
+            matcher.setPrefix(value)
         }
     override var missReplacement: HookBuilderKt.StringKt
         get() = wo
         set(value) {
-            impl.setMissReplacement((value as StringKtImpl).impl)
+            matcher.setMissReplacement((value as StringKtImpl).match)
         }
 }
 
-abstract class MemberMatcherKtImpl<Base, Match, Impl>(
-    impl: Impl
-) : ReflectMatcherKtImpl<Base, Match, Impl>(impl),
-    HookBuilderKt.MemberMatcherKt<Match> where Impl : HookBuilder.MemberMatcher<Impl, Base>, Match : HookBuilderKt.MemberMatchKt<Match, *>, Base : HookBuilder.MemberMatch<Base, *> {
+abstract class MemberMatcherKtImpl<Match, MatchKt, Matcher>(
+    matcher: Matcher
+) : ReflectMatcherKtImpl<Match, MatchKt, Matcher>(matcher),
+    HookBuilderKt.MemberMatcherKt<MatchKt> where Matcher : HookBuilder.MemberMatcher<Matcher, Match>, MatchKt : HookBuilderKt.MemberMatchKt<MatchKt, *>, Match : HookBuilder.MemberMatch<Match, *> {
     final override var declaringClass: HookBuilderKt.ClassKt
         get() = wo
         set(value) {
-            impl.setDeclaringClass((value as ClassKtImpl).impl)
+            matcher.setDeclaringClass((value as ClassKtImpl).match)
         }
     final override var isSynthetic: Boolean
         get() = wo
         set(value) {
-            impl.setIsSynthetic(value)
+            matcher.setIsSynthetic(value)
         }
 }
 
-class FieldMatcherKtImpl(impl: HookBuilder.FieldMatcher) :
+class FieldMatcherKtImpl(matcher: HookBuilder.FieldMatcher) :
     MemberMatcherKtImpl<HookBuilder.Field, HookBuilderKt.FieldKt, HookBuilder.FieldMatcher>(
-        impl
+        matcher
     ), HookBuilderKt.FieldMatcherKt {
     override var name: HookBuilderKt.StringKt
         get() = wo
         set(value) {
-            impl.setName((value as StringKtImpl).impl)
+            matcher.setName((value as StringKtImpl).match)
         }
     override var type: HookBuilderKt.ClassKt
         get() = wo
         set(value) {
-            impl.setType((value as ClassKtImpl).impl)
+            matcher.setType((value as ClassKtImpl).match)
         }
     override var isStatic: Boolean
         get() = wo
         set(value) {
-            impl.setIsStatic(value)
+            matcher.setIsStatic(value)
         }
     override var isFinal: Boolean
         get() = wo
         set(value) {
-            impl.setIsFinal(value)
+            matcher.setIsFinal(value)
         }
     override var isTransient: Boolean
         get() = wo
         set(value) {
-            impl.setIsTransient(value)
+            matcher.setIsTransient(value)
         }
     override var isVolatile: Boolean
         get() = wo
         set(value) {
-            impl.setIsVolatile(value)
+            matcher.setIsVolatile(value)
         }
     override var missReplacement: HookBuilderKt.FieldKt
         get() = wo
         set(value) {
-            impl.setMissReplacement((value as FieldKtImpl).impl)
+            matcher.setMissReplacement((value as FieldKtImpl).match)
         }
 }
 
-abstract class ExecutableMatcherKtImpl<Base, Match, Impl>(
-    impl: Impl
-) : MemberMatcherKtImpl<Base, Match, Impl>(impl),
-    HookBuilderKt.ExecutableMatcherKt<Match> where Impl : HookBuilder.ExecutableMatcher<Impl, Base>, Match : HookBuilderKt.ExecutableMatchKt<Match, *>, Base : HookBuilder.ExecutableMatch<Base, *> {
+@Suppress("UNCHECKED_CAST")
+abstract class ExecutableMatcherKtImpl<Match, MatchKt, Matcher>(
+    matcher: Matcher
+) : MemberMatcherKtImpl<Match, MatchKt, Matcher>(matcher),
+    HookBuilderKt.ExecutableMatcherKt<MatchKt> where Matcher : HookBuilder.ExecutableMatcher<Matcher, Match>, MatchKt : HookBuilderKt.ExecutableMatchKt<MatchKt, *>, Match : HookBuilder.ExecutableMatch<Match, *> {
     final override var parameterCounts: Int
         get() = wo
         set(value) {
-            impl.setParameterCount(value)
+            matcher.setParameterCount(value)
         }
-    final override val parameterTypes: HookBuilderKt.ContainerSyntaxKt<IndexedValue<HookBuilderKt.ClassKt>>
+    final override var parameterTypes: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ParameterKt>
         get() = wo
+        set(value) {
+            matcher.setParameterTypes((value as ContainerSyntaxKtImpl<HookBuilderKt.ParameterKt, HookBuilder.Parameter>).syntax)
+        }
 
     @HookBuilderKt.DexAnalysis
-    final override val referredStrings: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.StringKt>
+    final override var referredStrings: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.StringKt>
         get() = wo
+        set(value) {
+            matcher.setReferredStrings((value as ContainerSyntaxKtImpl<HookBuilderKt.StringKt, HookBuilder.String>).syntax)
+        }
 
     @HookBuilderKt.DexAnalysis
-    final override val assignedFields: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.FieldKt>
+    final override var assignedFields: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.FieldKt>
         get() = wo
+        set(value) {
+            matcher.setAssignedFields((value as ContainerSyntaxKtImpl<HookBuilderKt.FieldKt, HookBuilder.Field>).syntax)
+        }
 
     @HookBuilderKt.DexAnalysis
-    final override val invokedMethods: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.MethodKt>
+    final override var accessedFields: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.FieldKt>
         get() = wo
+        set(value) {
+            matcher.setAccessedFields((value as ContainerSyntaxKtImpl<HookBuilderKt.FieldKt, HookBuilder.Field>).syntax)
+        }
 
     @HookBuilderKt.DexAnalysis
-    final override val invokedConstructor: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ConstructorKt>
+    final override var invokedMethods: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.MethodKt>
         get() = wo
+        set(value) {
+            matcher.setInvokedMethods((value as ContainerSyntaxKtImpl<HookBuilderKt.MethodKt, HookBuilder.Method>).syntax)
+        }
+
+    @HookBuilderKt.DexAnalysis
+    final override var invokedConstructor: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ConstructorKt>
+        get() = wo
+        set(value) {
+            matcher.setInvokedConstructors((value as ContainerSyntaxKtImpl<HookBuilderKt.ConstructorKt, HookBuilder.Constructor>).syntax)
+        }
 
     @HookBuilderKt.DexAnalysis
     final override var containsOpcodes: Array<Byte>
         get() = wo
         set(value) {
-            impl.setContainsOpcodes(value)
+            matcher.setContainsOpcodes(value)
         }
     final override var isVarargs: Boolean
         get() = wo
         set(value) {
-            impl.setIsVarargs(value)
+            matcher.setIsVarargs(value)
         }
 }
 
-class MethodMatcherKtImpl(impl: HookBuilder.MethodMatcher) :
+class MethodMatcherKtImpl(matcher: HookBuilder.MethodMatcher) :
     ExecutableMatcherKtImpl<HookBuilder.Method, HookBuilderKt.MethodKt, HookBuilder.MethodMatcher>(
-        impl
+        matcher
     ), HookBuilderKt.MethodMatcherKt {
     override var name: HookBuilderKt.StringKt
         get() = wo
         set(value) {
-            impl.setName((value as StringKtImpl).impl)
+            matcher.setName((value as StringKtImpl).match)
         }
     override var returnType: HookBuilderKt.ClassKt
         get() = wo
         set(value) {
-            impl.setReturnType((value as ClassKtImpl).impl)
+            matcher.setReturnType((value as ClassKtImpl).match)
         }
     override var isAbstract: Boolean
         get() = wo
         set(value) {
-            impl.setIsAbstract(value)
+            matcher.setIsAbstract(value)
         }
     override var isStatic: Boolean
         get() = wo
         set(value) {
-            impl.setIsStatic(value)
+            matcher.setIsStatic(value)
         }
     override var isFinal: Boolean
         get() = wo
         set(value) {
-            impl.setIsFinal(value)
+            matcher.setIsFinal(value)
         }
     override var isSynchronized: Boolean
         get() = wo
         set(value) {
-            impl.setIsSynchronized(value)
+            matcher.setIsSynchronized(value)
         }
     override var isNative: Boolean
         get() = wo
         set(value) {
-            impl.setIsNative(value)
+            matcher.setIsNative(value)
         }
     override var missReplacement: HookBuilderKt.MethodKt
         get() = wo
         set(value) {
-            impl.setMissReplacement((value as MethodKtImpl).impl)
+            matcher.setMissReplacement((value as MethodKtImpl).match)
         }
 }
 
-class ConstructorMatcherKtImpl(impl: HookBuilder.ConstructorMatcher) :
+class ConstructorMatcherKtImpl(matcher: HookBuilder.ConstructorMatcher) :
     ExecutableMatcherKtImpl<HookBuilder.Constructor, HookBuilderKt.ConstructorKt, HookBuilder.ConstructorMatcher>(
-        impl
+        matcher
     ), HookBuilderKt.ConstructorMatcherKt {
     override var missReplacement: HookBuilderKt.ConstructorKt
         get() = wo
         set(value) {
-            impl.setMissReplacement((value as ConstructorKtImpl).impl)
+            matcher.setMissReplacement((value as ConstructorKtImpl).match)
         }
 }
 
 object DummyHookerImpl : HookBuilderKt.DummyHooker
 
-abstract class BaseMatchKtImpl<Base, Reflect, Impl>(
-    val impl: Impl
-) : HookBuilderKt.BaseMatchKt<Base, Reflect> where Impl : HookBuilder.BaseMatch<Impl, Reflect>
+abstract class BaseMatchKtImpl<MatchKt, Reflect, Match>(
+    internal val match: Match
+) : HookBuilderKt.BaseMatchKt<MatchKt, Reflect> where MatchKt : HookBuilderKt.BaseMatchKt<MatchKt, Reflect>, Match : HookBuilder.BaseMatch<Match, Reflect> {
+    override fun unaryPlus(): HookBuilderKt.ContainerSyntaxKt<MatchKt> =
+        ContainerSyntaxKtImpl(match.observe())
 
-abstract class ReflectMatchKtImpl<Base, Reflect, Impl>(
-    impl: Impl
-) : BaseMatchKtImpl<Base, Reflect, Impl>(impl),
-    HookBuilderKt.ReflectMatchKt<Base, Reflect> where Impl : HookBuilder.ReflectMatch<Impl, Reflect> {
+    override fun unaryMinus(): HookBuilderKt.ContainerSyntaxKt<MatchKt> =
+        ContainerSyntaxKtImpl(match.reverse())
+}
+
+abstract class ReflectMatchKtImpl<MatchKt, Reflect, Match>(
+    impl: Match
+) : BaseMatchKtImpl<MatchKt, Reflect, Match>(impl),
+    HookBuilderKt.ReflectMatchKt<MatchKt, Reflect> where MatchKt : HookBuilderKt.ReflectMatchKt<MatchKt, Reflect>, Match : HookBuilder.ReflectMatch<Match, Reflect> {
     final override val key: KtString?
-        get() = impl.key
+        get() = match.key
 
-    final override fun onMatch(handler: HookBuilderKt.DummyHooker.(Reflect) -> Unit): Base =
-        newImpl(impl.onMatch {
+    final override fun onMatch(handler: HookBuilderKt.DummyHooker.(Reflect) -> Unit): MatchKt =
+        newMatchKt(match.onMatch {
             DummyHookerImpl.handler(it)
         })
 
-    abstract fun newImpl(impl: Impl): Base
-
-    final override fun div(match: Base): HookBuilderKt.ContainerSyntaxKt<Base> {
-        TODO("not yet implemented")
-    }
-
-    final override fun times(match: Base): HookBuilderKt.ContainerSyntaxKt<Base> {
-        TODO("not yet implemented")
-    }
-
-    final override fun minus(match: Base): HookBuilderKt.ContainerSyntaxKt<Base> {
-        TODO("not yet implemented")
-    }
-
-    final override fun plus(match: Base): HookBuilderKt.ContainerSyntaxKt<Base> {
-        TODO("not yet implemented")
-    }
+    abstract fun newMatchKt(match: Match): MatchKt
 }
 
-abstract class LazySequenceKtImpl<Match, Reflect : Any, Matcher, MatchBase, MatcherBase>(
-    private val impl: HookBuilder.LazySequence<MatchBase, Reflect, MatcherBase>
-) : HookBuilderKt.LazySequenceKt<Match, Reflect, Matcher> where Match : HookBuilderKt.BaseMatchKt<Match, Reflect>, Matcher : HookBuilderKt.BaseMatcherKt<Match>, MatchBase : HookBuilder.BaseMatch<MatchBase, Reflect>, MatcherBase : HookBuilder.BaseMatcher<MatcherBase, MatchBase> {
-    override fun first(): Match = newImpl(impl.first())
-
-    override fun conjunction(): HookBuilderKt.ContainerSyntaxKt<Match> {
-        TODO("Write Only")
+abstract class LazySequenceKtImpl<MatchKt, Reflect : Any, MatcherKt, Match, Matcher>(
+    private val impl: HookBuilder.LazySequence<Match, Reflect, Matcher>
+) : HookBuilderKt.LazySequenceKt<MatchKt, Reflect, MatcherKt> where MatchKt : HookBuilderKt.BaseMatchKt<MatchKt, Reflect>, MatcherKt : HookBuilderKt.BaseMatcherKt<MatchKt>, Match : HookBuilder.BaseMatch<Match, Reflect>, Matcher : HookBuilder.BaseMatcher<Matcher, Match> {
+    override fun first(): MatchKt = newImpl(impl.first())
+    override fun unaryPlus(): HookBuilderKt.ContainerSyntaxKt<MatchKt> {
+        TODO("Not yet implemented")
     }
 
-    override fun disjunction(): HookBuilderKt.ContainerSyntaxKt<Match> {
-        TODO("Write Only")
+    override fun unaryMinus(): HookBuilderKt.ContainerSyntaxKt<MatchKt> {
+        TODO("Not yet implemented")
     }
 
-    override fun onMatch(handler: HookBuilderKt.DummyHooker.(Sequence<Reflect>) -> Reflect): Match =
+    override fun onMatch(handler: HookBuilderKt.DummyHooker.(Sequence<Reflect>) -> Reflect): MatchKt =
         newImpl(impl.onMatch(HookBuilder.MatchConsumer<Iterable<Reflect>, Reflect> {
             handler(
                 DummyHookerImpl, it.asSequence()
             )
         }))
 
-    override fun onMatch(handler: HookBuilderKt.DummyHooker.(Sequence<Reflect>) -> Unit): HookBuilderKt.LazySequenceKt<Match, Reflect, Matcher> =
+    override fun onMatch(handler: HookBuilderKt.DummyHooker.(Sequence<Reflect>) -> Unit): HookBuilderKt.LazySequenceKt<MatchKt, Reflect, MatcherKt> =
         newSequence(impl.onMatch(HookBuilder.Consumer<Iterable<Reflect>> { t ->
             DummyHookerImpl.handler(
                 t.asSequence()
             )
         }))
 
-    override fun all(init: Matcher.() -> Unit): HookBuilderKt.LazySequenceKt<Match, Reflect, Matcher> =
+    override fun all(init: MatcherKt.() -> Unit): HookBuilderKt.LazySequenceKt<MatchKt, Reflect, MatcherKt> =
         newSequence(impl.all {
             newMatcher(it).init()
         })
 
-    override fun first(init: Matcher.() -> Unit): Match = newImpl(impl.first {
+    override fun first(init: MatcherKt.() -> Unit): MatchKt = newImpl(impl.first {
         newMatcher(it).init()
     })
 
-    abstract fun newImpl(impl: MatchBase): Match
+    abstract fun newImpl(impl: Match): MatchKt
 
-    abstract fun newMatcher(impl: MatcherBase): Matcher
+    abstract fun newMatcher(impl: Matcher): MatcherKt
 
-    abstract fun newSequence(impl: HookBuilder.LazySequence<MatchBase, Reflect, MatcherBase>): HookBuilderKt.LazySequenceKt<Match, Reflect, Matcher>
+    abstract fun newSequence(impl: HookBuilder.LazySequence<Match, Reflect, Matcher>): HookBuilderKt.LazySequenceKt<MatchKt, Reflect, MatcherKt>
 }
 
-class ClassKtImpl(impl: HookBuilder.Class) :
-    ReflectMatchKtImpl<HookBuilderKt.ClassKt, ReflectClass<*>, HookBuilder.Class>(
-        impl
-    ), HookBuilderKt.ClassKt {
+abstract class TypeMatchKtImpl<MatchKt, Match>(
+    match: Match
+) : ReflectMatchKtImpl<MatchKt, ReflectClass<*>, Match>(match),
+    HookBuilderKt.TypeMatchKt<MatchKt> where MatchKt : HookBuilderKt.TypeMatchKt<MatchKt>, Match : HookBuilder.TypeMatch<Match> {
     override val name: HookBuilderKt.StringKt
-        get() = StringKtImpl(impl.name)
+        get() = StringKtImpl(match.name)
     override val superClass: HookBuilderKt.ClassKt
-        get() = ClassKtImpl(impl.superClass)
-    override val interfaces: HookBuilderKt.LazySequenceKt<HookBuilderKt.ClassKt, java.lang.Class<*>, HookBuilderKt.ClassMatcherKt>
-        get() = ClassLazySequenceKtImpl(impl.interfaces)
+        get() = ClassKtImpl(match.superClass)
+    override val interfaces: ClassLazySequenceKtImpl
+        get() = ClassLazySequenceKtImpl(match.interfaces)
     override val declaredMethods: HookBuilderKt.LazySequenceKt<HookBuilderKt.MethodKt, java.lang.reflect.Method, HookBuilderKt.MethodMatcherKt>
-        get() = MethodLazySequenceKtImpl(impl.declaredMethods)
+        get() = MethodLazySequenceKtImpl(match.declaredMethods)
     override val declaredConstructors: HookBuilderKt.LazySequenceKt<HookBuilderKt.ConstructorKt, java.lang.reflect.Constructor<*>, HookBuilderKt.ConstructorMatcherKt>
-        get() = ConstructorLazySequenceKtImpl(impl.declaredConstructors)
+        get() = ConstructorLazySequenceKtImpl(match.declaredConstructors)
     override val declaredFields: HookBuilderKt.LazySequenceKt<HookBuilderKt.FieldKt, java.lang.reflect.Field, HookBuilderKt.FieldMatcherKt>
-        get() = FieldLazySequenceKtImpl(impl.declaredFields)
+        get() = FieldLazySequenceKtImpl(match.declaredFields)
     override val arrayType: HookBuilderKt.ClassKt
-        get() = ClassKtImpl(impl.arrayType)
+        get() = ClassKtImpl(match.arrayType)
+}
 
-    override fun newImpl(impl: HookBuilder.Class): HookBuilderKt.ClassKt = ClassKtImpl(impl)
+class ClassKtImpl(match: HookBuilder.Class) :
+    TypeMatchKtImpl<HookBuilderKt.ClassKt, HookBuilder.Class>(match), HookBuilderKt.ClassKt {
+
+    override fun newMatchKt(match: HookBuilder.Class): HookBuilderKt.ClassKt = ClassKtImpl(match)
+    override fun get(index: Int): HookBuilderKt.ParameterKt {
+        TODO("Not yet implemented")
+    }
+}
+
+class ParameterKtImpl(match: HookBuilder.Parameter) :
+    TypeMatchKtImpl<HookBuilderKt.ParameterKt, HookBuilder.Parameter>(match),
+    HookBuilderKt.ParameterKt {
+
+    override fun newMatchKt(match: HookBuilder.Parameter): HookBuilderKt.ParameterKt =
+        ParameterKtImpl(match)
 }
 
 abstract class MemberMatchKtImpl<Base, Reflect, Impl : HookBuilder.MemberMatch<Impl, Reflect>>(
     impl: Impl
-) : ReflectMatchKtImpl<Base, Reflect, Impl>(
-    impl
-), HookBuilderKt.MemberMatchKt<Base, Reflect> where Reflect : Member {
+) : ReflectMatchKtImpl<Base, Reflect, Impl>(impl),
+    HookBuilderKt.MemberMatchKt<Base, Reflect> where Base : HookBuilderKt.MemberMatchKt<Base, Reflect>, Reflect : Member {
     final override val declaringClass: HookBuilderKt.ClassKt
-        get() = ClassKtImpl(impl.declaringClass)
+        get() = ClassKtImpl(match.declaringClass)
 }
 
 class ClassLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.Class, ReflectClass<*>, HookBuilder.ClassMatcher>) :
@@ -424,12 +506,24 @@ class ClassLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.Class, 
     override fun newMatcher(impl: HookBuilder.ClassMatcher): HookBuilderKt.ClassMatcherKt =
         ClassMatcherKtImpl(impl)
 
-    override fun newSequence(impl: HookBuilder.LazySequence<HookBuilder.Class, java.lang.Class<*>, HookBuilder.ClassMatcher>): HookBuilderKt.LazySequenceKt<HookBuilderKt.ClassKt, ReflectClass<*>, HookBuilderKt.ClassMatcherKt> =
+    override fun newSequence(impl: HookBuilder.LazySequence<HookBuilder.Class, ReflectClass<*>, HookBuilder.ClassMatcher>): HookBuilderKt.LazySequenceKt<HookBuilderKt.ClassKt, ReflectClass<*>, HookBuilderKt.ClassMatcherKt> =
         ClassLazySequenceKtImpl(impl)
 }
 
-class FieldLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.Field, java.lang.reflect.Field, HookBuilder.FieldMatcher>) :
-    LazySequenceKtImpl<HookBuilderKt.FieldKt, java.lang.reflect.Field, HookBuilderKt.FieldMatcherKt, HookBuilder.Field, HookBuilder.FieldMatcher>(
+class ParameterLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.Parameter, ReflectClass<*>, HookBuilder.ParameterMatcher>) :
+    LazySequenceKtImpl<HookBuilderKt.ParameterKt, ReflectClass<*>, HookBuilderKt.ParameterMatcherKt, HookBuilder.Parameter, HookBuilder.ParameterMatcher>(
+        impl
+    ) {
+    override fun newImpl(impl: HookBuilder.Parameter) = ParameterKtImpl(impl)
+
+    override fun newMatcher(impl: HookBuilder.ParameterMatcher) = ParameterMatcherKtImpl(impl)
+
+    override fun newSequence(impl: HookBuilder.LazySequence<HookBuilder.Parameter, ReflectClass<*>, HookBuilder.ParameterMatcher>) =
+        ParameterLazySequenceKtImpl(impl)
+}
+
+class FieldLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.Field, ReflectField, HookBuilder.FieldMatcher>) :
+    LazySequenceKtImpl<HookBuilderKt.FieldKt, ReflectField, HookBuilderKt.FieldMatcherKt, HookBuilder.Field, HookBuilder.FieldMatcher>(
         impl
     ) {
     override fun newImpl(impl: HookBuilder.Field): HookBuilderKt.FieldKt = FieldKtImpl(impl)
@@ -437,12 +531,12 @@ class FieldLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.Field, 
     override fun newMatcher(impl: HookBuilder.FieldMatcher): HookBuilderKt.FieldMatcherKt =
         FieldMatcherKtImpl(impl)
 
-    override fun newSequence(impl: HookBuilder.LazySequence<HookBuilder.Field, java.lang.reflect.Field, HookBuilder.FieldMatcher>): HookBuilderKt.LazySequenceKt<HookBuilderKt.FieldKt, java.lang.reflect.Field, HookBuilderKt.FieldMatcherKt> =
+    override fun newSequence(impl: HookBuilder.LazySequence<HookBuilder.Field, ReflectField, HookBuilder.FieldMatcher>): HookBuilderKt.LazySequenceKt<HookBuilderKt.FieldKt, java.lang.reflect.Field, HookBuilderKt.FieldMatcherKt> =
         FieldLazySequenceKtImpl(impl)
 }
 
-class MethodLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.Method, java.lang.reflect.Method, HookBuilder.MethodMatcher>) :
-    LazySequenceKtImpl<HookBuilderKt.MethodKt, java.lang.reflect.Method, HookBuilderKt.MethodMatcherKt, HookBuilder.Method, HookBuilder.MethodMatcher>(
+class MethodLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.Method, ReflectMethod, HookBuilder.MethodMatcher>) :
+    LazySequenceKtImpl<HookBuilderKt.MethodKt, ReflectMethod, HookBuilderKt.MethodMatcherKt, HookBuilder.Method, HookBuilder.MethodMatcher>(
         impl
     ) {
     override fun newImpl(impl: HookBuilder.Method): HookBuilderKt.MethodKt = MethodKtImpl(impl)
@@ -450,11 +544,11 @@ class MethodLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.Method
     override fun newMatcher(impl: HookBuilder.MethodMatcher): HookBuilderKt.MethodMatcherKt =
         MethodMatcherKtImpl(impl)
 
-    override fun newSequence(impl: HookBuilder.LazySequence<HookBuilder.Method, java.lang.reflect.Method, HookBuilder.MethodMatcher>): HookBuilderKt.LazySequenceKt<HookBuilderKt.MethodKt, java.lang.reflect.Method, HookBuilderKt.MethodMatcherKt> =
+    override fun newSequence(impl: HookBuilder.LazySequence<HookBuilder.Method, ReflectMethod, HookBuilder.MethodMatcher>): HookBuilderKt.LazySequenceKt<HookBuilderKt.MethodKt, java.lang.reflect.Method, HookBuilderKt.MethodMatcherKt> =
         MethodLazySequenceKtImpl(impl)
 }
 
-class ConstructorLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.Constructor, java.lang.reflect.Constructor<*>, HookBuilder.ConstructorMatcher>) :
+class ConstructorLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.Constructor, ReflectConstructor<*>, HookBuilder.ConstructorMatcher>) :
     LazySequenceKtImpl<HookBuilderKt.ConstructorKt, ReflectConstructor<*>, HookBuilderKt.ConstructorMatcherKt, HookBuilder.Constructor, HookBuilder.ConstructorMatcher>(
         impl
     ) {
@@ -481,65 +575,66 @@ class StringLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.String
         StringLazySequenceKtImpl(impl)
 }
 
-abstract class ExecutableMatchKtImpl<Base, Reflect, Impl : HookBuilder.ExecutableMatch<Impl, Reflect>>(
-    impl: Impl
-) : MemberMatchKtImpl<Base, Reflect, Impl>(
+abstract class ExecutableMatchKtImpl<MatchKt, Reflect, Match : HookBuilder.ExecutableMatch<Match, Reflect>>(
+    impl: Match
+) : MemberMatchKtImpl<MatchKt, Reflect, Match>(
     impl
-), HookBuilderKt.ExecutableMatchKt<Base, Reflect> where Reflect : Member {
-    final override val parameterTypes: HookBuilderKt.LazySequenceKt<HookBuilderKt.ClassKt, ReflectClass<*>, HookBuilderKt.ClassMatcherKt>
-        get() = ClassLazySequenceKtImpl(impl.parameterTypes)
+),
+    HookBuilderKt.ExecutableMatchKt<MatchKt, Reflect> where MatchKt : HookBuilderKt.ExecutableMatchKt<MatchKt, Reflect>, Reflect : Member {
+    final override val parameterTypes: HookBuilderKt.LazySequenceKt<HookBuilderKt.ParameterKt, ReflectClass<*>, HookBuilderKt.ParameterMatcherKt>
+        get() = ParameterLazySequenceKtImpl(match.parameterTypes)
 
     @HookBuilderKt.DexAnalysis
     final override val referredStrings: HookBuilderKt.LazySequenceKt<HookBuilderKt.StringKt, KtString, HookBuilderKt.StringMatcherKt>
-        get() = StringLazySequenceKtImpl(impl.referredStrings)
+        get() = StringLazySequenceKtImpl(match.referredStrings)
 
     @HookBuilderKt.DexAnalysis
     final override val assignedFields: HookBuilderKt.LazySequenceKt<HookBuilderKt.FieldKt, java.lang.reflect.Field, HookBuilderKt.FieldMatcherKt>
-        get() = FieldLazySequenceKtImpl(impl.assignedFields)
+        get() = FieldLazySequenceKtImpl(match.assignedFields)
 
     @HookBuilderKt.DexAnalysis
     final override val accessedFields: HookBuilderKt.LazySequenceKt<HookBuilderKt.FieldKt, java.lang.reflect.Field, HookBuilderKt.FieldMatcherKt>
-        get() = FieldLazySequenceKtImpl(impl.accessedFields)
+        get() = FieldLazySequenceKtImpl(match.accessedFields)
 
     @HookBuilderKt.DexAnalysis
     final override val invokedMethods: HookBuilderKt.LazySequenceKt<HookBuilderKt.MethodKt, java.lang.reflect.Method, HookBuilderKt.MethodMatcherKt>
-        get() = MethodLazySequenceKtImpl(impl.invokedMethods)
+        get() = MethodLazySequenceKtImpl(match.invokedMethods)
 
     @HookBuilderKt.DexAnalysis
     final override val invokedConstructors: HookBuilderKt.LazySequenceKt<HookBuilderKt.ConstructorKt, java.lang.reflect.Constructor<*>, HookBuilderKt.ConstructorMatcherKt>
-        get() = ConstructorLazySequenceKtImpl(impl.invokedConstructors)
+        get() = ConstructorLazySequenceKtImpl(match.invokedConstructors)
 }
 
-class MethodKtImpl(impl: HookBuilder.Method) :
+class MethodKtImpl(match: HookBuilder.Method) :
     ExecutableMatchKtImpl<HookBuilderKt.MethodKt, ReflectMethod, HookBuilder.Method>(
-        impl
+        match
     ), HookBuilderKt.MethodKt {
     override val name: HookBuilderKt.StringKt
-        get() = StringKtImpl(impl.name)
+        get() = StringKtImpl(match.name)
     override val returnType: HookBuilderKt.ClassKt
-        get() = ClassKtImpl(impl.returnType)
+        get() = ClassKtImpl(match.returnType)
 
-    override fun newImpl(impl: HookBuilder.Method): HookBuilderKt.MethodKt = MethodKtImpl(impl)
+    override fun newMatchKt(match: HookBuilder.Method): HookBuilderKt.MethodKt = MethodKtImpl(match)
 }
 
-class ConstructorKtImpl(impl: HookBuilder.Constructor) :
+class ConstructorKtImpl(match: HookBuilder.Constructor) :
     ExecutableMatchKtImpl<HookBuilderKt.ConstructorKt, ReflectConstructor<*>, HookBuilder.Constructor>(
-        impl
+        match
     ), HookBuilderKt.ConstructorKt {
-    override fun newImpl(impl: HookBuilder.Constructor): HookBuilderKt.ConstructorKt =
-        ConstructorKtImpl(impl)
+    override fun newMatchKt(match: HookBuilder.Constructor): HookBuilderKt.ConstructorKt =
+        ConstructorKtImpl(match)
 }
 
-class FieldKtImpl(impl: HookBuilder.Field) :
+class FieldKtImpl(match: HookBuilder.Field) :
     MemberMatchKtImpl<HookBuilderKt.FieldKt, ReflectField, HookBuilder.Field>(
-        impl
+        match
     ), HookBuilderKt.FieldKt {
     override val name: HookBuilderKt.StringKt
-        get() = StringKtImpl(impl.name)
+        get() = StringKtImpl(match.name)
     override val type: HookBuilderKt.ClassKt
-        get() = ClassKtImpl(impl.type)
+        get() = ClassKtImpl(match.type)
 
-    override fun newImpl(impl: HookBuilder.Field): HookBuilderKt.FieldKt = FieldKtImpl(impl)
+    override fun newMatchKt(match: HookBuilder.Field): HookBuilderKt.FieldKt = FieldKtImpl(match)
 }
 
 class StringKtImpl(impl: HookBuilder.String) :
@@ -547,9 +642,7 @@ class StringKtImpl(impl: HookBuilder.String) :
     HookBuilderKt.StringKt
 
 internal class HookBuilderKtImpl(
-    ctx: XposedInterface,
-    classLoader: BaseDexClassLoader,
-    sourcePath: KtString
+    ctx: XposedInterface, classLoader: BaseDexClassLoader, sourcePath: KtString
 ) : HookBuilderKt {
     private val builder = HookBuilderImpl(ctx, classLoader, sourcePath)
 
