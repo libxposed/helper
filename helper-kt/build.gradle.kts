@@ -11,7 +11,7 @@ plugins {
 }
 
 android {
-    namespace = "io.github.libxposed.helper"
+    namespace = "io.github.libxposed.helper.kt"
     compileSdk = 33
 
     defaultConfig {
@@ -53,34 +53,34 @@ android {
     }
 }
 
-abstract class ExampleClassVisitorFactory :
+abstract class ClassVisitorFactory :
     AsmClassVisitorFactory<InstrumentationParameters.None> {
 
     override fun createClassVisitor(
         classContext: ClassContext,
         nextClassVisitor: ClassVisitor
     ): ClassVisitor {
-        return object: ClassVisitor(Opcodes.ASM9, nextClassVisitor) {
+        return object : ClassVisitor(Opcodes.ASM9, nextClassVisitor) {
             override fun visitMethod(
                 access: Int,
                 name: String?,
                 descriptor: String?,
                 signature: String?,
                 exceptions: Array<out String>?
-            ): MethodVisitor {
-                return super.visitMethod(access, name, descriptor, signature, exceptions)
-            }
+            ): MethodVisitor? =
+                if (exceptions?.contains("io/github/libxposed/helper/WOException") == true) null
+                else super.visitMethod(access, name, descriptor, signature, exceptions)
         }
     }
 
     override fun isInstrumentable(classData: ClassData): Boolean {
-        return classData.className.startsWith("com.example")
+        return classData.className.run { startsWith("io.github.libxposed.helper") && endsWith("KtImpl") }
     }
 }
 
 androidComponents.onVariants { variant ->
     variant.instrumentation.transformClassesWith(
-        ExampleClassVisitorFactory::class.java,
+        ClassVisitorFactory::class.java,
         InstrumentationScope.PROJECT
     ) {}
 }

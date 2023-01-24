@@ -1,4 +1,4 @@
 -keep interface ** { *; }
--keep class io.github.libxposed.helper.HookBuilderKtKt { *; }
+-keep class io.github.libxposed.helper.kt.HookBuilderKtKt { *; }
 -keepattributes *
 -repackageclasses "libxposed.helper.kt"

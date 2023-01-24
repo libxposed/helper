@@ -1,10 +1,12 @@
 @file:Suppress("OverridingDeprecatedMember")
 
-package io.github.libxposed.helper
+package io.github.libxposed.helper.kt
 
 import dalvik.system.BaseDexClassLoader
-import io.github.libxposed.XposedInterface
+import io.github.libxposed.api.XposedInterface
+import io.github.libxposed.helper.HookBuilder
 import io.github.libxposed.helper.HookBuilder.ContainerSyntax
+import io.github.libxposed.helper.HookBuilderImpl
 import java.lang.reflect.Member
 import java.lang.reflect.Constructor as ReflectConstructor
 import java.lang.reflect.Field as ReflectField
@@ -12,14 +14,18 @@ import java.lang.reflect.Method as ReflectMethod
 import java.lang.Class as ReflectClass
 import kotlin.String as KtString
 
+class WOException : UnsupportedOperationException("Write-only property")
+
 val wo: Nothing
-    inline get() = throw UnsupportedOperationException("Write-only property")
+    @Throws(WOException::class)
+    inline get() = throw WOException()
 
 abstract class BaseMatcherKtImpl<Match, MatchKt, Matcher>
     (
     internal val matcher: Matcher
 ) : HookBuilderKt.BaseMatcherKt<MatchKt> where Matcher : HookBuilder.BaseMatcher<Matcher, Match>, MatchKt : HookBuilderKt.BaseMatchKt<MatchKt, *>, Match : HookBuilder.BaseMatch<Match, *> {
     final override var matchFirst: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setMatchFirst(value)
@@ -31,26 +37,31 @@ abstract class ReflectMatcherKtImpl<Match, MatchKt, Matcher>(
 ) : BaseMatcherKtImpl<Match, MatchKt, Matcher>(matcher),
     HookBuilderKt.ReflectMatcherKt<MatchKt> where Matcher : HookBuilder.ReflectMatcher<Matcher, Match>, MatchKt : HookBuilderKt.ReflectMatchKt<MatchKt, *>, Match : HookBuilder.ReflectMatch<Match, *> {
     final override var key: kotlin.String
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setKey(value)
         }
     final override var isPublic: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsPublic(value)
         }
     final override var isPrivate: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsPrivate(value)
         }
     final override var isProtected: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsProtected(value)
         }
     final override var isPackage: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsPackage(value)
@@ -87,71 +98,85 @@ abstract class TypeMatcherKtImpl<Match, MatchKt, Matcher>(matcher: Matcher) :
     ),
     HookBuilderKt.TypeMatcherKt<MatchKt> where Matcher : HookBuilder.TypeMatcher<Matcher, Match>, MatchKt : HookBuilderKt.TypeMatchKt<MatchKt>, Match : HookBuilder.TypeMatch<Match> {
     override var name: HookBuilderKt.StringKt
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setName((value as StringKtImpl).match)
         }
     override var superClass: HookBuilderKt.ClassKt
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setSuperClass((value as ClassKtImpl).match)
         }
     override var containsMethods: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.MethodKt>
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setContainsMethods((value as ContainerSyntaxKtImpl<HookBuilderKt.MethodKt, HookBuilder.Method>).syntax)
         }
     override var containsConstructors: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ConstructorKt>
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setContainsConstructors((value as ContainerSyntaxKtImpl<HookBuilderKt.ConstructorKt, HookBuilder.Constructor>).syntax)
         }
     override var containsFields: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.FieldKt>
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setContainsFields((value as ContainerSyntaxKtImpl<HookBuilderKt.FieldKt, HookBuilder.Field>).syntax)
         }
     override var interfaces: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ClassKt>
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setInterfaces((value as ContainerSyntaxKtImpl<HookBuilderKt.ClassKt, HookBuilder.Class>).syntax)
         }
     override var isAbstract: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsAbstract(value)
         }
     override var isStatic: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsStatic(value)
         }
     override var isFinal: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsFinal(value)
         }
     override var key: kotlin.String
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setKey(value)
         }
     override var isPublic: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsPublic(value)
         }
     override var isPrivate: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsPrivate(value)
         }
     override var isProtected: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsProtected(value)
         }
     override var isPackage: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsPackage(value)
@@ -163,6 +188,7 @@ class ClassMatcherKtImpl(matcher: HookBuilder.ClassMatcher) :
         matcher
     ), HookBuilderKt.ClassMatcherKt {
     override var missReplacement: HookBuilderKt.ClassKt
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setMissReplacement((value as ClassKtImpl).match)
@@ -174,11 +200,13 @@ class ParameterMatcherKtImpl(matcher: HookBuilder.ParameterMatcher) :
         matcher
     ), HookBuilderKt.ParameterMatcherKt {
     override var index: Int
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIndex(value)
         }
     override var missReplacement: HookBuilderKt.ParameterKt
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setMissReplacement((value as ParameterKtImpl).match)
@@ -189,16 +217,19 @@ class StringMatcherKtImpl(matcher: HookBuilder.StringMatcher) :
     BaseMatcherKtImpl<HookBuilder.String, HookBuilderKt.StringKt, HookBuilder.StringMatcher>(matcher),
     HookBuilderKt.StringMatcherKt {
     override var exact: KtString
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setExact(value)
         }
     override var prefix: KtString
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setPrefix(value)
         }
     override var missReplacement: HookBuilderKt.StringKt
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setMissReplacement((value as StringKtImpl).match)
@@ -210,11 +241,13 @@ abstract class MemberMatcherKtImpl<Match, MatchKt, Matcher>(
 ) : ReflectMatcherKtImpl<Match, MatchKt, Matcher>(matcher),
     HookBuilderKt.MemberMatcherKt<MatchKt> where Matcher : HookBuilder.MemberMatcher<Matcher, Match>, MatchKt : HookBuilderKt.MemberMatchKt<MatchKt, *>, Match : HookBuilder.MemberMatch<Match, *> {
     final override var declaringClass: HookBuilderKt.ClassKt
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setDeclaringClass((value as ClassKtImpl).match)
         }
     final override var isSynthetic: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsSynthetic(value)
@@ -226,36 +259,43 @@ class FieldMatcherKtImpl(matcher: HookBuilder.FieldMatcher) :
         matcher
     ), HookBuilderKt.FieldMatcherKt {
     override var name: HookBuilderKt.StringKt
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setName((value as StringKtImpl).match)
         }
     override var type: HookBuilderKt.ClassKt
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setType((value as ClassKtImpl).match)
         }
     override var isStatic: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsStatic(value)
         }
     override var isFinal: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsFinal(value)
         }
     override var isTransient: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsTransient(value)
         }
     override var isVolatile: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsVolatile(value)
         }
     override var missReplacement: HookBuilderKt.FieldKt
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setMissReplacement((value as FieldKtImpl).match)
@@ -268,11 +308,13 @@ abstract class ExecutableMatcherKtImpl<Match, MatchKt, Matcher>(
 ) : MemberMatcherKtImpl<Match, MatchKt, Matcher>(matcher),
     HookBuilderKt.ExecutableMatcherKt<MatchKt> where Matcher : HookBuilder.ExecutableMatcher<Matcher, Match>, MatchKt : HookBuilderKt.ExecutableMatchKt<MatchKt, *>, Match : HookBuilder.ExecutableMatch<Match, *> {
     final override var parameterCounts: Int
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setParameterCount(value)
         }
     final override var parameterTypes: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ParameterKt>
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setParameterTypes((value as ContainerSyntaxKtImpl<HookBuilderKt.ParameterKt, HookBuilder.Parameter>).syntax)
@@ -280,6 +322,7 @@ abstract class ExecutableMatcherKtImpl<Match, MatchKt, Matcher>(
 
     @HookBuilderKt.DexAnalysis
     final override var referredStrings: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.StringKt>
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setReferredStrings((value as ContainerSyntaxKtImpl<HookBuilderKt.StringKt, HookBuilder.String>).syntax)
@@ -287,6 +330,7 @@ abstract class ExecutableMatcherKtImpl<Match, MatchKt, Matcher>(
 
     @HookBuilderKt.DexAnalysis
     final override var assignedFields: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.FieldKt>
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setAssignedFields((value as ContainerSyntaxKtImpl<HookBuilderKt.FieldKt, HookBuilder.Field>).syntax)
@@ -294,6 +338,7 @@ abstract class ExecutableMatcherKtImpl<Match, MatchKt, Matcher>(
 
     @HookBuilderKt.DexAnalysis
     final override var accessedFields: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.FieldKt>
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setAccessedFields((value as ContainerSyntaxKtImpl<HookBuilderKt.FieldKt, HookBuilder.Field>).syntax)
@@ -301,6 +346,7 @@ abstract class ExecutableMatcherKtImpl<Match, MatchKt, Matcher>(
 
     @HookBuilderKt.DexAnalysis
     final override var invokedMethods: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.MethodKt>
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setInvokedMethods((value as ContainerSyntaxKtImpl<HookBuilderKt.MethodKt, HookBuilder.Method>).syntax)
@@ -308,6 +354,7 @@ abstract class ExecutableMatcherKtImpl<Match, MatchKt, Matcher>(
 
     @HookBuilderKt.DexAnalysis
     final override var invokedConstructor: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ConstructorKt>
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setInvokedConstructors((value as ContainerSyntaxKtImpl<HookBuilderKt.ConstructorKt, HookBuilder.Constructor>).syntax)
@@ -315,11 +362,13 @@ abstract class ExecutableMatcherKtImpl<Match, MatchKt, Matcher>(
 
     @HookBuilderKt.DexAnalysis
     final override var containsOpcodes: Array<Byte>
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setContainsOpcodes(value)
         }
     final override var isVarargs: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsVarargs(value)
@@ -331,41 +380,49 @@ class MethodMatcherKtImpl(matcher: HookBuilder.MethodMatcher) :
         matcher
     ), HookBuilderKt.MethodMatcherKt {
     override var name: HookBuilderKt.StringKt
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setName((value as StringKtImpl).match)
         }
     override var returnType: HookBuilderKt.ClassKt
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setReturnType((value as ClassKtImpl).match)
         }
     override var isAbstract: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsAbstract(value)
         }
     override var isStatic: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsStatic(value)
         }
     override var isFinal: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsFinal(value)
         }
     override var isSynchronized: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsSynchronized(value)
         }
     override var isNative: Boolean
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setIsNative(value)
         }
     override var missReplacement: HookBuilderKt.MethodKt
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setMissReplacement((value as MethodKtImpl).match)
@@ -377,6 +434,7 @@ class ConstructorMatcherKtImpl(matcher: HookBuilder.ConstructorMatcher) :
         matcher
     ), HookBuilderKt.ConstructorMatcherKt {
     override var missReplacement: HookBuilderKt.ConstructorKt
+        @Throws(WOException::class)
         get() = wo
         set(value) {
             matcher.setMissReplacement((value as ConstructorKtImpl).match)

@@ -1,9 +1,9 @@
 @file:Suppress("unused")
 
-package io.github.libxposed.helper
+package io.github.libxposed.helper.kt
 
 import dalvik.system.BaseDexClassLoader
-import io.github.libxposed.XposedInterface
+import io.github.libxposed.api.XposedInterface
 import java.io.Serializable
 import kotlin.experimental.ExperimentalTypeInference
 import java.lang.Class

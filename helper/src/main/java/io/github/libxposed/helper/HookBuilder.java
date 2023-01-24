@@ -7,7 +7,7 @@ import java.io.Serializable;
 import java.util.Map;
 
 import dalvik.system.BaseDexClassLoader;
-import io.github.libxposed.XposedContextWrapper;
+import io.github.libxposed.api.XposedContextWrapper;
 
 @SuppressWarnings("unused")
 public interface HookBuilder {
