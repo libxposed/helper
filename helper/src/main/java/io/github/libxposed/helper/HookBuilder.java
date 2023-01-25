@@ -201,7 +201,7 @@ public interface HookBuilder {
 
         @DexAnalysis
         @NonNull
-        Self setAccessedFields(@NonNull ContainerSyntax<FieldMatch> assignedFields);
+        Self setAccessedFields(@NonNull ContainerSyntax<FieldMatch> accessedFields);
 
         @DexAnalysis
         @NonNull
@@ -213,7 +213,7 @@ public interface HookBuilder {
 
         @DexAnalysis
         @NonNull
-        Self setContainsOpcodes(@NonNull Byte[] opcodes);
+        Self setContainsOpcodes(@NonNull byte[] opcodes);
 
         @NonNull
         Self setIsVarargs(boolean isVarargs);
