@@ -4,6 +4,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.io.Serializable;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Member;
+import java.lang.reflect.Method;
 import java.util.Map;
 
 import dalvik.system.BaseDexClassLoader;
@@ -28,7 +32,7 @@ public interface HookBuilder {
     }
 
     @NonNull
-    static MatchResult buildHook(@NonNull XposedContextWrapper ctx, @NonNull BaseDexClassLoader classLoader, @NonNull java.lang.String sourcePath, Consumer<HookBuilder> consumer) {
+    static MatchResult buildHook(@NonNull XposedContextWrapper ctx, @NonNull BaseDexClassLoader classLoader, @NonNull String sourcePath, Consumer<HookBuilder> consumer) {
         var builder = new HookBuilderImpl(ctx, classLoader, sourcePath);
         consumer.accept(builder);
         return builder.build();
@@ -36,16 +40,16 @@ public interface HookBuilder {
 
     interface MatchResult extends Serializable {
         @NonNull
-        Map<java.lang.String, java.lang.Class<?>> getMatchedClasses();
+        Map<String, Class<?>> getMatchedClasses();
 
         @NonNull
-        Map<java.lang.String, java.lang.reflect.Field> getMatchedFields();
+        Map<String, Field> getMatchedFields();
 
         @NonNull
-        Map<java.lang.String, java.lang.reflect.Method> getMatchedMethods();
+        Map<String, Method> getMatchedMethods();
 
         @NonNull
-        Map<java.lang.String, java.lang.reflect.Constructor<?>> getMatchedConstructors();
+        Map<String, Constructor<?>> getMatchedConstructors();
     }
 
     interface BaseMatcher<Self extends BaseMatcher<Self, Match>, Match extends BaseMatch<Match, ?>> {
@@ -57,7 +61,7 @@ public interface HookBuilder {
     }
 
     interface ReflectMatcher<Self extends ReflectMatcher<Self, Match>, Match extends ReflectMatch<Match, ?>> extends BaseMatcher<Self, Match> {
-        Self setKey(@NonNull java.lang.String key);
+        Self setKey(@NonNull String key);
 
         Self setIsPublic(boolean isPublic);
 
@@ -87,22 +91,22 @@ public interface HookBuilder {
 
     interface TypeMatcher<Self extends TypeMatcher<Self, Match>, Match extends TypeMatch<Match>> extends ReflectMatcher<Self, Match> {
         @NonNull
-        Self setName(@NonNull String name);
+        Self setName(@NonNull StringMatch name);
 
         @NonNull
-        Self setSuperClass(@NonNull Class superClass);
+        Self setSuperClass(@NonNull ClassMatch superClassMatch);
 
         @NonNull
-        Self setContainsMethods(@NonNull ContainerSyntax<Method> syntax);
+        Self setContainsMethods(@NonNull ContainerSyntax<MethodMatch> syntax);
 
         @NonNull
-        Self setContainsConstructors(@NonNull ContainerSyntax<Constructor> syntax);
+        Self setContainsConstructors(@NonNull ContainerSyntax<ConstructorMatch> syntax);
 
         @NonNull
-        Self setContainsFields(@NonNull ContainerSyntax<Field> syntax);
+        Self setContainsFields(@NonNull ContainerSyntax<FieldMatch> syntax);
 
         @NonNull
-        Self setInterfaces(@NonNull ContainerSyntax<Class> syntax);
+        Self setInterfaces(@NonNull ContainerSyntax<ClassMatch> syntax);
 
         @NonNull
         Self setIsAbstract(boolean isAbstract);
@@ -114,36 +118,36 @@ public interface HookBuilder {
         Self setIsFinal(boolean isFinal);
     }
 
-    interface ClassMatcher extends TypeMatcher<ClassMatcher, Class> {
+    interface ClassMatcher extends TypeMatcher<ClassMatcher, ClassMatch> {
     }
 
-    interface ParameterMatcher extends TypeMatcher<ParameterMatcher, Parameter> {
+    interface ParameterMatcher extends TypeMatcher<ParameterMatcher, ParameterMatch> {
         @NonNull
         ParameterMatcher setIndex(int index);
     }
 
-    interface StringMatcher extends BaseMatcher<StringMatcher, String> {
+    interface StringMatcher extends BaseMatcher<StringMatcher, StringMatch> {
         @NonNull
-        StringMatcher setExact(@NonNull java.lang.String exact);
+        StringMatcher setExact(@NonNull String exact);
 
         @NonNull
-        StringMatcher setPrefix(@NonNull java.lang.String prefix);
+        StringMatcher setPrefix(@NonNull String prefix);
     }
 
     interface MemberMatcher<Self extends MemberMatcher<Self, Match>, Match extends MemberMatch<Match, ?>> extends ReflectMatcher<Self, Match> {
         @NonNull
-        Self setDeclaringClass(@NonNull Class declaringClass);
+        Self setDeclaringClass(@NonNull ClassMatch declaringClassMatch);
 
         @NonNull
         Self setIsSynthetic(boolean isSynthetic);
     }
 
-    interface FieldMatcher extends MemberMatcher<FieldMatcher, Field> {
+    interface FieldMatcher extends MemberMatcher<FieldMatcher, FieldMatch> {
         @NonNull
-        FieldMatcher setName(@NonNull String name);
+        FieldMatcher setName(@NonNull StringMatch name);
 
         @NonNull
-        FieldMatcher setType(@NonNull Class type);
+        FieldMatcher setType(@NonNull ClassMatch type);
 
         @NonNull
         FieldMatcher setIsStatic(boolean isStatic);
@@ -163,22 +167,22 @@ public interface HookBuilder {
         Self setParameterCount(int count);
 
         @NonNull
-        Self setParameterTypes(@NonNull ContainerSyntax<Parameter> parameterTypes);
+        Self setParameterTypes(@NonNull ContainerSyntax<ParameterMatch> parameterTypes);
 
         @NonNull
-        Self setReferredStrings(@NonNull ContainerSyntax<String> referredStrings);
+        Self setReferredStrings(@NonNull ContainerSyntax<StringMatch> referredStrings);
 
         @NonNull
-        Self setAssignedFields(@NonNull ContainerSyntax<Field> assignedFields);
+        Self setAssignedFields(@NonNull ContainerSyntax<FieldMatch> assignedFields);
 
         @NonNull
-        Self setAccessedFields(@NonNull ContainerSyntax<Field> assignedFields);
+        Self setAccessedFields(@NonNull ContainerSyntax<FieldMatch> assignedFields);
 
         @NonNull
-        Self setInvokedMethods(@NonNull ContainerSyntax<Method> invokedMethods);
+        Self setInvokedMethods(@NonNull ContainerSyntax<MethodMatch> invokedMethods);
 
         @NonNull
-        Self setInvokedConstructors(@NonNull ContainerSyntax<Constructor> invokedConstructors);
+        Self setInvokedConstructors(@NonNull ContainerSyntax<ConstructorMatch> invokedConstructors);
 
         @NonNull
         Self setContainsOpcodes(@NonNull Byte[] opcodes);
@@ -187,12 +191,12 @@ public interface HookBuilder {
         Self setIsVarargs(boolean isVarargs);
     }
 
-    interface MethodMatcher extends ExecutableMatcher<MethodMatcher, Method> {
+    interface MethodMatcher extends ExecutableMatcher<MethodMatcher, MethodMatch> {
         @NonNull
-        MethodMatcher setName(@NonNull String name);
+        MethodMatcher setName(@NonNull StringMatch name);
 
         @NonNull
-        MethodMatcher setReturnType(@NonNull Class returnType);
+        MethodMatcher setReturnType(@NonNull ClassMatch returnType);
 
         @NonNull
         MethodMatcher setIsAbstract(boolean isAbstract);
@@ -210,7 +214,7 @@ public interface HookBuilder {
         MethodMatcher setIsNative(boolean isNative);
     }
 
-    interface ConstructorMatcher extends ExecutableMatcher<ConstructorMatcher, Constructor> {
+    interface ConstructorMatcher extends ExecutableMatcher<ConstructorMatcher, ConstructorMatch> {
     }
 
     interface BaseMatch<Self extends BaseMatch<Self, Reflect>, Reflect> {
@@ -223,7 +227,7 @@ public interface HookBuilder {
 
     interface ReflectMatch<Self extends ReflectMatch<Self, Reflect>, Reflect> extends BaseMatch<Self, Reflect> {
         @Nullable
-        java.lang.String getKey();
+        String getKey();
 
         @NonNull
         Self onMatch(@NonNull Consumer<Reflect> consumer);
@@ -252,82 +256,82 @@ public interface HookBuilder {
         ContainerSyntax<Match> disjunction();
     }
 
-    interface TypeMatch<Self extends TypeMatch<Self>> extends ReflectMatch<Self, java.lang.Class<?>> {
+    interface TypeMatch<Self extends TypeMatch<Self>> extends ReflectMatch<Self, Class<?>> {
         @NonNull
-        String getName();
+        StringMatch getName();
 
         @NonNull
-        Class getSuperClass();
+        ClassMatch getSuperClass();
 
         @NonNull
-        LazySequence<Class, java.lang.Class<?>, ClassMatcher> getInterfaces();
+        LazySequence<ClassMatch, Class<?>, ClassMatcher> getInterfaces();
 
         @NonNull
-        LazySequence<Method, java.lang.reflect.Method, MethodMatcher> getDeclaredMethods();
+        LazySequence<MethodMatch, Method, MethodMatcher> getDeclaredMethods();
 
         @NonNull
-        LazySequence<Constructor, java.lang.reflect.Constructor<?>, ConstructorMatcher> getDeclaredConstructors();
+        LazySequence<ConstructorMatch, Constructor<?>, ConstructorMatcher> getDeclaredConstructors();
 
         @NonNull
-        LazySequence<Field, java.lang.reflect.Field, FieldMatcher> getDeclaredFields();
+        LazySequence<FieldMatch, Field, FieldMatcher> getDeclaredFields();
 
         @NonNull
-        Class getArrayType();
+        ClassMatch getArrayType();
     }
 
-    interface Class extends TypeMatch<Class> {
+    interface ClassMatch extends TypeMatch<ClassMatch> {
         @NonNull
-        Parameter asParameter(int index);
+        ParameterMatch asParameter(int index);
     }
 
-    interface Parameter extends TypeMatch<Parameter> {
+    interface ParameterMatch extends TypeMatch<ParameterMatch> {
     }
 
-    interface MemberMatch<Self extends MemberMatch<Self, Reflect>, Reflect extends java.lang.reflect.Member> extends ReflectMatch<Self, Reflect> {
+    interface MemberMatch<Self extends MemberMatch<Self, Reflect>, Reflect extends Member> extends ReflectMatch<Self, Reflect> {
         @NonNull
-        Class getDeclaringClass();
+        ClassMatch getDeclaringClass();
     }
 
-    interface ExecutableMatch<Self extends ExecutableMatch<Self, Reflect>, Reflect extends java.lang.reflect.Member> extends MemberMatch<Self, Reflect> {
+    interface ExecutableMatch<Self extends ExecutableMatch<Self, Reflect>, Reflect extends Member> extends MemberMatch<Self, Reflect> {
         @NonNull
-        LazySequence<Parameter, java.lang.Class<?>, ParameterMatcher> getParameterTypes();
+        LazySequence<ParameterMatch, Class<?>, ParameterMatcher> getParameterTypes();
 
         @NonNull
-        LazySequence<String, java.lang.String, StringMatcher> getReferredStrings();
+        LazySequence<StringMatch, String, StringMatcher> getReferredStrings();
 
         @NonNull
-        LazySequence<Field, java.lang.reflect.Field, FieldMatcher> getAssignedFields();
+        LazySequence<FieldMatch, Field, FieldMatcher> getAssignedFields();
 
         @NonNull
-        LazySequence<Field, java.lang.reflect.Field, FieldMatcher> getAccessedFields();
+        LazySequence<FieldMatch, Field, FieldMatcher> getAccessedFields();
 
         @NonNull
-        LazySequence<Method, java.lang.reflect.Method, MethodMatcher> getInvokedMethods();
+        LazySequence<MethodMatch, Method, MethodMatcher> getInvokedMethods();
 
         @NonNull
-        LazySequence<Constructor, java.lang.reflect.Constructor<?>, ConstructorMatcher> getInvokedConstructors();
+        LazySequence<ConstructorMatch, Constructor<?>, ConstructorMatcher> getInvokedConstructors();
     }
 
-    interface Method extends ExecutableMatch<Method, java.lang.reflect.Method> {
+    interface MethodMatch extends ExecutableMatch<MethodMatch, Method> {
         @NonNull
-        String getName();
+        StringMatch getName();
 
         @NonNull
-        Class getReturnType();
+        ClassMatch getReturnType();
     }
 
-    interface Constructor extends ExecutableMatch<Constructor, java.lang.reflect.Constructor<?>> {
+    interface ConstructorMatch extends ExecutableMatch<ConstructorMatch, Constructor<?>> {
     }
 
-    interface Field extends MemberMatch<Field, java.lang.reflect.Field> {
+    interface FieldMatch extends MemberMatch<FieldMatch, Field> {
         @NonNull
-        String getName();
+        StringMatch getName();
 
         @NonNull
-        Class getType();
+        ClassMatch getType();
     }
 
-    interface String extends BaseMatch<String, java.lang.String> {
+    interface StringMatch extends BaseMatch<StringMatch, String> {
 
     }
 
@@ -338,50 +342,50 @@ public interface HookBuilder {
     HookBuilder setExceptionHandler(@NonNull Predicate<Throwable> handler);
 
     @NonNull
-    LazySequence<Method, java.lang.reflect.Method, MethodMatcher> methods(@NonNull Consumer<MethodMatcher> matcher);
+    LazySequence<MethodMatch, Method, MethodMatcher> methods(@NonNull Consumer<MethodMatcher> matcher);
 
     @NonNull
-    Method firstMethod(@NonNull Consumer<MethodMatcher> matcher);
+    MethodMatch firstMethod(@NonNull Consumer<MethodMatcher> matcher);
 
     @NonNull
-    LazySequence<Constructor, java.lang.reflect.Constructor<?>, ConstructorMatcher> constructors(@NonNull Consumer<ConstructorMatcher> matcher);
+    LazySequence<ConstructorMatch, Constructor<?>, ConstructorMatcher> constructors(@NonNull Consumer<ConstructorMatcher> matcher);
 
     @NonNull
-    Constructor firstConstructor(@NonNull Consumer<ConstructorMatcher> matcher);
+    ConstructorMatch firstConstructor(@NonNull Consumer<ConstructorMatcher> matcher);
 
     @NonNull
-    LazySequence<Field, java.lang.reflect.Field, FieldMatcher> fields(@NonNull Consumer<FieldMatcher> matcher);
+    LazySequence<FieldMatch, Field, FieldMatcher> fields(@NonNull Consumer<FieldMatcher> matcher);
 
     @NonNull
-    Field firstField(@NonNull Consumer<FieldMatcher> matcher);
+    FieldMatch firstField(@NonNull Consumer<FieldMatcher> matcher);
 
     @NonNull
-    LazySequence<Class, java.lang.Class<?>, ClassMatcher> classes(@NonNull Consumer<ClassMatcher> matcher);
+    LazySequence<ClassMatch, Class<?>, ClassMatcher> classes(@NonNull Consumer<ClassMatcher> matcher);
 
     @NonNull
-    Class firstClass(@NonNull Consumer<ClassMatcher> matcher);
+    ClassMatch firstClass(@NonNull Consumer<ClassMatcher> matcher);
 
     @NonNull
-    String string(@NonNull Consumer<StringMatcher> matcher);
+    StringMatch string(@NonNull Consumer<StringMatcher> matcher);
 
     @NonNull
-    String exact(@NonNull java.lang.String string);
+    StringMatch exact(@NonNull String string);
 
     @NonNull
-    String prefix(@NonNull java.lang.String prefix);
+    StringMatch prefix(@NonNull String prefix);
 
     @NonNull
-    Class exactClass(@NonNull java.lang.String name);
+    ClassMatch exactClass(@NonNull String name);
 
     @NonNull
-    Class exact(@NonNull java.lang.Class<?> clazz);
+    ClassMatch exact(@NonNull Class<?> clazz);
 
     @NonNull
-    Method exact(@NonNull java.lang.reflect.Method method);
+    MethodMatch exact(@NonNull Method method);
 
     @NonNull
-    Constructor exact(@NonNull java.lang.reflect.Constructor<?> constructor);
+    ConstructorMatch exact(@NonNull Constructor<?> constructor);
 
     @NonNull
-    Field exact(@NonNull java.lang.reflect.Field field);
+    FieldMatch exact(@NonNull Field field);
 }

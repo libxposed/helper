@@ -81,22 +81,22 @@ sealed interface HookBuilderKt {
     sealed interface TypeMatcherKt<Match> : ReflectMatcherKt<Match>
             where Match : TypeMatchKt<Match> {
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var name: StringKt
+        var name: StringMatchKt
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var superClass: ClassKt
+        var superClass: ClassMatchKt
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var containsMethods: ContainerSyntaxKt<MethodKt>
+        var containsMethods: ContainerSyntaxKt<MethodMatchKt>
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var containsConstructors: ContainerSyntaxKt<ConstructorKt>
+        var containsConstructors: ContainerSyntaxKt<ConstructorMatchKt>
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var containsFields: ContainerSyntaxKt<FieldKt>
+        var containsFields: ContainerSyntaxKt<FieldMatchKt>
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var interfaces: ContainerSyntaxKt<ClassKt>
+        var interfaces: ContainerSyntaxKt<ClassMatchKt>
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var isAbstract: Boolean
@@ -108,15 +108,15 @@ sealed interface HookBuilderKt {
         var isFinal: Boolean
     }
 
-    sealed interface ClassMatcherKt : TypeMatcherKt<ClassKt>
+    sealed interface ClassMatcherKt : TypeMatcherKt<ClassMatchKt>
 
-    sealed interface ParameterMatcherKt : TypeMatcherKt<ParameterKt> {
+    sealed interface ParameterMatcherKt : TypeMatcherKt<ParameterMatchKt> {
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var index: Int
     }
 
     @Matcher
-    sealed interface StringMatcherKt : BaseMatcherKt<StringKt> {
+    sealed interface StringMatcherKt : BaseMatcherKt<StringMatchKt> {
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var exact: String
 
@@ -127,19 +127,19 @@ sealed interface HookBuilderKt {
     interface MemberMatcherKt<Match> :
         ReflectMatcherKt<Match> where Match : MemberMatchKt<Match, *> {
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var declaringClass: ClassKt
+        var declaringClass: ClassMatchKt
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var isSynthetic: Boolean
     }
 
 
-    sealed interface FieldMatcherKt : MemberMatcherKt<FieldKt> {
+    sealed interface FieldMatcherKt : MemberMatcherKt<FieldMatchKt> {
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var name: StringKt
+        var name: StringMatchKt
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var type: ClassKt
+        var type: ClassMatchKt
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var isStatic: Boolean
@@ -160,27 +160,27 @@ sealed interface HookBuilderKt {
         var parameterCounts: Int
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var parameterTypes: ContainerSyntaxKt<ParameterKt>
+        var parameterTypes: ContainerSyntaxKt<ParameterMatchKt>
 
         @DexAnalysis
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var referredStrings: ContainerSyntaxKt<StringKt>
+        var referredStrings: ContainerSyntaxKt<StringMatchKt>
 
         @DexAnalysis
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var assignedFields: ContainerSyntaxKt<FieldKt>
+        var assignedFields: ContainerSyntaxKt<FieldMatchKt>
 
         @DexAnalysis
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var accessedFields: ContainerSyntaxKt<FieldKt>
+        var accessedFields: ContainerSyntaxKt<FieldMatchKt>
 
         @DexAnalysis
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var invokedMethods: ContainerSyntaxKt<MethodKt>
+        var invokedMethods: ContainerSyntaxKt<MethodMatchKt>
 
         @DexAnalysis
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var invokedConstructor: ContainerSyntaxKt<ConstructorKt>
+        var invokedConstructor: ContainerSyntaxKt<ConstructorMatchKt>
 
         @DexAnalysis
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
@@ -190,12 +190,12 @@ sealed interface HookBuilderKt {
         var isVarargs: Boolean
     }
 
-    sealed interface MethodMatcherKt : ExecutableMatcherKt<MethodKt> {
+    sealed interface MethodMatcherKt : ExecutableMatcherKt<MethodMatchKt> {
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var name: StringKt
+        var name: StringMatchKt
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var returnType: ClassKt
+        var returnType: ClassMatchKt
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var isAbstract: Boolean
@@ -213,7 +213,7 @@ sealed interface HookBuilderKt {
         var isNative: Boolean
     }
 
-    sealed interface ConstructorMatcherKt : ExecutableMatcherKt<ConstructorKt>
+    sealed interface ConstructorMatcherKt : ExecutableMatcherKt<ConstructorMatchKt>
 
     @Hooker
     sealed interface DummyHooker
@@ -249,76 +249,76 @@ sealed interface HookBuilderKt {
 
     sealed interface TypeMatchKt<Self> :
         ReflectMatchKt<Self, Class<*>> where Self : TypeMatchKt<Self> {
-        val name: StringKt
-        val superClass: ClassKt
-        val interfaces: LazySequenceKt<ClassKt, Class<*>, ClassMatcherKt>
-        val declaredMethods: LazySequenceKt<MethodKt, Method, MethodMatcherKt>
-        val declaredConstructors: LazySequenceKt<ConstructorKt, Constructor<*>, ConstructorMatcherKt>
-        val declaredFields: LazySequenceKt<FieldKt, Field, FieldMatcherKt>
-        val arrayType: ClassKt
+        val name: StringMatchKt
+        val superClass: ClassMatchKt
+        val interfaces: LazySequenceKt<ClassMatchKt, Class<*>, ClassMatcherKt>
+        val declaredMethods: LazySequenceKt<MethodMatchKt, Method, MethodMatcherKt>
+        val declaredConstructors: LazySequenceKt<ConstructorMatchKt, Constructor<*>, ConstructorMatcherKt>
+        val declaredFields: LazySequenceKt<FieldMatchKt, Field, FieldMatcherKt>
+        val arrayType: ClassMatchKt
     }
 
-    sealed interface ClassKt : TypeMatchKt<ClassKt> {
-        operator fun get(index: Int): ParameterKt
+    sealed interface ClassMatchKt : TypeMatchKt<ClassMatchKt> {
+        operator fun get(index: Int): ParameterMatchKt
     }
 
-    sealed interface ParameterKt : TypeMatchKt<ParameterKt>
+    sealed interface ParameterMatchKt : TypeMatchKt<ParameterMatchKt>
 
     sealed interface MemberMatchKt<Self, Reflect> :
         ReflectMatchKt<Self, Reflect> where Self : MemberMatchKt<Self, Reflect>, Reflect : Member {
-        val declaringClass: ClassKt
+        val declaringClass: ClassMatchKt
     }
 
     sealed interface ExecutableMatchKt<Self, Reflect> :
         MemberMatchKt<Self, Reflect> where Self : ExecutableMatchKt<Self, Reflect>, Reflect : Member {
-        val parameterTypes: LazySequenceKt<ParameterKt, Class<*>, ParameterMatcherKt>
+        val parameterTypes: LazySequenceKt<ParameterMatchKt, Class<*>, ParameterMatcherKt>
 
         @DexAnalysis
-        val referredStrings: LazySequenceKt<StringKt, String, StringMatcherKt>
+        val referredStrings: LazySequenceKt<StringMatchKt, String, StringMatcherKt>
 
         @DexAnalysis
-        val assignedFields: LazySequenceKt<FieldKt, Field, FieldMatcherKt>
+        val assignedFields: LazySequenceKt<FieldMatchKt, Field, FieldMatcherKt>
 
         @DexAnalysis
-        val accessedFields: LazySequenceKt<FieldKt, Field, FieldMatcherKt>
+        val accessedFields: LazySequenceKt<FieldMatchKt, Field, FieldMatcherKt>
 
         @DexAnalysis
-        val invokedMethods: LazySequenceKt<MethodKt, Method, MethodMatcherKt>
+        val invokedMethods: LazySequenceKt<MethodMatchKt, Method, MethodMatcherKt>
 
         @DexAnalysis
-        val invokedConstructors: LazySequenceKt<ConstructorKt, Constructor<*>, ConstructorMatcherKt>
+        val invokedConstructors: LazySequenceKt<ConstructorMatchKt, Constructor<*>, ConstructorMatcherKt>
     }
 
-    sealed interface MethodKt : ExecutableMatchKt<MethodKt, Method> {
-        val name: StringKt
-        val returnType: ClassKt
+    sealed interface MethodMatchKt : ExecutableMatchKt<MethodMatchKt, Method> {
+        val name: StringMatchKt
+        val returnType: ClassMatchKt
     }
 
-    sealed interface ConstructorKt : ExecutableMatchKt<ConstructorKt, Constructor<*>>
+    sealed interface ConstructorMatchKt : ExecutableMatchKt<ConstructorMatchKt, Constructor<*>>
 
-    sealed interface FieldKt : MemberMatchKt<FieldKt, Field> {
-        val name: StringKt
-        val type: ClassKt
+    sealed interface FieldMatchKt : MemberMatchKt<FieldMatchKt, Field> {
+        val name: StringMatchKt
+        val type: ClassMatchKt
     }
 
-    sealed interface StringKt : BaseMatchKt<StringKt, String>
+    sealed interface StringMatchKt : BaseMatchKt<StringMatchKt, String>
 
-    fun methods(init: MethodMatcherKt.() -> Unit): LazySequenceKt<MethodKt, Method, MethodMatcherKt>
-    fun firstMethod(init: MethodMatcherKt.() -> Unit): MethodKt
-    fun classes(init: ClassMatcherKt.() -> Unit): LazySequenceKt<ClassKt, Class<*>, ClassMatcherKt>
-    fun firstClass(init: ClassMatcherKt.() -> Unit): ClassKt
-    fun fields(init: FieldMatcherKt.() -> Unit): LazySequenceKt<FieldKt, Field, FieldMatcherKt>
-    fun firstField(init: FieldMatcherKt.() -> Unit): FieldKt
-    fun constructors(init: ConstructorMatcherKt.() -> Unit): LazySequenceKt<ConstructorKt, Constructor<*>, ConstructorMatcherKt>
-    fun firstConstructor(init: ConstructorMatcherKt.() -> Unit): ConstructorKt
-    fun string(init: StringMatcherKt.() -> Unit): StringKt
-    val String.exact: StringKt
-    val String.prefix: StringKt
-    val String.exactClass: ClassKt
-    val Class<*>.exact: ClassKt
-    val Method.exact: MethodKt
-    val Constructor<*>.exact: ConstructorKt
-    val Field.exact: FieldKt
+    fun methods(init: MethodMatcherKt.() -> Unit): LazySequenceKt<MethodMatchKt, Method, MethodMatcherKt>
+    fun firstMethod(init: MethodMatcherKt.() -> Unit): MethodMatchKt
+    fun classes(init: ClassMatcherKt.() -> Unit): LazySequenceKt<ClassMatchKt, Class<*>, ClassMatcherKt>
+    fun firstClass(init: ClassMatcherKt.() -> Unit): ClassMatchKt
+    fun fields(init: FieldMatcherKt.() -> Unit): LazySequenceKt<FieldMatchKt, Field, FieldMatcherKt>
+    fun firstField(init: FieldMatcherKt.() -> Unit): FieldMatchKt
+    fun constructors(init: ConstructorMatcherKt.() -> Unit): LazySequenceKt<ConstructorMatchKt, Constructor<*>, ConstructorMatcherKt>
+    fun firstConstructor(init: ConstructorMatcherKt.() -> Unit): ConstructorMatchKt
+    fun string(init: StringMatcherKt.() -> Unit): StringMatchKt
+    val String.exact: StringMatchKt
+    val String.prefix: StringMatchKt
+    val String.exactClass: ClassMatchKt
+    val Class<*>.exact: ClassMatchKt
+    val Method.exact: MethodMatchKt
+    val Constructor<*>.exact: ConstructorMatchKt
+    val Field.exact: FieldMatchKt
 }
 
 fun XposedInterface.buildHooks(
