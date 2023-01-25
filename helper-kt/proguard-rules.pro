@@ -1,4 +1,6 @@
 -keep interface ** { *; }
 -keep class io.github.libxposed.helper.kt.HookBuilderKtKt { *; }
+-keep abstract class io.github.libxposed.helper.kt.HookBuilderKt$LazyBind { onMatch(); <init>(); }
+-keepclassmembers abstract class io.github.libxposed.helper.kt.HookBuilderKt$LazyBind { io.github.libxposed.helper.HookBuilder$LazyBind impl; }
 -keepattributes *
 -repackageclasses "libxposed.helper.kt"

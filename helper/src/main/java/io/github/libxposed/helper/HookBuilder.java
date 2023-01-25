@@ -21,6 +21,11 @@ public interface HookBuilder {
     }
 
     @FunctionalInterface
+    interface BiConsumer<T, U> {
+        void accept(@NonNull T t, @NonNull U u);
+    }
+
+    @FunctionalInterface
     interface Predicate<T> {
         boolean test(@NonNull T t);
     }
@@ -231,6 +236,9 @@ public interface HookBuilder {
 
         @NonNull
         Self onMatch(@NonNull Consumer<Reflect> consumer);
+
+        @NonNull
+        <Bind extends LazyBind> Self bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Reflect> consumer);
     }
 
     interface LazySequence<Match extends BaseMatch<Match, Reflect>, Reflect, Matcher extends BaseMatcher<Matcher, Match>> {
@@ -254,6 +262,9 @@ public interface HookBuilder {
 
         @NonNull
         ContainerSyntax<Match> disjunction();
+
+        @NonNull
+        <Bind extends LazyBind> LazySequence<Match, Reflect, Matcher> bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Iterable<Reflect>> consumer);
     }
 
     interface TypeMatch<Self extends TypeMatch<Self>> extends ReflectMatch<Self, Class<?>> {
@@ -333,6 +344,10 @@ public interface HookBuilder {
 
     interface StringMatch extends BaseMatch<StringMatch, String> {
 
+    }
+
+    interface LazyBind {
+        void onMatch();
     }
 
     @NonNull

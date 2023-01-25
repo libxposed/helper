@@ -213,7 +213,9 @@ class ParameterMatcherKtImpl(matcher: HookBuilder.ParameterMatcher) :
 }
 
 class StringMatcherKtImpl(matcher: HookBuilder.StringMatcher) :
-    BaseMatcherKtImpl<HookBuilder.StringMatch, HookBuilderKt.StringMatchKt, HookBuilder.StringMatcher>(matcher),
+    BaseMatcherKtImpl<HookBuilder.StringMatch, HookBuilderKt.StringMatchKt, HookBuilder.StringMatcher>(
+        matcher
+    ),
     HookBuilderKt.StringMatcherKt {
     override var exact: String
         @Throws(WOException::class)
@@ -459,6 +461,17 @@ abstract class ReflectMatchKtImpl<MatchKt, Reflect, Match>(
     final override val key: String?
         get() = match.key
 
+    override fun <Bind : HookBuilderKt.LazyBind> bind(
+        bind: Bind,
+        handler: Bind.(Reflect) -> Unit
+    ): MatchKt {
+        match.bind(bind.impl) { _, r ->
+            bind.handler(r)
+        }
+        @Suppress("UNCHECKED_CAST")
+        return this as MatchKt
+    }
+
     final override fun onMatch(handler: HookBuilderKt.DummyHooker.(Reflect) -> Unit): MatchKt =
         newMatchKt(match.onMatch {
             DummyHookerImpl.handler(it)
@@ -477,6 +490,16 @@ abstract class LazySequenceKtImpl<MatchKt, Reflect : Any, MatcherKt, Match, Matc
 
     override fun unaryMinus(): HookBuilderKt.ContainerSyntaxKt<MatchKt> {
         TODO("Not yet implemented")
+    }
+
+    override fun <Bind : HookBuilderKt.LazyBind> bind(
+        bind: Bind,
+        handler: Bind.(Sequence<Reflect>) -> Unit
+    ): HookBuilderKt.LazySequenceKt<MatchKt, Reflect, MatcherKt> {
+        impl.bind(bind.impl) { _, r ->
+            bind.handler(r.asSequence())
+        }
+        return this
     }
 
     override fun onMatch(handler: HookBuilderKt.DummyHooker.(Sequence<Reflect>) -> Reflect): MatchKt =
@@ -530,9 +553,12 @@ abstract class TypeMatchKtImpl<MatchKt, Match>(
 }
 
 class ClassMatchKtImpl(match: HookBuilder.ClassMatch) :
-    TypeMatchKtImpl<HookBuilderKt.ClassMatchKt, HookBuilder.ClassMatch>(match), HookBuilderKt.ClassMatchKt {
+    TypeMatchKtImpl<HookBuilderKt.ClassMatchKt, HookBuilder.ClassMatch>(match),
+    HookBuilderKt.ClassMatchKt {
 
-    override fun newMatchKt(match: HookBuilder.ClassMatch): HookBuilderKt.ClassMatchKt = ClassMatchKtImpl(match)
+    override fun newMatchKt(match: HookBuilder.ClassMatch): HookBuilderKt.ClassMatchKt =
+        ClassMatchKtImpl(match)
+
     override fun get(index: Int): HookBuilderKt.ParameterMatchKt {
         TODO("Not yet implemented")
     }
@@ -558,7 +584,8 @@ class ClassLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.ClassMa
     LazySequenceKtImpl<HookBuilderKt.ClassMatchKt, Class<*>, HookBuilderKt.ClassMatcherKt, HookBuilder.ClassMatch, HookBuilder.ClassMatcher>(
         impl
     ) {
-    override fun newImpl(impl: HookBuilder.ClassMatch): HookBuilderKt.ClassMatchKt = ClassMatchKtImpl(impl)
+    override fun newImpl(impl: HookBuilder.ClassMatch): HookBuilderKt.ClassMatchKt =
+        ClassMatchKtImpl(impl)
 
     override fun newMatcher(impl: HookBuilder.ClassMatcher): HookBuilderKt.ClassMatcherKt =
         ClassMatcherKtImpl(impl)
@@ -583,7 +610,8 @@ class FieldLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.FieldMa
     LazySequenceKtImpl<HookBuilderKt.FieldMatchKt, Field, HookBuilderKt.FieldMatcherKt, HookBuilder.FieldMatch, HookBuilder.FieldMatcher>(
         impl
     ) {
-    override fun newImpl(impl: HookBuilder.FieldMatch): HookBuilderKt.FieldMatchKt = FieldMatchKtImpl(impl)
+    override fun newImpl(impl: HookBuilder.FieldMatch): HookBuilderKt.FieldMatchKt =
+        FieldMatchKtImpl(impl)
 
     override fun newMatcher(impl: HookBuilder.FieldMatcher): HookBuilderKt.FieldMatcherKt =
         FieldMatcherKtImpl(impl)
@@ -596,7 +624,8 @@ class MethodLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.Method
     LazySequenceKtImpl<HookBuilderKt.MethodMatchKt, Method, HookBuilderKt.MethodMatcherKt, HookBuilder.MethodMatch, HookBuilder.MethodMatcher>(
         impl
     ) {
-    override fun newImpl(impl: HookBuilder.MethodMatch): HookBuilderKt.MethodMatchKt = MethodMatchKtImpl(impl)
+    override fun newImpl(impl: HookBuilder.MethodMatch): HookBuilderKt.MethodMatchKt =
+        MethodMatchKtImpl(impl)
 
     override fun newMatcher(impl: HookBuilder.MethodMatcher): HookBuilderKt.MethodMatcherKt =
         MethodMatcherKtImpl(impl)
@@ -623,7 +652,8 @@ class StringLazySequenceKtImpl(impl: HookBuilder.LazySequence<HookBuilder.String
     LazySequenceKtImpl<HookBuilderKt.StringMatchKt, String, HookBuilderKt.StringMatcherKt, HookBuilder.StringMatch, HookBuilder.StringMatcher>(
         impl
     ) {
-    override fun newImpl(impl: HookBuilder.StringMatch): HookBuilderKt.StringMatchKt = StringMatchKtImpl(impl)
+    override fun newImpl(impl: HookBuilder.StringMatch): HookBuilderKt.StringMatchKt =
+        StringMatchKtImpl(impl)
 
     override fun newMatcher(impl: HookBuilder.StringMatcher): HookBuilderKt.StringMatcherKt =
         StringMatcherKtImpl(impl)
@@ -671,7 +701,8 @@ class MethodMatchKtImpl(match: HookBuilder.MethodMatch) :
     override val returnType: HookBuilderKt.ClassMatchKt
         get() = ClassMatchKtImpl(match.returnType)
 
-    override fun newMatchKt(match: HookBuilder.MethodMatch): HookBuilderKt.MethodMatchKt = MethodMatchKtImpl(match)
+    override fun newMatchKt(match: HookBuilder.MethodMatch): HookBuilderKt.MethodMatchKt =
+        MethodMatchKtImpl(match)
 }
 
 class ConstructorMatchKtImpl(match: HookBuilder.ConstructorMatch) :
@@ -691,7 +722,8 @@ class FieldMatchKtImpl(match: HookBuilder.FieldMatch) :
     override val type: HookBuilderKt.ClassMatchKt
         get() = ClassMatchKtImpl(match.type)
 
-    override fun newMatchKt(match: HookBuilder.FieldMatch): HookBuilderKt.FieldMatchKt = FieldMatchKtImpl(match)
+    override fun newMatchKt(match: HookBuilder.FieldMatch): HookBuilderKt.FieldMatchKt =
+        FieldMatchKtImpl(match)
 }
 
 class StringMatchKtImpl(impl: HookBuilder.StringMatch) :

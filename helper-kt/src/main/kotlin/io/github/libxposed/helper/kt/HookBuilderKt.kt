@@ -4,6 +4,7 @@ package io.github.libxposed.helper.kt
 
 import dalvik.system.BaseDexClassLoader
 import io.github.libxposed.api.XposedInterface
+import io.github.libxposed.helper.HookBuilder
 import java.io.Serializable
 import kotlin.experimental.ExperimentalTypeInference
 import java.lang.Class
@@ -228,6 +229,8 @@ sealed interface HookBuilderKt {
         BaseMatchKt<Self, Reflect> where Self : ReflectMatchKt<Self, Reflect> {
         val key: String?
         fun onMatch(handler: DummyHooker.(Reflect) -> Unit): Self
+
+        fun <Bind : LazyBind> bind(bind: Bind, handler: Bind.(Reflect) -> Unit): Self
     }
 
     @OptIn(ExperimentalTypeInference::class)
@@ -245,6 +248,11 @@ sealed interface HookBuilderKt {
 
         operator fun unaryPlus(): ContainerSyntaxKt<Match>
         operator fun unaryMinus(): ContainerSyntaxKt<Match>
+
+        fun <Bind : LazyBind> bind(
+            bind: Bind,
+            handler: Bind.(Sequence<Reflect>) -> Unit
+        ): LazySequenceKt<Match, Reflect, Matcher>
     }
 
     sealed interface TypeMatchKt<Self> :
@@ -302,6 +310,15 @@ sealed interface HookBuilderKt {
     }
 
     sealed interface StringMatchKt : BaseMatchKt<StringMatchKt, String>
+
+    @Hooker
+    abstract class LazyBind {
+        internal val impl = HookBuilder.LazyBind {
+            onMatch()
+        }
+
+        abstract fun onMatch()
+    }
 
     fun methods(init: MethodMatcherKt.() -> Unit): LazySequenceKt<MethodMatchKt, Method, MethodMatcherKt>
     fun firstMethod(init: MethodMatcherKt.() -> Unit): MethodMatchKt
