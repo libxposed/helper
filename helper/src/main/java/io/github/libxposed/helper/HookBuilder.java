@@ -2,8 +2,13 @@ package io.github.libxposed.helper;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresOptIn;
 
 import java.io.Serializable;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Member;
@@ -34,6 +39,18 @@ public interface HookBuilder {
     interface MatchConsumer<T, U> {
         @NonNull
         U accept(@NonNull T t);
+    }
+
+    @RequiresOptIn(level = RequiresOptIn.Level.ERROR)
+    @Retention(RetentionPolicy.CLASS)
+    @Target({ElementType.METHOD})
+    @interface DexAnalysis {
+    }
+
+    @RequiresOptIn(level = RequiresOptIn.Level.ERROR)
+    @Retention(RetentionPolicy.CLASS)
+    @Target({ElementType.METHOD})
+    @interface AnnotationAnalysis {
     }
 
     @NonNull
@@ -174,21 +191,27 @@ public interface HookBuilder {
         @NonNull
         Self setParameterTypes(@NonNull ContainerSyntax<ParameterMatch> parameterTypes);
 
+        @DexAnalysis
         @NonNull
         Self setReferredStrings(@NonNull ContainerSyntax<StringMatch> referredStrings);
 
+        @DexAnalysis
         @NonNull
         Self setAssignedFields(@NonNull ContainerSyntax<FieldMatch> assignedFields);
 
+        @DexAnalysis
         @NonNull
         Self setAccessedFields(@NonNull ContainerSyntax<FieldMatch> assignedFields);
 
+        @DexAnalysis
         @NonNull
         Self setInvokedMethods(@NonNull ContainerSyntax<MethodMatch> invokedMethods);
 
+        @DexAnalysis
         @NonNull
         Self setInvokedConstructors(@NonNull ContainerSyntax<ConstructorMatch> invokedConstructors);
 
+        @DexAnalysis
         @NonNull
         Self setContainsOpcodes(@NonNull Byte[] opcodes);
 

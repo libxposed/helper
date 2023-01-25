@@ -82,6 +82,7 @@ publishing {
 }
 
 dependencies {
+    compileOnly("androidx.annotation:annotation-experimental:1.3.0")
     compileOnly("androidx.annotation:annotation:1.5.0")
     compileOnly("io.github.libxposed:api:100")
 }
