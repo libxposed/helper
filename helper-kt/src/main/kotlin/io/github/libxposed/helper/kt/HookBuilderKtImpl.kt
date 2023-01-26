@@ -17,7 +17,7 @@ class WOException : UnsupportedOperationException("Write-only property")
 val wo: Nothing
     @Throws(WOException::class) inline get() = throw WOException()
 
-abstract class BaseMatcherKtImpl<Match, MatchKt, Matcher>
+sealed class BaseMatcherKtImpl<Match, MatchKt, Matcher>
     (
     internal val matcher: Matcher
 ) : BaseMatcherKt<MatchKt> where Matcher : BaseMatcher<Matcher, Match>, MatchKt : BaseMatchKt<MatchKt, *>, Match : BaseMatch<Match, *> {
@@ -28,7 +28,7 @@ abstract class BaseMatcherKtImpl<Match, MatchKt, Matcher>
         }
 }
 
-abstract class ReflectMatcherKtImpl<Match, MatchKt, Matcher>(
+sealed class ReflectMatcherKtImpl<Match, MatchKt, Matcher>(
     matcher: Matcher
 ) : BaseMatcherKtImpl<Match, MatchKt, Matcher>(matcher),
     ReflectMatcherKt<MatchKt> where Matcher : ReflectMatcher<Matcher, Match>, MatchKt : ReflectMatchKt<MatchKt, *>, Match : ReflectMatch<Match, *> {
@@ -59,7 +59,7 @@ abstract class ReflectMatcherKtImpl<Match, MatchKt, Matcher>(
         }
 }
 
-open class ContainerSyntaxKtImpl<MatchKt, Match>(internal val syntax: ContainerSyntax<Match>) :
+class ContainerSyntaxKtImpl<MatchKt, Match>(internal val syntax: ContainerSyntax<Match>) :
     ContainerSyntaxKt<MatchKt> where MatchKt : BaseMatchKt<MatchKt, *>, Match : BaseMatch<Match, *> {
     override fun and(element: MatchKt): ContainerSyntaxKt<MatchKt> {
         TODO("Not yet implemented")
@@ -83,7 +83,7 @@ open class ContainerSyntaxKtImpl<MatchKt, Match>(internal val syntax: ContainerS
 }
 
 @Suppress("UNCHECKED_CAST")
-abstract class TypeMatcherKtImpl<Match, MatchKt, Matcher>(matcher: Matcher) :
+sealed class TypeMatcherKtImpl<Match, MatchKt, Matcher>(matcher: Matcher) :
     ReflectMatcherKtImpl<Match, MatchKt, Matcher>(
         matcher
     ),
@@ -173,7 +173,7 @@ class StringMatcherKtImpl(matcher: StringMatcher) :
         }
 }
 
-abstract class MemberMatcherKtImpl<Match, MatchKt, Matcher>(
+sealed class MemberMatcherKtImpl<Match, MatchKt, Matcher>(
     matcher: Matcher
 ) : ReflectMatcherKtImpl<Match, MatchKt, Matcher>(matcher),
     MemberMatcherKt<MatchKt> where Matcher : MemberMatcher<Matcher, Match>, MatchKt : MemberMatchKt<MatchKt, *>, Match : MemberMatch<Match, *> {
@@ -231,7 +231,7 @@ class FieldMatcherKtImpl(matcher: FieldMatcher) :
 }
 
 @Suppress("UNCHECKED_CAST")
-abstract class ExecutableMatcherKtImpl<Match, MatchKt, Matcher>(
+sealed class ExecutableMatcherKtImpl<Match, MatchKt, Matcher>(
     matcher: Matcher
 ) : MemberMatcherKtImpl<Match, MatchKt, Matcher>(matcher),
     ExecutableMatcherKt<MatchKt> where Matcher : ExecutableMatcher<Matcher, Match>, MatchKt : ExecutableMatchKt<MatchKt, *>, Match : ExecutableMatch<Match, *> {
@@ -353,7 +353,7 @@ class ConstructorMatcherKtImpl(matcher: ConstructorMatcher) :
 
 object DummyHookerImpl : DummyHooker
 
-abstract class BaseMatchKtImpl<MatchKt, Reflect, Match>(
+sealed class BaseMatchKtImpl<MatchKt, Reflect, Match>(
     internal val match: Match
 ) : BaseMatchKt<MatchKt, Reflect> where MatchKt : BaseMatchKt<MatchKt, Reflect>, Match : BaseMatch<Match, Reflect> {
     override fun unaryPlus(): ContainerSyntaxKt<MatchKt> = ContainerSyntaxKtImpl(match.observe())
@@ -361,7 +361,7 @@ abstract class BaseMatchKtImpl<MatchKt, Reflect, Match>(
     override fun unaryMinus(): ContainerSyntaxKt<MatchKt> = ContainerSyntaxKtImpl(match.reverse())
 }
 
-abstract class ReflectMatchKtImpl<MatchKt, Reflect, Match>(
+sealed class ReflectMatchKtImpl<MatchKt, Reflect, Match>(
     impl: Match
 ) : BaseMatchKtImpl<MatchKt, Reflect, Match>(impl),
     ReflectMatchKt<MatchKt, Reflect> where MatchKt : ReflectMatchKt<MatchKt, Reflect>, Match : ReflectMatch<Match, Reflect> {
@@ -388,7 +388,7 @@ abstract class ReflectMatchKtImpl<MatchKt, Reflect, Match>(
     abstract fun newMatchKt(match: Match): MatchKt
 }
 
-abstract class LazySequenceKtImpl<Base, MatchKt, Reflect, MatcherKt, Match, Matcher, Impl>(
+sealed class LazySequenceKtImpl<Base, MatchKt, Reflect, MatcherKt, Match, Matcher, Impl>(
     private val impl: Impl
 ) : LazySequenceKt<Base, MatchKt, Reflect, MatcherKt> where Base : LazySequenceKt<Base, MatchKt, Reflect, MatcherKt>, MatchKt : BaseMatchKt<MatchKt, Reflect>, Reflect : Any, MatcherKt : BaseMatcherKt<MatchKt>, Match : BaseMatch<Match, Reflect>, Matcher : BaseMatcher<Matcher, Match>, Impl : LazySequence<Impl, Match, Reflect, Matcher> {
     override fun first(): MatchKt = newImpl(impl.first())
@@ -439,7 +439,7 @@ abstract class LazySequenceKtImpl<Base, MatchKt, Reflect, MatcherKt, Match, Matc
     abstract fun newSequence(impl: Impl): Base
 }
 
-abstract class TypeMatchKtImpl<MatchKt, Match>(
+sealed class TypeMatchKtImpl<MatchKt, Match>(
     match: Match
 ) : ReflectMatchKtImpl<MatchKt, Class<*>, Match>(match),
     TypeMatchKt<MatchKt> where MatchKt : TypeMatchKt<MatchKt>, Match : TypeMatch<Match> {
@@ -459,7 +459,7 @@ abstract class TypeMatchKtImpl<MatchKt, Match>(
         get() = ClassMatchKtImpl(match.arrayType)
 }
 
-abstract class TypeLazySequenceKtImpl<Base, MatchKt, MatcherKt, Match, Matcher, Impl>(
+sealed class TypeLazySequenceKtImpl<Base, MatchKt, MatcherKt, Match, Matcher, Impl>(
     impl: Impl
 ) : LazySequenceKtImpl<Base, MatchKt, Class<*>, MatcherKt, Match, Matcher, Impl>(impl),
     TypeLazySequenceKt<Base, MatchKt, MatcherKt> where Base : TypeLazySequenceKt<Base, MatchKt, MatcherKt>, MatchKt : TypeMatchKt<MatchKt>, MatcherKt : TypeMatcherKt<MatchKt>, Match : TypeMatch<Match>, Matcher : TypeMatcher<Matcher, Match>, Impl : TypeLazySequence<Impl, Match, Matcher> {
@@ -488,7 +488,7 @@ abstract class TypeLazySequenceKtImpl<Base, MatchKt, MatcherKt, Match, Matcher, 
     }
 }
 
-abstract class MemberLazySequenceKtImpl<Base, MatchKt, Reflect, MatcherKt, Match, Matcher, Impl>(
+sealed class MemberLazySequenceKtImpl<Base, MatchKt, Reflect, MatcherKt, Match, Matcher, Impl>(
     impl: Impl
 ) : LazySequenceKtImpl<Base, MatchKt, Reflect, MatcherKt, Match, Matcher, Impl>(impl),
     MemberLazySequenceKt<Base, MatchKt, Reflect, MatcherKt> where Base : MemberLazySequenceKt<Base, MatchKt, Reflect, MatcherKt>, MatchKt : MemberMatchKt<MatchKt, Reflect>, Reflect : Member, MatcherKt : MemberMatcherKt<MatchKt>, Match : MemberMatch<Match, Reflect>, Matcher : MemberMatcher<Matcher, Match>, Impl : MemberLazySequence<Impl, Match, Reflect, Matcher> {
@@ -502,7 +502,7 @@ abstract class MemberLazySequenceKtImpl<Base, MatchKt, Reflect, MatcherKt, Match
 
 }
 
-abstract class ExecutableLazySequenceKtImpl<Base, MatchKt, Reflect, MatcherKt, Match, Matcher, Impl>(
+sealed class ExecutableLazySequenceKtImpl<Base, MatchKt, Reflect, MatcherKt, Match, Matcher, Impl>(
     impl: Impl
 ) : MemberLazySequenceKtImpl<Base, MatchKt, Reflect, MatcherKt, Match, Matcher, Impl>(impl),
     ExecutableLazySequenceKt<Base, MatchKt, Reflect, MatcherKt> where Base : ExecutableLazySequenceKt<Base, MatchKt, Reflect, MatcherKt>, MatchKt : ExecutableMatchKt<MatchKt, Reflect>, Reflect : Member, MatcherKt : ExecutableMatcherKt<MatchKt>, Match : ExecutableMatch<Match, Reflect>, Matcher : ExecutableMatcher<Matcher, Match>, Impl : ExecutableLazySequence<Impl, Match, Reflect, Matcher> {
@@ -531,7 +531,7 @@ class ParameterMatchKtImpl(match: ParameterMatch) :
     override fun newMatchKt(match: ParameterMatch): ParameterMatchKt = ParameterMatchKtImpl(match)
 }
 
-abstract class MemberMatchKtImpl<Base, Reflect, Impl : MemberMatch<Impl, Reflect>>(
+sealed class MemberMatchKtImpl<Base, Reflect, Impl : MemberMatch<Impl, Reflect>>(
     impl: Impl
 ) : ReflectMatchKtImpl<Base, Reflect, Impl>(impl),
     MemberMatchKt<Base, Reflect> where Base : MemberMatchKt<Base, Reflect>, Reflect : Member {
@@ -609,7 +609,7 @@ class ConstructorLazySequenceKtImpl(impl: ConstructorLazySequence) :
     override fun newSequence(impl: ConstructorLazySequence) = ConstructorLazySequenceKtImpl(impl)
 }
 
-abstract class ExecutableMatchKtImpl<MatchKt, Reflect, Match : ExecutableMatch<Match, Reflect>>(
+sealed class ExecutableMatchKtImpl<MatchKt, Reflect, Match : ExecutableMatch<Match, Reflect>>(
     impl: Match
 ) : MemberMatchKtImpl<MatchKt, Reflect, Match>(
     impl
