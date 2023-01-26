@@ -5,7 +5,6 @@ package io.github.libxposed.helper.kt
 import dalvik.system.BaseDexClassLoader
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.helper.HookBuilder
-import java.io.Serializable
 import kotlin.experimental.ExperimentalTypeInference
 import java.lang.Class
 import java.lang.reflect.Method
@@ -24,6 +23,10 @@ sealed interface HookBuilderKt {
     @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
     var exceptionHandler: (Throwable) -> Boolean
 
+    @DexAnalysis
+    @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
+    var forceDexAnalysis: Boolean
+
     @RequiresOptIn(message = "Dex analysis is time-consuming, please use it carefully.")
     @Retention(AnnotationRetention.BINARY)
     @Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY)
@@ -37,7 +40,7 @@ sealed interface HookBuilderKt {
     @DslMarker
     annotation class Matcher
 
-    sealed interface MatchResultKt : Serializable, Cloneable {
+    sealed interface MatchResultKt {
         val matchedClasses: Map<String, Class<*>>
         val matchedFields: Map<String, Field>
         val matchedMethods: Map<String, Method>
@@ -88,16 +91,7 @@ sealed interface HookBuilderKt {
         var superClass: ClassMatchKt
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var containsMethods: ContainerSyntaxKt<MethodMatchKt>
-
-        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var containsConstructors: ContainerSyntaxKt<ConstructorMatchKt>
-
-        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var containsFields: ContainerSyntaxKt<FieldMatchKt>
-
-        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var interfaces: ContainerSyntaxKt<ClassMatchKt>
+        var containsInterfaces: ContainerSyntaxKt<ClassMatchKt>
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var isAbstract: Boolean
@@ -185,7 +179,7 @@ sealed interface HookBuilderKt {
 
         @DexAnalysis
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
-        var containsOpcodes: Array<Byte>
+        var containsOpcodes: ByteArray
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var isVarargs: Boolean
@@ -227,7 +221,7 @@ sealed interface HookBuilderKt {
     @Hooker
     sealed interface ReflectMatchKt<Self, Reflect> :
         BaseMatchKt<Self, Reflect> where Self : ReflectMatchKt<Self, Reflect> {
-        val key: String?
+        var key: String?
         fun onMatch(handler: DummyHooker.(Reflect) -> Unit): Self
 
         fun <Bind : LazyBind> bind(bind: Bind, handler: Bind.(Reflect) -> Unit): Self

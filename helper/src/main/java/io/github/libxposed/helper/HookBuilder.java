@@ -4,7 +4,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresOptIn;
 
-import java.io.Serializable;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -14,6 +13,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
 import dalvik.system.BaseDexClassLoader;
 import io.github.libxposed.api.XposedContextWrapper;
@@ -60,7 +60,7 @@ public interface HookBuilder {
         return builder.build();
     }
 
-    interface MatchResult extends Serializable {
+    interface MatchResult {
         @NonNull
         Map<String, Class<?>> getMatchedClasses();
 
@@ -119,16 +119,7 @@ public interface HookBuilder {
         Self setSuperClass(@NonNull ClassMatch superClassMatch);
 
         @NonNull
-        Self setContainsMethods(@NonNull ContainerSyntax<MethodMatch> syntax);
-
-        @NonNull
-        Self setContainsConstructors(@NonNull ContainerSyntax<ConstructorMatch> syntax);
-
-        @NonNull
-        Self setContainsFields(@NonNull ContainerSyntax<FieldMatch> syntax);
-
-        @NonNull
-        Self setInterfaces(@NonNull ContainerSyntax<ClassMatch> syntax);
+        Self setContainsInterfaces(@NonNull ContainerSyntax<ClassMatch> syntax);
 
         @NonNull
         Self setIsAbstract(boolean isAbstract);
@@ -257,6 +248,8 @@ public interface HookBuilder {
         @Nullable
         String getKey();
 
+        Self setKey(@Nullable String key);
+
         @NonNull
         Self onMatch(@NonNull Consumer<Reflect> consumer);
 
@@ -372,6 +365,12 @@ public interface HookBuilder {
     interface LazyBind {
         void onMatch();
     }
+
+    @DexAnalysis
+    @NonNull
+    HookBuilder setForceDexAnalysis(boolean forceDexAnalysis);
+
+    HookBuilder setExecutorService(@NonNull ExecutorService executorService);
 
     @NonNull
     HookBuilder setLastMatchResult(@NonNull MatchResult preferenceName);

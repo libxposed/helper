@@ -108,29 +108,11 @@ abstract class TypeMatcherKtImpl<Match, MatchKt, Matcher>(matcher: Matcher) :
         set(value) {
             matcher.setSuperClass((value as ClassMatchKtImpl).match)
         }
-    override var containsMethods: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.MethodMatchKt>
+    override var containsInterfaces: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ClassMatchKt>
         @Throws(WOException::class)
         get() = wo
         set(value) {
-            matcher.setContainsMethods((value as ContainerSyntaxKtImpl<HookBuilderKt.MethodMatchKt, HookBuilder.MethodMatch>).syntax)
-        }
-    override var containsConstructors: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ConstructorMatchKt>
-        @Throws(WOException::class)
-        get() = wo
-        set(value) {
-            matcher.setContainsConstructors((value as ContainerSyntaxKtImpl<HookBuilderKt.ConstructorMatchKt, HookBuilder.ConstructorMatch>).syntax)
-        }
-    override var containsFields: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.FieldMatchKt>
-        @Throws(WOException::class)
-        get() = wo
-        set(value) {
-            matcher.setContainsFields((value as ContainerSyntaxKtImpl<HookBuilderKt.FieldMatchKt, HookBuilder.FieldMatch>).syntax)
-        }
-    override var interfaces: HookBuilderKt.ContainerSyntaxKt<HookBuilderKt.ClassMatchKt>
-        @Throws(WOException::class)
-        get() = wo
-        set(value) {
-            matcher.setInterfaces((value as ContainerSyntaxKtImpl<HookBuilderKt.ClassMatchKt, HookBuilder.ClassMatch>).syntax)
+            matcher.setContainsInterfaces((value as ContainerSyntaxKtImpl<HookBuilderKt.ClassMatchKt, HookBuilder.ClassMatch>).syntax)
         }
     override var isAbstract: Boolean
         @Throws(WOException::class)
@@ -362,7 +344,7 @@ abstract class ExecutableMatcherKtImpl<Match, MatchKt, Matcher>(
         }
 
     @HookBuilderKt.DexAnalysis
-    final override var containsOpcodes: Array<Byte>
+    final override var containsOpcodes: ByteArray
         @Throws(WOException::class)
         get() = wo
         set(value) {
@@ -458,8 +440,11 @@ abstract class ReflectMatchKtImpl<MatchKt, Reflect, Match>(
     impl: Match
 ) : BaseMatchKtImpl<MatchKt, Reflect, Match>(impl),
     HookBuilderKt.ReflectMatchKt<MatchKt, Reflect> where MatchKt : HookBuilderKt.ReflectMatchKt<MatchKt, Reflect>, Match : HookBuilder.ReflectMatch<Match, Reflect> {
-    final override val key: String?
+    final override var key: String?
         get() = match.key
+        set(value) {
+            match.key = key
+        }
 
     override fun <Bind : HookBuilderKt.LazyBind> bind(
         bind: Bind,
@@ -736,15 +721,25 @@ internal class HookBuilderKtImpl(
     private val builder = HookBuilderImpl(ctx, classLoader, sourcePath)
 
     override var lastMatchResult: HookBuilderKt.MatchResultKt
-        get() = TODO("Write Only")
+        @Throws(WOException::class)
+        get() = wo
         set(value) {
             builder.setLastMatchResult((value as MatchResultKtImpl).impl)
         }
 
     override var exceptionHandler: (Throwable) -> Boolean
-        get() = TODO("Write Only")
+        @Throws(WOException::class)
+        get() = wo
         set(value) {
             builder.setExceptionHandler(value)
+        }
+
+    @HookBuilderKt.DexAnalysis
+    override var forceDexAnalysis: Boolean
+        @Throws(WOException::class)
+        get() = wo
+        set(value) {
+            builder.setForceDexAnalysis(value)
         }
 
     override fun methods(init: HookBuilderKt.MethodMatcherKt.() -> Unit): HookBuilderKt.LazySequenceKt<HookBuilderKt.MethodMatchKt, Method, HookBuilderKt.MethodMatcherKt> =
