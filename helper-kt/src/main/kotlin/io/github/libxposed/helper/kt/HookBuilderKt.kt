@@ -5,13 +5,11 @@ package io.github.libxposed.helper.kt
 import dalvik.system.BaseDexClassLoader
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.helper.HookBuilder
-import io.github.libxposed.helper.HookBuilder.FieldLazySequence
-import kotlin.experimental.ExperimentalTypeInference
-import java.lang.Class
-import java.lang.reflect.Method
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Member
+import java.lang.reflect.Method
+import kotlin.experimental.ExperimentalTypeInference
 
 @DslMarker
 annotation class Hooker

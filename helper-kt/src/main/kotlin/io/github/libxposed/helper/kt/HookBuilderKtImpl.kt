@@ -12,9 +12,9 @@ import java.lang.reflect.Field
 import java.lang.reflect.Member
 import java.lang.reflect.Method
 
-class WOException : UnsupportedOperationException("Write-only property")
+internal class WOException : UnsupportedOperationException("Write-only property")
 
-val wo: Nothing
+internal val wo: Nothing
     @Throws(WOException::class) inline get() = throw WOException()
 
 sealed class BaseMatcherKtImpl<Match, MatchKt, Matcher>
