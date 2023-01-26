@@ -83,14 +83,19 @@ public interface HookBuilder {
     }
 
     interface ReflectMatcher<Self extends ReflectMatcher<Self, Match>, Match extends ReflectMatch<Match, ?>> extends BaseMatcher<Self, Match> {
+        @NonNull
         Self setKey(@NonNull String key);
 
+        @NonNull
         Self setIsPublic(boolean isPublic);
 
+        @NonNull
         Self setIsPrivate(boolean isPrivate);
 
+        @NonNull
         Self setIsProtected(boolean isProtected);
 
+        @NonNull
         Self setIsPackage(boolean isPackage);
     }
 
@@ -248,6 +253,7 @@ public interface HookBuilder {
         @Nullable
         String getKey();
 
+        @NonNull
         Self setKey(@Nullable String key);
 
         @NonNull
@@ -370,6 +376,7 @@ public interface HookBuilder {
     @NonNull
     HookBuilder setForceDexAnalysis(boolean forceDexAnalysis);
 
+    @NonNull
     HookBuilder setExecutorService(@NonNull ExecutorService executorService);
 
     @NonNull
