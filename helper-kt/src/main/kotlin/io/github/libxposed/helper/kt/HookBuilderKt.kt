@@ -101,6 +101,9 @@ sealed interface HookBuilderKt {
 
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var isFinal: Boolean
+
+        @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
+        var isInterface: Boolean
     }
 
     sealed interface ClassMatcherKt : TypeMatcherKt<ClassMatchKt>

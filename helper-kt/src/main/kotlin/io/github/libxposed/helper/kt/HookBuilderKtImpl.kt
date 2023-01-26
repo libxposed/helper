@@ -92,7 +92,7 @@ open class ContainerSyntaxKtImpl<MatchKt, Match>(internal val syntax: ContainerS
 
 @Suppress("UNCHECKED_CAST")
 abstract class TypeMatcherKtImpl<Match, MatchKt, Matcher>(matcher: Matcher) :
-    BaseMatcherKtImpl<Match, MatchKt, Matcher>(
+    ReflectMatcherKtImpl<Match, MatchKt, Matcher>(
         matcher
     ),
     HookBuilderKt.TypeMatcherKt<MatchKt> where Matcher : HookBuilder.TypeMatcher<Matcher, Match>, MatchKt : HookBuilderKt.TypeMatchKt<MatchKt>, Match : HookBuilder.TypeMatch<Match> {
@@ -132,35 +132,11 @@ abstract class TypeMatcherKtImpl<Match, MatchKt, Matcher>(matcher: Matcher) :
         set(value) {
             matcher.setIsFinal(value)
         }
-    override var key: String
+    override var isInterface: Boolean
         @Throws(WOException::class)
         get() = wo
         set(value) {
-            matcher.setKey(value)
-        }
-    override var isPublic: Boolean
-        @Throws(WOException::class)
-        get() = wo
-        set(value) {
-            matcher.setIsPublic(value)
-        }
-    override var isPrivate: Boolean
-        @Throws(WOException::class)
-        get() = wo
-        set(value) {
-            matcher.setIsPrivate(value)
-        }
-    override var isProtected: Boolean
-        @Throws(WOException::class)
-        get() = wo
-        set(value) {
-            matcher.setIsProtected(value)
-        }
-    override var isPackage: Boolean
-        @Throws(WOException::class)
-        get() = wo
-        set(value) {
-            matcher.setIsPackage(value)
+            matcher.setIsInterface(value)
         }
 }
 
@@ -443,7 +419,7 @@ abstract class ReflectMatchKtImpl<MatchKt, Reflect, Match>(
     final override var key: String?
         get() = match.key
         set(value) {
-            match.key = key
+            match.key = value
         }
 
     override fun <Bind : HookBuilderKt.LazyBind> bind(

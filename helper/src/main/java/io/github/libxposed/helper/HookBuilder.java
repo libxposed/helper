@@ -134,6 +134,9 @@ public interface HookBuilder {
 
         @NonNull
         Self setIsFinal(boolean isFinal);
+
+        @NonNull
+        Self setIsInterface(boolean isInterface);
     }
 
     interface ClassMatcher extends TypeMatcher<ClassMatcher, ClassMatch> {
@@ -273,6 +276,7 @@ public interface HookBuilder {
         @NonNull
         LazySequence<Match, Reflect, Matcher> all(@NonNull Consumer<Matcher> consumer);
 
+        // TODO: different matcher
         @NonNull
         LazySequence<Match, Reflect, Matcher> onMatch(@NonNull Consumer<Iterable<Reflect>> consumer);
 
