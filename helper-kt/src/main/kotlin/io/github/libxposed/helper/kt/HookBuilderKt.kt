@@ -5,6 +5,7 @@ package io.github.libxposed.helper.kt
 import dalvik.system.BaseDexClassLoader
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.helper.HookBuilder
+import io.github.libxposed.helper.HookBuilder.FieldLazySequence
 import kotlin.experimental.ExperimentalTypeInference
 import java.lang.Class
 import java.lang.reflect.Method
@@ -82,8 +83,8 @@ sealed interface HookBuilderKt {
         operator fun not(): ContainerSyntaxKt<Match>
     }
 
-    sealed interface TypeMatcherKt<Match> : ReflectMatcherKt<Match>
-            where Match : TypeMatchKt<Match> {
+    sealed interface TypeMatcherKt<Match> :
+        ReflectMatcherKt<Match> where Match : TypeMatchKt<Match> {
         @get:Deprecated("Write only", level = DeprecationLevel.HIDDEN)
         var name: StringMatchKt
 
@@ -232,13 +233,13 @@ sealed interface HookBuilderKt {
 
     @OptIn(ExperimentalTypeInference::class)
     @Hooker
-    sealed interface LazySequenceKt<Match, Reflect, Matcher> where Matcher : BaseMatcherKt<Match>, Match : BaseMatchKt<Match, Reflect> {
+    sealed interface LazySequenceKt<Self, Match, Reflect, Matcher> where Self : LazySequenceKt<Self, Match, Reflect, Matcher>, Matcher : BaseMatcherKt<Match>, Match : BaseMatchKt<Match, Reflect> {
         fun first(): Match
         fun first(init: Matcher.() -> Unit): Match
-        fun all(init: Matcher.() -> Unit): LazySequenceKt<Match, Reflect, Matcher>
+        fun all(init: Matcher.() -> Unit): Self
 
         @OverloadResolutionByLambdaReturnType
-        fun onMatch(handler: DummyHooker.(Sequence<Reflect>) -> Unit): LazySequenceKt<Match, Reflect, Matcher>
+        fun onMatch(handler: DummyHooker.(Sequence<Reflect>) -> Unit): Self
 
         @OverloadResolutionByLambdaReturnType
         fun onMatch(handler: DummyHooker.(Sequence<Reflect>) -> Reflect): Match
@@ -247,19 +248,63 @@ sealed interface HookBuilderKt {
         operator fun unaryMinus(): ContainerSyntaxKt<Match>
 
         fun <Bind : LazyBind> bind(
-            bind: Bind,
-            handler: Bind.(Sequence<Reflect>) -> Unit
-        ): LazySequenceKt<Match, Reflect, Matcher>
+            bind: Bind, handler: Bind.(Sequence<Reflect>) -> Unit
+        ): Self
     }
+
+    sealed interface TypeLazySequenceKt<Self, Match, Matcher> :
+        LazySequenceKt<Self, Match, Class<*>, Matcher> where Self : TypeLazySequenceKt<Self, Match, Matcher>, Matcher : BaseMatcherKt<Match>, Match : BaseMatchKt<Match, Class<*>> {
+        fun methods(init: MethodMatcherKt.() -> Unit): MethodLazySequenceKt
+        fun firstMethod(init: MethodMatcherKt.() -> Unit): MethodMatchKt
+        fun fields(init: FieldMatcherKt.() -> Unit): FieldLazySequenceKt
+        fun firstField(init: FieldMatcherKt.() -> Unit): FieldMatchKt
+        fun constructors(init: ConstructorMatcherKt.() -> Unit): ConstructorLazySequenceKt
+        fun firstConstructor(init: ConstructorMatcherKt.() -> Unit): ConstructorMatchKt
+    }
+
+    sealed interface ClassLazySequenceKt :
+        TypeLazySequenceKt<ClassLazySequenceKt, ClassMatchKt, ClassMatcherKt>
+
+    sealed interface ParameterLazySequenceKt :
+        TypeLazySequenceKt<ParameterLazySequenceKt, ParameterMatchKt, ParameterMatcherKt>
+
+
+    sealed interface MemberLazySequenceKt<Self, Match, Reflect, Matcher> :
+        LazySequenceKt<Self, Match, Reflect, Matcher> where Self : MemberLazySequenceKt<Self, Match, Reflect, Matcher>, Matcher : MemberMatcherKt<Match>, Match : MemberMatchKt<Match, Reflect>, Reflect : Member {
+        fun declaringClasses(init: ClassMatcherKt.() -> Unit): ClassLazySequenceKt
+        fun firstDeclaringClass(init: ClassMatcherKt.() -> Unit): ClassMatchKt
+    }
+
+    sealed interface FieldLazySequenceKt :
+        MemberLazySequenceKt<FieldLazySequenceKt, FieldMatchKt, Field, FieldMatcherKt> {
+        fun types(init: ClassMatcherKt.() -> Unit): ClassLazySequenceKt
+        fun firstType(init: ClassMatcherKt.() -> Unit): ClassMatchKt
+    }
+
+    sealed interface ExecutableLazySequenceKt<Self, Match, Reflect, Matcher> :
+        MemberLazySequenceKt<Self, Match, Reflect, Matcher> where Self : ExecutableLazySequenceKt<Self, Match, Reflect, Matcher>, Matcher : ExecutableMatcherKt<Match>, Match : ExecutableMatchKt<Match, Reflect>, Reflect : Member {
+        fun parameters(init: ParameterMatcherKt.() -> Unit): ParameterLazySequenceKt
+        fun firstParameter(init: ParameterMatcherKt.() -> Unit): ParameterMatchKt
+    }
+
+    sealed interface MethodLazySequenceKt :
+        ExecutableLazySequenceKt<MethodLazySequenceKt, MethodMatchKt, Method, MethodMatcherKt> {
+        fun returnTypes(init: ClassMatcherKt.() -> Unit): ClassLazySequenceKt
+        fun firstReturnType(init: ClassMatcherKt.() -> Unit): ClassMatchKt
+    }
+
+    sealed interface ConstructorLazySequenceKt :
+        ExecutableLazySequenceKt<ConstructorLazySequenceKt, ConstructorMatchKt, Constructor<*>, ConstructorMatcherKt>
+
 
     sealed interface TypeMatchKt<Self> :
         ReflectMatchKt<Self, Class<*>> where Self : TypeMatchKt<Self> {
         val name: StringMatchKt
         val superClass: ClassMatchKt
-        val interfaces: LazySequenceKt<ClassMatchKt, Class<*>, ClassMatcherKt>
-        val declaredMethods: LazySequenceKt<MethodMatchKt, Method, MethodMatcherKt>
-        val declaredConstructors: LazySequenceKt<ConstructorMatchKt, Constructor<*>, ConstructorMatcherKt>
-        val declaredFields: LazySequenceKt<FieldMatchKt, Field, FieldMatcherKt>
+        val interfaces: ClassLazySequenceKt
+        val declaredMethods: MethodLazySequenceKt
+        val declaredConstructors: ConstructorLazySequenceKt
+        val declaredFields: FieldLazySequenceKt
         val arrayType: ClassMatchKt
     }
 
@@ -276,22 +321,19 @@ sealed interface HookBuilderKt {
 
     sealed interface ExecutableMatchKt<Self, Reflect> :
         MemberMatchKt<Self, Reflect> where Self : ExecutableMatchKt<Self, Reflect>, Reflect : Member {
-        val parameterTypes: LazySequenceKt<ParameterMatchKt, Class<*>, ParameterMatcherKt>
+        val parameterTypes: ParameterLazySequenceKt
 
         @DexAnalysis
-        val referredStrings: LazySequenceKt<StringMatchKt, String, StringMatcherKt>
+        val assignedFields: FieldLazySequenceKt
 
         @DexAnalysis
-        val assignedFields: LazySequenceKt<FieldMatchKt, Field, FieldMatcherKt>
+        val accessedFields: FieldLazySequenceKt
 
         @DexAnalysis
-        val accessedFields: LazySequenceKt<FieldMatchKt, Field, FieldMatcherKt>
+        val invokedMethods: MethodLazySequenceKt
 
         @DexAnalysis
-        val invokedMethods: LazySequenceKt<MethodMatchKt, Method, MethodMatcherKt>
-
-        @DexAnalysis
-        val invokedConstructors: LazySequenceKt<ConstructorMatchKt, Constructor<*>, ConstructorMatcherKt>
+        val invokedConstructors: ConstructorLazySequenceKt
     }
 
     sealed interface MethodMatchKt : ExecutableMatchKt<MethodMatchKt, Method> {
@@ -317,13 +359,13 @@ sealed interface HookBuilderKt {
         abstract fun onMatch()
     }
 
-    fun methods(init: MethodMatcherKt.() -> Unit): LazySequenceKt<MethodMatchKt, Method, MethodMatcherKt>
-    fun firstMethod(init: MethodMatcherKt.() -> Unit): MethodMatchKt
-    fun classes(init: ClassMatcherKt.() -> Unit): LazySequenceKt<ClassMatchKt, Class<*>, ClassMatcherKt>
+    fun classes(init: ClassMatcherKt.() -> Unit): ClassLazySequenceKt
     fun firstClass(init: ClassMatcherKt.() -> Unit): ClassMatchKt
-    fun fields(init: FieldMatcherKt.() -> Unit): LazySequenceKt<FieldMatchKt, Field, FieldMatcherKt>
+    fun methods(init: MethodMatcherKt.() -> Unit): MethodLazySequenceKt
+    fun firstMethod(init: MethodMatcherKt.() -> Unit): MethodMatchKt
+    fun fields(init: FieldMatcherKt.() -> Unit): FieldLazySequenceKt
     fun firstField(init: FieldMatcherKt.() -> Unit): FieldMatchKt
-    fun constructors(init: ConstructorMatcherKt.() -> Unit): LazySequenceKt<ConstructorMatchKt, Constructor<*>, ConstructorMatcherKt>
+    fun constructors(init: ConstructorMatcherKt.() -> Unit): ConstructorLazySequenceKt
     fun firstConstructor(init: ConstructorMatcherKt.() -> Unit): ConstructorMatchKt
     fun string(init: StringMatcherKt.() -> Unit): StringMatchKt
     val String.exact: StringMatchKt

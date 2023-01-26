@@ -266,7 +266,7 @@ public interface HookBuilder {
         <Bind extends LazyBind> Self bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Reflect> consumer);
     }
 
-    interface LazySequence<Match extends BaseMatch<Match, Reflect>, Reflect, Matcher extends BaseMatcher<Matcher, Match>> {
+    interface LazySequence<Self extends LazySequence<Self, Match, Reflect, Matcher>, Match extends BaseMatch<Match, Reflect>, Reflect, Matcher extends BaseMatcher<Matcher, Match>> {
         @NonNull
         Match first();
 
@@ -274,11 +274,10 @@ public interface HookBuilder {
         Match first(@NonNull Consumer<Matcher> consumer);
 
         @NonNull
-        LazySequence<Match, Reflect, Matcher> all(@NonNull Consumer<Matcher> consumer);
+        Self all(@NonNull Consumer<Matcher> consumer);
 
-        // TODO: different matcher
         @NonNull
-        LazySequence<Match, Reflect, Matcher> onMatch(@NonNull Consumer<Iterable<Reflect>> consumer);
+        Self onMatch(@NonNull Consumer<Iterable<Reflect>> consumer);
 
         @NonNull
         Match onMatch(MatchConsumer<Iterable<Reflect>, Reflect> consumer);
@@ -290,7 +289,69 @@ public interface HookBuilder {
         ContainerSyntax<Match> disjunction();
 
         @NonNull
-        <Bind extends LazyBind> LazySequence<Match, Reflect, Matcher> bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Iterable<Reflect>> consumer);
+        <Bind extends LazyBind> Self bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Iterable<Reflect>> consumer);
+    }
+
+    interface TypeLazySequence<Self extends TypeLazySequence<Self, Match, Matcher>, Match extends TypeMatch<Match>, Matcher extends TypeMatcher<Matcher, Match>> extends LazySequence<Self, Match, Class<?>, Matcher> {
+        @NonNull
+        MethodLazySequence methods(@NonNull Consumer<MethodMatcher> matcher);
+
+        @NonNull
+        MethodMatch firstMethod(@NonNull Consumer<MethodMatcher> matcher);
+
+        @NonNull
+        ConstructorLazySequence constructors(@NonNull Consumer<ConstructorMatcher> matcher);
+
+        @NonNull
+        ConstructorMatch firstConstructor(@NonNull Consumer<ConstructorMatcher> matcher);
+
+        @NonNull
+        FieldLazySequence fields(@NonNull Consumer<FieldMatcher> matcher);
+
+        @NonNull
+        FieldMatch firstField(@NonNull Consumer<FieldMatcher> matcher);
+    }
+
+    interface ClassLazySequence extends TypeLazySequence<ClassLazySequence, ClassMatch, ClassMatcher> {
+    }
+
+    interface ParameterLazySequence extends TypeLazySequence<ParameterLazySequence, ParameterMatch, ParameterMatcher> {
+    }
+
+    interface MemberLazySequence<Self extends MemberLazySequence<Self, Match, Reflect, Matcher>, Match extends MemberMatch<Match, Reflect>, Reflect extends Member, Matcher extends MemberMatcher<Matcher, Match>> extends LazySequence<Self, Match, Reflect, Matcher> {
+        @NonNull
+        ClassLazySequence declaringClasses(@NonNull Consumer<ClassMatcher> matcher);
+
+        @NonNull
+        ClassMatch firstDeclaringClass(@NonNull Consumer<ClassMatcher> matcher);
+    }
+
+    interface FieldLazySequence extends MemberLazySequence<FieldLazySequence, FieldMatch, Field, FieldMatcher> {
+        @NonNull
+        ClassLazySequence types(@NonNull Consumer<ClassMatcher> matcher);
+
+        @NonNull
+        ClassMatch firstType(@NonNull Consumer<ClassMatcher> matcher);
+    }
+
+
+    interface ExecutableLazySequence<Self extends ExecutableLazySequence<Self, Match, Reflect, Matcher>, Match extends ExecutableMatch<Match, Reflect>, Reflect extends Member, Matcher extends ExecutableMatcher<Matcher, Match>> extends MemberLazySequence<Self, Match, Reflect, Matcher> {
+        @NonNull
+        ParameterLazySequence parameters(@NonNull Consumer<ParameterMatcher> matcher);
+
+        @NonNull
+        ParameterMatch firstParameter(@NonNull Consumer<ParameterMatcher> matcher);
+    }
+
+    interface MethodLazySequence extends ExecutableLazySequence<MethodLazySequence, MethodMatch, Method, MethodMatcher> {
+        @NonNull
+        ClassLazySequence returnTypes(@NonNull Consumer<ClassMatcher> matcher);
+
+        @NonNull
+        ClassMatch firstReturnType(@NonNull Consumer<ClassMatcher> matcher);
+    }
+
+    interface ConstructorLazySequence extends ExecutableLazySequence<ConstructorLazySequence, ConstructorMatch, Constructor<?>, ConstructorMatcher> {
     }
 
     interface TypeMatch<Self extends TypeMatch<Self>> extends ReflectMatch<Self, Class<?>> {
@@ -301,16 +362,16 @@ public interface HookBuilder {
         ClassMatch getSuperClass();
 
         @NonNull
-        LazySequence<ClassMatch, Class<?>, ClassMatcher> getInterfaces();
+        ClassLazySequence getInterfaces();
 
         @NonNull
-        LazySequence<MethodMatch, Method, MethodMatcher> getDeclaredMethods();
+        MethodLazySequence getDeclaredMethods();
 
         @NonNull
-        LazySequence<ConstructorMatch, Constructor<?>, ConstructorMatcher> getDeclaredConstructors();
+        ConstructorLazySequence getDeclaredConstructors();
 
         @NonNull
-        LazySequence<FieldMatch, Field, FieldMatcher> getDeclaredFields();
+        FieldLazySequence getDeclaredFields();
 
         @NonNull
         ClassMatch getArrayType();
@@ -331,22 +392,23 @@ public interface HookBuilder {
 
     interface ExecutableMatch<Self extends ExecutableMatch<Self, Reflect>, Reflect extends Member> extends MemberMatch<Self, Reflect> {
         @NonNull
-        LazySequence<ParameterMatch, Class<?>, ParameterMatcher> getParameterTypes();
+        ParameterLazySequence getParameterTypes();
 
+        @DexAnalysis
         @NonNull
-        LazySequence<StringMatch, String, StringMatcher> getReferredStrings();
+        FieldLazySequence getAssignedFields();
 
+        @DexAnalysis
         @NonNull
-        LazySequence<FieldMatch, Field, FieldMatcher> getAssignedFields();
+        FieldLazySequence getAccessedFields();
 
+        @DexAnalysis
         @NonNull
-        LazySequence<FieldMatch, Field, FieldMatcher> getAccessedFields();
+        MethodLazySequence getInvokedMethods();
 
+        @DexAnalysis
         @NonNull
-        LazySequence<MethodMatch, Method, MethodMatcher> getInvokedMethods();
-
-        @NonNull
-        LazySequence<ConstructorMatch, Constructor<?>, ConstructorMatcher> getInvokedConstructors();
+        ConstructorLazySequence getInvokedConstructors();
     }
 
     interface MethodMatch extends ExecutableMatch<MethodMatch, Method> {
@@ -390,25 +452,25 @@ public interface HookBuilder {
     HookBuilder setExceptionHandler(@NonNull Predicate<Throwable> handler);
 
     @NonNull
-    LazySequence<MethodMatch, Method, MethodMatcher> methods(@NonNull Consumer<MethodMatcher> matcher);
+    MethodLazySequence methods(@NonNull Consumer<MethodMatcher> matcher);
 
     @NonNull
     MethodMatch firstMethod(@NonNull Consumer<MethodMatcher> matcher);
 
     @NonNull
-    LazySequence<ConstructorMatch, Constructor<?>, ConstructorMatcher> constructors(@NonNull Consumer<ConstructorMatcher> matcher);
+    ConstructorLazySequence constructors(@NonNull Consumer<ConstructorMatcher> matcher);
 
     @NonNull
     ConstructorMatch firstConstructor(@NonNull Consumer<ConstructorMatcher> matcher);
 
     @NonNull
-    LazySequence<FieldMatch, Field, FieldMatcher> fields(@NonNull Consumer<FieldMatcher> matcher);
+    FieldLazySequence fields(@NonNull Consumer<FieldMatcher> matcher);
 
     @NonNull
     FieldMatch firstField(@NonNull Consumer<FieldMatcher> matcher);
 
     @NonNull
-    LazySequence<ClassMatch, Class<?>, ClassMatcher> classes(@NonNull Consumer<ClassMatcher> matcher);
+    ClassLazySequence classes(@NonNull Consumer<ClassMatcher> matcher);
 
     @NonNull
     ClassMatch firstClass(@NonNull Consumer<ClassMatcher> matcher);
