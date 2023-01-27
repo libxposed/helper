@@ -1,8 +1,3 @@
-import org.objectweb.asm.ClassVisitor
-import com.android.build.api.instrumentation.*
-import org.objectweb.asm.MethodVisitor
-import org.objectweb.asm.Opcodes
-
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
@@ -51,38 +46,6 @@ android {
             withJavadocJar()
         }
     }
-}
-
-abstract class ClassVisitorFactory :
-    AsmClassVisitorFactory<InstrumentationParameters.None> {
-
-    override fun createClassVisitor(
-        classContext: ClassContext,
-        nextClassVisitor: ClassVisitor
-    ): ClassVisitor {
-        return object : ClassVisitor(Opcodes.ASM9, nextClassVisitor) {
-            override fun visitMethod(
-                access: Int,
-                name: String?,
-                descriptor: String?,
-                signature: String?,
-                exceptions: Array<out String>?
-            ): MethodVisitor? =
-                if (exceptions?.contains("io/github/libxposed/helper/WOException") == true) null
-                else super.visitMethod(access, name, descriptor, signature, exceptions)
-        }
-    }
-
-    override fun isInstrumentable(classData: ClassData): Boolean {
-        return classData.className.run { startsWith("io.github.libxposed.helper") && endsWith("KtImpl") }
-    }
-}
-
-androidComponents.onVariants { variant ->
-    variant.instrumentation.transformClassesWith(
-        ClassVisitorFactory::class.java,
-        InstrumentationScope.PROJECT
-    ) {}
 }
 
 dependencies {
