@@ -1,15 +1,11 @@
 -keep class io.github.libxposed.helper.kt.HookBuilderKt { public <methods>; }
--keep class io.github.libxposed.helper.kt.HookBuilderKt$BaseMatcherKt { public <methods>; }
--keep class io.github.libxposed.helper.kt.HookBuilderKt$DexAnalysis {  }
--keep class io.github.libxposed.helper.kt.HookBuilderKt$AnnotationAnalysis {  }
--keep class io.github.libxposed.helper.kt.HookBuilderKt$DummyHooker { }
--keep class io.github.libxposed.helper.kt.HookBuilderKt$BaseMatchKt { public <methods>; }
--keep class io.github.libxposed.helper.kt.HookBuilderKt$LazySequenceKt { public <methods>; }
--keep class io.github.libxposed.helper.kt.HookBuilderKt$ContainerSyntaxKt { public <methods>; }
--keep class io.github.libxposed.helper.kt.HookBuilderKt$* extends io.github.libxposed.helper.kt.HookBuilderKt$BaseMatcherKt { public <methods>; }
--keep class io.github.libxposed.helper.kt.HookBuilderKt$* extends io.github.libxposed.helper.kt.HookBuilderKt$BaseMatchKt { public <methods>; }
--keep class io.github.libxposed.helper.kt.HookBuilderKt$* extends io.github.libxposed.helper.kt.HookBuilderKt$LazySequenceKt { public <methods>; }
+#-keep class io.github.libxposed.helper.kt.HookBuilderKt$* { public <methods>; }
+-keep class io.github.libxposed.helper.kt.HookBuilderKt$*Kt { public <methods>; }
+-keep class io.github.libxposed.helper.kt.HookBuilderKt$DexAnalysis
+-keep class io.github.libxposed.helper.kt.HookBuilderKt$AnnotationAnalysis
+-keep class io.github.libxposed.helper.kt.HookBuilderKt$DummyHooker
 -keep class io.github.libxposed.helper.kt.HookBuilderKtKt { public <methods>; }
--keep abstract class io.github.libxposed.helper.kt.HookBuilderKt$LazyBind { onMatch(); <init>(); }
+-keep class io.github.libxposed.helper.kt.HookBuilderKt$* implements io.github.libxposed.helper.HookBuilder$* { public <methods>; }
+-keep abstract class io.github.libxposed.helper.kt.HookBuilderKt$LazyBind { abstract <methods>; <init>(); }
 -keepattributes *
 -repackageclasses "libxposed.helper.kt"
