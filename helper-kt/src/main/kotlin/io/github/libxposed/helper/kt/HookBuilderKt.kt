@@ -366,13 +366,19 @@ sealed interface HookBuilderKt {
     fun constructors(init: ConstructorMatcherKt.() -> Unit): ConstructorLazySequenceKt
     fun firstConstructor(init: ConstructorMatcherKt.() -> Unit): ConstructorMatchKt
     fun string(init: StringMatcherKt.() -> Unit): StringMatchKt
-    val String.exact: StringMatchKt
+
     val String.prefix: StringMatchKt
-    val String.exactClass: ClassMatchKt
+    val String.exact: StringMatchKt
     val Class<*>.exact: ClassMatchKt
     val Method.exact: MethodMatchKt
     val Constructor<*>.exact: ConstructorMatchKt
+    val Array<Class<*>>.exact: ParameterMatchKt
     val Field.exact: FieldMatchKt
+    val String.exactClass: ClassMatchKt
+    val String.exactMethod: MethodMatchKt
+    val String.exactConstructor: ConstructorMatchKt
+    val String.exactField: FieldMatchKt
+    val String.exactParameter: ParameterMatchKt
 }
 
 fun XposedInterface.buildHooks(

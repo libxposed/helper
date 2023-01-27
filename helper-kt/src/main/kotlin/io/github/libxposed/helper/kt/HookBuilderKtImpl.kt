@@ -742,12 +742,22 @@ internal class HookBuilderKtImpl(
         get() = MethodMatchKtImpl(builder.exact(this))
     override val Constructor<*>.exact: ConstructorMatchKt
         get() = ConstructorMatchKtImpl(builder.exact(this))
+    override val Array<Class<*>>.exact: ParameterMatchKt
+        get() = ParameterMatchKtImpl(builder.exact(*this))
     override val Field.exact: FieldMatchKt
         get() = FieldMatchKtImpl(builder.exact(this))
     override val String.prefix: StringMatchKt
         get() = StringMatchKtImpl(builder.prefix(this))
     override val String.exactClass: ClassMatchKt
         get() = ClassMatchKtImpl(builder.exactClass(this))
+    override val String.exactMethod: MethodMatchKt
+        get() = MethodMatchKtImpl(builder.exactMethod(this))
+    override val String.exactConstructor: ConstructorMatchKt
+        get() = ConstructorMatchKtImpl(builder.exactConstructor(this))
+    override val String.exactField: FieldMatchKt
+        get() = FieldMatchKtImpl(builder.exactField(this))
+    override val String.exactParameter: ParameterMatchKt
+        get() = ParameterMatchKtImpl(builder.exactParameter(this))
 
     class MatchResultKtImpl(val impl: MatchResult) : MatchResultKt {
         override val matchedClasses: Map<String, Class<*>>

@@ -491,11 +491,26 @@ public interface HookBuilder {
     ClassMatch exact(@NonNull Class<?> clazz);
 
     @NonNull
+    MethodMatch exactMethod(@NonNull String signature);
+
+    @NonNull
     MethodMatch exact(@NonNull Method method);
+
+    @NonNull
+    ConstructorMatch exactConstructor(@NonNull String signature);
 
     @NonNull
     ConstructorMatch exact(@NonNull Constructor<?> constructor);
 
     @NonNull
+    FieldMatch exactField(@NonNull String signature);
+
+    @NonNull
     FieldMatch exact(@NonNull Field field);
+
+    @NonNull
+    ParameterMatch exactParameter(@NonNull String signature);
+
+    @NonNull
+    ParameterMatch exact(@NonNull Class<?>... params);
 }
