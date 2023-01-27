@@ -794,7 +794,7 @@ class HookBuilderKt (
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = throw WOException()
-        inline set(noinline value) {
+        set(value) {
             builder.setExceptionHandler(value)
         }
 
