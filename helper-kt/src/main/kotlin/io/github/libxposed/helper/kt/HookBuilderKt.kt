@@ -432,19 +432,17 @@ sealed class ReflectMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: Mat
         return this as Self
     }
 
-    //
-    inline fun onMiss(crossinline replacement: () -> Self): Self {
-        match.onMiss(Supplier {
-            replacement().match
-        })
+    inline fun substituteIfMiss(crossinline substitute: () -> Self): Self {
+        match.substituteIfMiss {
+            substitute().match
+        }
         return this as Self
     }
 
-    // TODO
-    inline fun onMiss(crossinline handler: MatcherKt.() -> Unit): Self {
-        match.onMiss(Consumer {
+    inline fun matchFirstIfMiss(crossinline handler: MatcherKt.() -> Unit): Self {
+        match.matchFirstIfMiss {
             newMatcher(it).handler()
-        })
+        }
         return this as Self
     }
 
@@ -549,6 +547,7 @@ class FieldMatchKt @PublishedApi internal constructor(match: FieldMatch) :
 class StringMatchKt @PublishedApi internal constructor(match: StringMatch) :
     BaseMatchKt<StringMatchKt, StringMatch, String, StringMatcher, StringMatcherKt>(match)
 
+@Suppress("UNCHECKED_CAST")
 @Hooker
 @OptIn(ExperimentalTypeInference::class)
 sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(
@@ -592,6 +591,20 @@ sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, S
     inline fun first(crossinline init: MatcherKt.() -> Unit): MatchKt = newMatch(seq.first {
         newMatcher(it).init()
     })
+
+    inline fun substituteIfMiss(crossinline substitute: () -> Self): Self {
+        seq.substituteIfMiss {
+            substitute().seq
+        }
+        return this as Self
+    }
+
+    inline fun matchIfMiss(crossinline handler: MatcherKt.() -> Unit): Self {
+        seq.matchIfMiss {
+            newMatcher(it).handler()
+        }
+        return this as Self
+    }
 
     @PublishedApi
     internal abstract fun newMatch(impl: Match): MatchKt

@@ -266,10 +266,10 @@ public interface HookBuilder {
         Self onMatch(@NonNull Consumer<Reflect> consumer);
 
         @NonNull
-        Self onMiss(@NonNull Supplier<Self> replacement);
+        Self substituteIfMiss(@NonNull Supplier<Self> substitute);
 
         @NonNull
-        Self onMiss(@NonNull Consumer<Matcher> consumer);
+        Self matchFirstIfMiss(@NonNull Consumer<Matcher> consumer);
 
         @NonNull
         <Bind extends LazyBind> Self bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Reflect> consumer);
@@ -376,6 +376,12 @@ public interface HookBuilder {
 
         @NonNull
         ContainerSyntax<Match> disjunction();
+
+        @NonNull
+        Self substituteIfMiss(@NonNull Supplier<Self> substitute);
+
+        @NonNull
+        Self matchIfMiss(@NonNull Consumer<Matcher> consumer);
 
         @NonNull
         <Bind extends LazyBind> Self bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Iterable<Reflect>> consumer);
