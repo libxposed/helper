@@ -5,5 +5,7 @@
 -keep class io.github.libxposed.helper.kt.HookBuilderKtKt { public <methods>; }
 -keep class io.github.libxposed.helper.kt.* implements io.github.libxposed.helper.HookBuilder$* { public <methods>; }
 -keep abstract class io.github.libxposed.helper.kt.LazyBind { abstract <methods>; <init>(); }
+-keep class io.github.libxposed.helper.kt.Hooker
+-keep class io.github.libxposed.helper.kt.Matcher
 -keepattributes *
 -repackageclasses "libxposed.helper.kt"

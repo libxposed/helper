@@ -46,6 +46,17 @@ abstract class LazyBind {
     abstract fun onMatch()
 }
 
+class MatchResultKt @PublishedApi internal constructor(val result: MatchResult) {
+    val matchedClasses: Map<String, Class<*>>
+        inline get() = result.matchedClasses
+    val matchedFields: Map<String, Field>
+        inline get() = result.matchedFields
+    val matchedMethods: Map<String, Method>
+        inline get() = result.matchedMethods
+    val matchedConstructors: Map<String, Constructor<*>>
+        inline get() = result.matchedConstructors
+}
+
 class ContainerSyntaxKt<MatchKt, Match> @PublishedApi internal constructor(@PublishedApi internal val syntax: ContainerSyntax<Match>) where MatchKt : BaseMatchKt<MatchKt, Match, *, *, *>, Match : BaseMatch<Match, *, *> {
     infix fun and(element: MatchKt) = ContainerSyntaxKt<MatchKt, Match>(syntax.and(element.match))
 
@@ -573,11 +584,9 @@ sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, S
             )
         })
 
-    inline fun filter(crossinline handler: DummyHooker.(Sequence<Reflect>) -> Unit): Self =
-        newSelf(seq.filter { t ->
-            DummyHooker.handler(
-                t.asSequence()
-            )
+    inline fun filter(crossinline handler: DummyHooker.(Reflect) -> Boolean): Self =
+        newSelf(seq.filter {
+            DummyHooker.handler(it)
         })
 
     inline fun all(crossinline init: MatcherKt.() -> Unit) = newSelf(seq.all {
@@ -846,23 +855,12 @@ class HookBuilderKt(ctx: XposedInterface, classLoader: BaseDexClassLoader, sourc
     val String.exactParameter: ParameterMatchKt
         inline get() = ParameterMatchKt(builder.exactParameter(this))
 
-    class MatchResultKt @PublishedApi internal constructor(val result: MatchResult) {
-        val matchedClasses: Map<String, Class<*>>
-            inline get() = result.matchedClasses
-        val matchedFields: Map<String, Field>
-            inline get() = result.matchedFields
-        val matchedMethods: Map<String, Method>
-            inline get() = result.matchedMethods
-        val matchedConstructors: Map<String, Constructor<*>>
-            inline get() = result.matchedConstructors
-    }
-
     fun build() = MatchResultKt(builder.build())
 }
 
 inline fun XposedInterface.buildHooks(
     classLoader: BaseDexClassLoader, sourcePath: String, init: HookBuilderKt.() -> Unit
-): HookBuilderKt.MatchResultKt {
+): MatchResultKt {
     val builder = HookBuilderKt(this, classLoader, sourcePath)
     builder.init()
     return builder.build()
