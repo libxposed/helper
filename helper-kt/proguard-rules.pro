@@ -1,11 +1,9 @@
--keep class io.github.libxposed.helper.kt.HookBuilderKt { public <methods>; }
-#-keep class io.github.libxposed.helper.kt.HookBuilderKt$* { public <methods>; }
--keep class io.github.libxposed.helper.kt.HookBuilderKt$*Kt { public <methods>; }
--keep class io.github.libxposed.helper.kt.HookBuilderKt$DexAnalysis
--keep class io.github.libxposed.helper.kt.HookBuilderKt$AnnotationAnalysis
--keep class io.github.libxposed.helper.kt.HookBuilderKt$DummyHooker
+-keep class io.github.libxposed.helper.kt.*Kt { public <methods>; }
+-keep class io.github.libxposed.helper.kt.DexAnalysis
+-keep class io.github.libxposed.helper.kt.AnnotationAnalysis
+-keep class io.github.libxposed.helper.kt.DummyHooker
 -keep class io.github.libxposed.helper.kt.HookBuilderKtKt { public <methods>; }
--keep class io.github.libxposed.helper.kt.HookBuilderKt$* implements io.github.libxposed.helper.HookBuilder$* { public <methods>; }
--keep abstract class io.github.libxposed.helper.kt.HookBuilderKt$LazyBind { abstract <methods>; <init>(); }
+-keep class io.github.libxposed.helper.kt.* implements io.github.libxposed.helper.HookBuilder$* { public <methods>; }
+-keep abstract class io.github.libxposed.helper.kt.LazyBind { abstract <methods>; <init>(); }
 -keepattributes *
 -repackageclasses "libxposed.helper.kt"

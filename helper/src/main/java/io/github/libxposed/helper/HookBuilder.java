@@ -280,7 +280,7 @@ public interface HookBuilder {
         Self onMatch(@NonNull Consumer<Iterable<Reflect>> consumer);
 
         @NonNull
-        Match onMatch(MatchConsumer<Iterable<Reflect>, Reflect> consumer);
+        Match onMatch(@NonNull MatchConsumer<Iterable<Reflect>, Reflect> consumer);
 
         @NonNull
         ContainerSyntax<Match> conjunction();
