@@ -47,7 +47,7 @@ abstract class LazyBind {
     abstract fun onMatch()
 }
 
-class ContainerSyntaxKt<MatchKt, Match> @PublishedApi internal constructor(@PublishedApi internal val syntax: ContainerSyntax<Match>) where MatchKt : BaseMatchKt<MatchKt, Match, *>, Match : BaseMatch<Match, *> {
+class ContainerSyntaxKt<MatchKt, Match> @PublishedApi internal constructor(@PublishedApi internal val syntax: ContainerSyntax<Match>) where MatchKt : BaseMatchKt<MatchKt, Match, *, *, *>, Match : BaseMatch<Match, *, *> {
     infix fun and(element: MatchKt) = ContainerSyntaxKt<MatchKt, Match>(syntax.and(element.match))
 
     infix fun and(element: ContainerSyntaxKt<MatchKt, Match>) =
@@ -64,7 +64,7 @@ class ContainerSyntaxKt<MatchKt, Match> @PublishedApi internal constructor(@Publ
 }
 
 @Matcher
-sealed class BaseMatcherKt<Match, Matcher>(@PublishedApi internal val matcher: Matcher) where Matcher : BaseMatcher<Matcher, Match>, Match : BaseMatch<Match, *> {
+sealed class BaseMatcherKt<Matcher>(@PublishedApi internal val matcher: Matcher) where Matcher : BaseMatcher<Matcher> {
     var matchFirst: Boolean
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
@@ -74,9 +74,8 @@ sealed class BaseMatcherKt<Match, Matcher>(@PublishedApi internal val matcher: M
         }
 }
 
-sealed class ReflectMatcherKt<Match, Matcher>(
-    matcher: Matcher
-) : BaseMatcherKt<Match, Matcher>(matcher) where Matcher : ReflectMatcher<Matcher, Match>, Match : ReflectMatch<Match, *> {
+sealed class ReflectMatcherKt<Matcher>(matcher: Matcher) :
+    BaseMatcherKt<Matcher>(matcher) where Matcher : ReflectMatcher<Matcher> {
     var key: String
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
@@ -114,9 +113,8 @@ sealed class ReflectMatcherKt<Match, Matcher>(
         }
 }
 
-sealed class TypeMatcherKt<Match, Matcher>(matcher: Matcher) : ReflectMatcherKt<Match, Matcher>(
-    matcher
-) where Matcher : TypeMatcher<Matcher, Match>, Match : TypeMatch<Match> {
+sealed class TypeMatcherKt<Matcher>(matcher: Matcher) :
+    ReflectMatcherKt<Matcher>(matcher) where Matcher : TypeMatcher<Matcher> {
     var name: StringMatchKt
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
@@ -169,22 +167,10 @@ sealed class TypeMatcherKt<Match, Matcher>(matcher: Matcher) : ReflectMatcherKt<
 }
 
 class ClassMatcherKt @PublishedApi internal constructor(matcher: ClassMatcher) :
-    TypeMatcherKt<ClassMatch, ClassMatcher>(
-        matcher
-    ) {
-    var missReplacement: ClassMatchKt
-        @Deprecated(
-            "Write only", level = DeprecationLevel.HIDDEN
-        ) inline get() = wo
-        inline set(value) {
-            matcher.setMissReplacement(value.match)
-        }
-}
+    TypeMatcherKt<ClassMatcher>(matcher)
 
 class ParameterMatcherKt @PublishedApi internal constructor(matcher: ParameterMatcher) :
-    TypeMatcherKt<ParameterMatch, ParameterMatcher>(
-        matcher
-    ) {
+    TypeMatcherKt<ParameterMatcher>(matcher) {
     var index: Int
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
@@ -192,19 +178,10 @@ class ParameterMatcherKt @PublishedApi internal constructor(matcher: ParameterMa
         inline set(value) {
             matcher.setIndex(value)
         }
-    var missReplacement: ParameterMatchKt
-        @Deprecated(
-            "Write only", level = DeprecationLevel.HIDDEN
-        ) inline get() = wo
-        inline set(value) {
-            matcher.setMissReplacement(value.match)
-        }
 }
 
 class StringMatcherKt @PublishedApi internal constructor(matcher: StringMatcher) :
-    BaseMatcherKt<StringMatch, StringMatcher>(
-        matcher
-    ) {
+    BaseMatcherKt<StringMatcher>(matcher) {
     var exact: String
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
@@ -219,18 +196,10 @@ class StringMatcherKt @PublishedApi internal constructor(matcher: StringMatcher)
         inline set(value) {
             matcher.setPrefix(value)
         }
-    var missReplacement: StringMatchKt
-        @Deprecated(
-            "Write only", level = DeprecationLevel.HIDDEN
-        ) inline get() = wo
-        inline set(value) {
-            matcher.setMissReplacement(value.match)
-        }
 }
 
-sealed class MemberMatcherKt<Match, Matcher>(
-    matcher: Matcher
-) : ReflectMatcherKt<Match, Matcher>(matcher) where Matcher : MemberMatcher<Matcher, Match>, Match : MemberMatch<Match, *> {
+sealed class MemberMatcherKt<Matcher>(matcher: Matcher) :
+    ReflectMatcherKt<Matcher>(matcher) where Matcher : MemberMatcher<Matcher> {
     var declaringClass: ClassMatchKt
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
@@ -248,9 +217,7 @@ sealed class MemberMatcherKt<Match, Matcher>(
 }
 
 class FieldMatcherKt @PublishedApi internal constructor(matcher: FieldMatcher) :
-    MemberMatcherKt<FieldMatch, FieldMatcher>(
-        matcher
-    ) {
+    MemberMatcherKt<FieldMatcher>(matcher) {
     var name: StringMatchKt
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
@@ -293,18 +260,10 @@ class FieldMatcherKt @PublishedApi internal constructor(matcher: FieldMatcher) :
         inline set(value) {
             matcher.setIsVolatile(value)
         }
-    var missReplacement: FieldMatchKt
-        @Deprecated(
-            "Write only", level = DeprecationLevel.HIDDEN
-        ) inline get() = wo
-        inline set(value) {
-            matcher.setMissReplacement(value.match)
-        }
 }
 
-sealed class ExecutableMatcherKt<Match, Matcher>(
-    matcher: Matcher
-) : MemberMatcherKt<Match, Matcher>(matcher) where Matcher : ExecutableMatcher<Matcher, Match>, Match : ExecutableMatch<Match, *> {
+sealed class ExecutableMatcherKt<Matcher>(matcher: Matcher) :
+    MemberMatcherKt<Matcher>(matcher) where Matcher : ExecutableMatcher<Matcher> {
     var parameterCounts: Int
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
@@ -384,9 +343,7 @@ sealed class ExecutableMatcherKt<Match, Matcher>(
 }
 
 class MethodMatcherKt @PublishedApi internal constructor(matcher: MethodMatcher) :
-    ExecutableMatcherKt<MethodMatch, MethodMatcher>(
-        matcher
-    ) {
+    ExecutableMatcherKt<MethodMatcher>(matcher) {
     var name: StringMatchKt
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
@@ -436,40 +393,70 @@ class MethodMatcherKt @PublishedApi internal constructor(matcher: MethodMatcher)
         inline set(value) {
             matcher.setIsNative(value)
         }
-    var missReplacement: MethodMatchKt
-        @Deprecated(
-            "Write only", level = DeprecationLevel.HIDDEN
-        ) inline get() = wo
-        inline set(value) {
-            matcher.setMissReplacement(value.match)
-        }
 }
 
 class ConstructorMatcherKt @PublishedApi internal constructor(matcher: ConstructorMatcher) :
-    ExecutableMatcherKt<ConstructorMatch, ConstructorMatcher>(
-        matcher
-    ) {
-    var missReplacement: ConstructorMatchKt
-        @Deprecated(
-            "Write only", level = DeprecationLevel.HIDDEN
-        ) inline get() = wo
-        inline set(value) {
-            matcher.setMissReplacement(value.match)
-        }
-}
+    ExecutableMatcherKt<ConstructorMatcher>(matcher)
 
 @Hooker
-sealed class BaseMatchKt<Self, Match, Reflect>(
+sealed class BaseMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(
     @PublishedApi internal val match: Match
-) where Self : BaseMatchKt<Self, Match, Reflect>, Match : BaseMatch<Match, Reflect> {
+) where Self : BaseMatchKt<Self, Match, Reflect, Matcher, MatcherKt>, Match : BaseMatch<Match, Reflect, Matcher>, Matcher : BaseMatcher<Matcher>, MatcherKt : BaseMatcherKt<Matcher> {
     operator fun unaryPlus() = ContainerSyntaxKt<Self, Match>(match.observe())
 
     operator fun unaryMinus() = ContainerSyntaxKt<Self, Match>(match.reverse())
 }
 
-sealed class TypeMatchKt<Self, Match>(
-    match: Match
-) : ReflectMatchKt<Self, Match, Class<*>>(match) where Self : TypeMatchKt<Self, Match>, Match : TypeMatch<Match> {
+@Suppress("UNCHECKED_CAST")
+sealed class ReflectMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: Match) :
+    BaseMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match) where Self : ReflectMatchKt<Self, Match, Reflect, Matcher, MatcherKt>, Match : ReflectMatch<Match, Reflect, Matcher>, Matcher : ReflectMatcher<Matcher>, MatcherKt : ReflectMatcherKt<Matcher> {
+    var key: String?
+        inline get() = match.key
+        inline set(value) {
+            match.key = value
+        }
+
+    inline fun <Bind : LazyBind> bind(
+        bind: Bind, crossinline handler: Bind.(Reflect) -> Unit
+    ): Self {
+        match.bind(bind.bind) { _, r ->
+            bind.handler(r)
+        }
+        return this as Self
+    }
+
+    inline fun onMatch(crossinline handler: DummyHooker.(Reflect) -> Unit): Self {
+        match.onMatch {
+            DummyHooker.handler(it)
+        }
+        return this as Self
+    }
+
+    //
+    inline fun onMiss(crossinline replacement: () -> Self): Self {
+        match.onMiss(Supplier {
+            replacement().match
+        })
+        return this as Self
+    }
+
+    // TODO
+    inline fun onMiss(crossinline handler: MatcherKt.() -> Unit): Self {
+        match.onMiss(Consumer {
+            newMatcher(it).handler()
+        })
+        return this as Self
+    }
+
+    @PublishedApi
+    internal abstract fun newSelf(match: Match): Self
+
+    @PublishedApi
+    internal abstract fun newMatcher(match: Matcher): MatcherKt
+}
+
+sealed class TypeMatchKt<Self, Match, Matcher, MatcherKt>(match: Match) :
+    ReflectMatchKt<Self, Match, Class<*>, Matcher, MatcherKt>(match) where Self : TypeMatchKt<Self, Match, Matcher, MatcherKt>, Match : TypeMatch<Match, Matcher>, Matcher : TypeMatcher<Matcher>, MatcherKt : TypeMatcherKt<Matcher> {
     val name: StringMatchKt
         inline get() = StringMatchKt(match.name)
     val superClass: ClassMatchKt
@@ -487,30 +474,28 @@ sealed class TypeMatchKt<Self, Match>(
 }
 
 class ClassMatchKt @PublishedApi internal constructor(match: ClassMatch) :
-    TypeMatchKt<ClassMatchKt, ClassMatch>(match) {
+    TypeMatchKt<ClassMatchKt, ClassMatch, ClassMatcher, ClassMatcherKt>(match) {
     override fun newSelf(match: ClassMatch) = ClassMatchKt(match)
 
     operator fun get(index: Int): ParameterMatchKt = ParameterMatchKt(match.asParameter(index))
+    override fun newMatcher(match: ClassMatcher) = ClassMatcherKt(match)
 }
 
 class ParameterMatchKt @PublishedApi internal constructor(match: ParameterMatch) :
-    TypeMatchKt<ParameterMatchKt, ParameterMatch>(match) {
+    TypeMatchKt<ParameterMatchKt, ParameterMatch, ParameterMatcher, ParameterMatcherKt>(match) {
 
     override fun newSelf(match: ParameterMatch) = ParameterMatchKt(match)
+    override fun newMatcher(match: ParameterMatcher) = ParameterMatcherKt(match)
 }
 
-sealed class MemberMatchKt<Self, Match, Reflect>(
-    match: Match
-) : ReflectMatchKt<Self, Match, Reflect>(match) where Self : MemberMatchKt<Self, Match, Reflect>, Match : MemberMatch<Match, Reflect>, Reflect : Member {
+sealed class MemberMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: Match) :
+    ReflectMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match) where Self : MemberMatchKt<Self, Match, Reflect, Matcher, MatcherKt>, Match : MemberMatch<Match, Reflect, Matcher>, Reflect : Member, Matcher : MemberMatcher<Matcher>, MatcherKt : MemberMatcherKt<Matcher> {
     val declaringClass: ClassMatchKt
         inline get() = ClassMatchKt(match.declaringClass)
 }
 
-sealed class ExecutableMatchKt<Self, Match, Reflect>(
-    match: Match
-) : MemberMatchKt<Self, Match, Reflect>(
-    match
-) where Self : ExecutableMatchKt<Self, Match, Reflect>, Match : ExecutableMatch<Match, Reflect>, Reflect : Member {
+sealed class ExecutableMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: Match) :
+    MemberMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match) where Self : ExecutableMatchKt<Self, Match, Reflect, Matcher, MatcherKt>, Match : ExecutableMatch<Match, Reflect, Matcher>, Reflect : Member, Matcher : ExecutableMatcher<Matcher>, MatcherKt : ExecutableMatcherKt<Matcher> {
     val parameterTypes: ParameterLazySequenceKt
         inline get() = ParameterLazySequenceKt(match.parameterTypes)
 
@@ -532,72 +517,43 @@ sealed class ExecutableMatchKt<Self, Match, Reflect>(
 }
 
 class MethodMatchKt @PublishedApi internal constructor(match: MethodMatch) :
-    ExecutableMatchKt<MethodMatchKt, MethodMatch, Method>(
-        match
-    ) {
+    ExecutableMatchKt<MethodMatchKt, MethodMatch, Method, MethodMatcher, MethodMatcherKt>(match) {
     val name: StringMatchKt
         inline get() = StringMatchKt(match.name)
     val returnType: ClassMatchKt
         inline get() = ClassMatchKt(match.returnType)
 
     override fun newSelf(match: MethodMatch): MethodMatchKt = MethodMatchKt(match)
+    override fun newMatcher(match: MethodMatcher) = MethodMatcherKt(match)
 }
 
 class ConstructorMatchKt @PublishedApi internal constructor(match: ConstructorMatch) :
-    ExecutableMatchKt<ConstructorMatchKt, ConstructorMatch, Constructor<*>>(
+    ExecutableMatchKt<ConstructorMatchKt, ConstructorMatch, Constructor<*>, ConstructorMatcher, ConstructorMatcherKt>(
         match
     ) {
     override fun newSelf(match: ConstructorMatch): ConstructorMatchKt = ConstructorMatchKt(match)
+    override fun newMatcher(match: ConstructorMatcher) = ConstructorMatcherKt(match)
 }
 
 class FieldMatchKt @PublishedApi internal constructor(match: FieldMatch) :
-    MemberMatchKt<FieldMatchKt, FieldMatch, Field>(
-        match
-    ) {
+    MemberMatchKt<FieldMatchKt, FieldMatch, Field, FieldMatcher, FieldMatcherKt>(match) {
     val name: StringMatchKt
         inline get() = StringMatchKt(match.name)
     val type: ClassMatchKt
         inline get() = ClassMatchKt(match.type)
 
     override fun newSelf(match: FieldMatch): FieldMatchKt = FieldMatchKt(match)
+    override fun newMatcher(match: FieldMatcher) = FieldMatcherKt(match)
 }
 
 class StringMatchKt @PublishedApi internal constructor(match: StringMatch) :
-    BaseMatchKt<StringMatchKt, StringMatch, String>(match)
-
-sealed class ReflectMatchKt<Self, Match, Reflect>(
-    match: Match
-) : BaseMatchKt<Self, Match, Reflect>(match) where Self : ReflectMatchKt<Self, Match, Reflect>, Match : ReflectMatch<Match, Reflect> {
-    var key: String?
-        inline get() = match.key
-        inline set(value) {
-            match.key = value
-        }
-
-    @Suppress("UNCHECKED_CAST")
-    inline fun <Bind : LazyBind> bind(
-        bind: Bind, crossinline handler: Bind.(Reflect) -> Unit
-    ): Self {
-        match.bind(bind.bind) { _, r ->
-            bind.handler(r)
-        }
-        return this as Self
-    }
-
-    inline fun onMatch(crossinline handler: DummyHooker.(Reflect) -> Unit): Self =
-        newSelf(match.onMatch {
-            DummyHooker.handler(it)
-        })
-
-    @PublishedApi
-    internal abstract fun newSelf(match: Match): Self
-}
+    BaseMatchKt<StringMatchKt, StringMatch, String, StringMatcher, StringMatcherKt>(match)
 
 @Hooker
 @OptIn(ExperimentalTypeInference::class)
 sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(
     @PublishedApi internal val seq: Seq
-) where Self : LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>, MatchKt : BaseMatchKt<MatchKt, Match, Reflect>, Reflect : Any, MatcherKt : BaseMatcherKt<Match, Matcher>, Match : BaseMatch<Match, Reflect>, Matcher : BaseMatcher<Matcher, Match>, Seq : LazySequence<Seq, Match, Reflect, Matcher> {
+) where Self : LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>, MatchKt : BaseMatchKt<MatchKt, Match, Reflect, Matcher, MatcherKt>, Reflect : Any, MatcherKt : BaseMatcherKt<Matcher>, Match : BaseMatch<Match, Reflect, Matcher>, Matcher : BaseMatcher<Matcher>, Seq : LazySequence<Seq, Match, Reflect, Matcher> {
     fun first() = newMatch(seq.first())
     fun unaryPlus() = ContainerSyntaxKt<MatchKt, Match>(seq.conjunction())
 
@@ -647,9 +603,8 @@ sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, S
     internal abstract fun newSelf(impl: Seq): Self
 }
 
-sealed class TypeLazySequenceKt<Base, MatchKt, MatcherKt, Match, Matcher, Seq>(
-    seq: Seq
-) : LazySequenceKt<Base, MatchKt, Class<*>, MatcherKt, Match, Matcher, Seq>(seq) where Base : TypeLazySequenceKt<Base, MatchKt, MatcherKt, Match, Matcher, Seq>, MatchKt : TypeMatchKt<MatchKt, Match>, MatcherKt : TypeMatcherKt<Match, Matcher>, Match : TypeMatch<Match>, Matcher : TypeMatcher<Matcher, Match>, Seq : TypeLazySequence<Seq, Match, Matcher> {
+sealed class TypeLazySequenceKt<Base, MatchKt, MatcherKt, Match, Matcher, Seq>(seq: Seq) :
+    LazySequenceKt<Base, MatchKt, Class<*>, MatcherKt, Match, Matcher, Seq>(seq) where Base : TypeLazySequenceKt<Base, MatchKt, MatcherKt, Match, Matcher, Seq>, MatchKt : TypeMatchKt<MatchKt, Match, Matcher, MatcherKt>, MatcherKt : TypeMatcherKt<Matcher>, Match : TypeMatch<Match, Matcher>, Matcher : TypeMatcher<Matcher>, Seq : TypeLazySequence<Seq, Match, Matcher> {
     inline fun methods(crossinline init: MethodMatcherKt.() -> Unit) =
         MethodLazySequenceKt(seq.methods {
             MethodMatcherKt(it).init()
@@ -681,9 +636,8 @@ sealed class TypeLazySequenceKt<Base, MatchKt, MatcherKt, Match, Matcher, Seq>(
         })
 }
 
-sealed class MemberLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(
-    seq: Seq
-) : LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(seq) where Self : MemberLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>, MatchKt : MemberMatchKt<MatchKt, Match, Reflect>, Reflect : Member, MatcherKt : MemberMatcherKt<Match, Matcher>, Match : MemberMatch<Match, Reflect>, Matcher : MemberMatcher<Matcher, Match>, Seq : MemberLazySequence<Seq, Match, Reflect, Matcher> {
+sealed class MemberLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(seq: Seq) :
+    LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(seq) where Self : MemberLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>, MatchKt : MemberMatchKt<MatchKt, Match, Reflect, Matcher, MatcherKt>, Reflect : Member, MatcherKt : MemberMatcherKt<Matcher>, Match : MemberMatch<Match, Reflect, Matcher>, Matcher : MemberMatcher<Matcher>, Seq : MemberLazySequence<Seq, Match, Reflect, Matcher> {
     inline fun declaringClasses(crossinline init: ClassMatcherKt.() -> Unit) =
         ClassLazySequenceKt(seq.declaringClasses {
             ClassMatcherKt(it).init()
@@ -696,9 +650,8 @@ sealed class MemberLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matc
 
 }
 
-sealed class ExecutableLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(
-    seq: Seq
-) : MemberLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(seq) where Self : ExecutableLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>, MatchKt : ExecutableMatchKt<MatchKt, Match, Reflect>, Reflect : Member, MatcherKt : ExecutableMatcherKt<Match, Matcher>, Match : ExecutableMatch<Match, Reflect>, Matcher : ExecutableMatcher<Matcher, Match>, Seq : ExecutableLazySequence<Seq, Match, Reflect, Matcher> {
+sealed class ExecutableLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(seq: Seq) :
+    MemberLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(seq) where Self : ExecutableLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>, MatchKt : ExecutableMatchKt<MatchKt, Match, Reflect, Matcher, MatcherKt>, Reflect : Member, MatcherKt : ExecutableMatcherKt<Matcher>, Match : ExecutableMatch<Match, Reflect, Matcher>, Matcher : ExecutableMatcher<Matcher>, Seq : ExecutableLazySequence<Seq, Match, Reflect, Matcher> {
     inline fun parameters(crossinline init: ParameterMatcherKt.() -> Unit) =
         ParameterLazySequenceKt(seq.parameters {
             ParameterMatcherKt(it).init()
@@ -784,9 +737,7 @@ class ConstructorLazySequenceKt @PublishedApi internal constructor(seq: Construc
 
 
 @Hooker
-class HookBuilderKt(
-    ctx: XposedInterface, classLoader: BaseDexClassLoader, sourcePath: String
-) {
+class HookBuilderKt(ctx: XposedInterface, classLoader: BaseDexClassLoader, sourcePath: String) {
     @PublishedApi
     internal val builder = HookBuilderImpl(ctx, classLoader, sourcePath)
 

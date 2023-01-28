@@ -21,6 +21,12 @@ import io.github.libxposed.api.XposedContextWrapper;
 @SuppressWarnings("unused")
 public interface HookBuilder {
     @FunctionalInterface
+    interface Supplier<T> {
+        @NonNull
+        T get();
+    }
+
+    @FunctionalInterface
     interface Consumer<T> {
         void accept(@NonNull T t);
     }
@@ -74,15 +80,12 @@ public interface HookBuilder {
         Map<String, Constructor<?>> getMatchedConstructors();
     }
 
-    interface BaseMatcher<Self extends BaseMatcher<Self, Match>, Match extends BaseMatch<Match, ?>> {
+    interface BaseMatcher<Self extends BaseMatcher<Self>> {
         @NonNull
         Self setMatchFirst(boolean matchFirst);
-
-        @NonNull
-        Self setMissReplacement(@NonNull Match replacement);
     }
 
-    interface ReflectMatcher<Self extends ReflectMatcher<Self, Match>, Match extends ReflectMatch<Match, ?>> extends BaseMatcher<Self, Match> {
+    interface ReflectMatcher<Self extends ReflectMatcher<Self>> extends BaseMatcher<Self> {
         @NonNull
         Self setKey(@NonNull String key);
 
@@ -99,7 +102,7 @@ public interface HookBuilder {
         Self setIsPackage(boolean isPackage);
     }
 
-    interface ContainerSyntax<Match extends BaseMatch<Match, ?>> {
+    interface ContainerSyntax<Match extends BaseMatch<Match, ?, ?>> {
         @NonNull
         ContainerSyntax<Match> and(@NonNull Match element);
 
@@ -116,7 +119,7 @@ public interface HookBuilder {
         ContainerSyntax<Match> not();
     }
 
-    interface TypeMatcher<Self extends TypeMatcher<Self, Match>, Match extends TypeMatch<Match>> extends ReflectMatcher<Self, Match> {
+    interface TypeMatcher<Self extends TypeMatcher<Self>> extends ReflectMatcher<Self> {
         @NonNull
         Self setName(@NonNull StringMatch name);
 
@@ -139,15 +142,15 @@ public interface HookBuilder {
         Self setIsInterface(boolean isInterface);
     }
 
-    interface ClassMatcher extends TypeMatcher<ClassMatcher, ClassMatch> {
+    interface ClassMatcher extends TypeMatcher<ClassMatcher> {
     }
 
-    interface ParameterMatcher extends TypeMatcher<ParameterMatcher, ParameterMatch> {
+    interface ParameterMatcher extends TypeMatcher<ParameterMatcher> {
         @NonNull
         ParameterMatcher setIndex(int index);
     }
 
-    interface StringMatcher extends BaseMatcher<StringMatcher, StringMatch> {
+    interface StringMatcher extends BaseMatcher<StringMatcher> {
         @NonNull
         StringMatcher setExact(@NonNull String exact);
 
@@ -155,7 +158,7 @@ public interface HookBuilder {
         StringMatcher setPrefix(@NonNull String prefix);
     }
 
-    interface MemberMatcher<Self extends MemberMatcher<Self, Match>, Match extends MemberMatch<Match, ?>> extends ReflectMatcher<Self, Match> {
+    interface MemberMatcher<Self extends MemberMatcher<Self>> extends ReflectMatcher<Self> {
         @NonNull
         Self setDeclaringClass(@NonNull ClassMatch declaringClassMatch);
 
@@ -163,7 +166,7 @@ public interface HookBuilder {
         Self setIsSynthetic(boolean isSynthetic);
     }
 
-    interface FieldMatcher extends MemberMatcher<FieldMatcher, FieldMatch> {
+    interface FieldMatcher extends MemberMatcher<FieldMatcher> {
         @NonNull
         FieldMatcher setName(@NonNull StringMatch name);
 
@@ -183,7 +186,7 @@ public interface HookBuilder {
         FieldMatcher setIsVolatile(boolean isVolatile);
     }
 
-    interface ExecutableMatcher<Self extends ExecutableMatcher<Self, Match>, Match extends ExecutableMatch<Match, ?>> extends MemberMatcher<Self, Match> {
+    interface ExecutableMatcher<Self extends ExecutableMatcher<Self>> extends MemberMatcher<Self> {
         @NonNull
         Self setParameterCount(int count);
 
@@ -218,7 +221,7 @@ public interface HookBuilder {
         Self setIsVarargs(boolean isVarargs);
     }
 
-    interface MethodMatcher extends ExecutableMatcher<MethodMatcher, MethodMatch> {
+    interface MethodMatcher extends ExecutableMatcher<MethodMatcher> {
         @NonNull
         MethodMatcher setName(@NonNull StringMatch name);
 
@@ -241,10 +244,10 @@ public interface HookBuilder {
         MethodMatcher setIsNative(boolean isNative);
     }
 
-    interface ConstructorMatcher extends ExecutableMatcher<ConstructorMatcher, ConstructorMatch> {
+    interface ConstructorMatcher extends ExecutableMatcher<ConstructorMatcher> {
     }
 
-    interface BaseMatch<Self extends BaseMatch<Self, Reflect>, Reflect> {
+    interface BaseMatch<Self extends BaseMatch<Self, Reflect, Matcher>, Reflect, Matcher extends BaseMatcher<Matcher>> {
         @NonNull
         ContainerSyntax<Self> observe();
 
@@ -252,7 +255,7 @@ public interface HookBuilder {
         ContainerSyntax<Self> reverse();
     }
 
-    interface ReflectMatch<Self extends ReflectMatch<Self, Reflect>, Reflect> extends BaseMatch<Self, Reflect> {
+    interface ReflectMatch<Self extends ReflectMatch<Self, Reflect, Matcher>, Reflect, Matcher extends ReflectMatcher<Matcher>> extends BaseMatch<Self, Reflect, Matcher> {
         @Nullable
         String getKey();
 
@@ -263,10 +266,96 @@ public interface HookBuilder {
         Self onMatch(@NonNull Consumer<Reflect> consumer);
 
         @NonNull
+        Self onMiss(@NonNull Supplier<Self> replacement);
+
+        @NonNull
+        Self onMiss(@NonNull Consumer<Matcher> consumer);
+
+        @NonNull
         <Bind extends LazyBind> Self bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Reflect> consumer);
     }
 
-    interface LazySequence<Self extends LazySequence<Self, Match, Reflect, Matcher>, Match extends BaseMatch<Match, Reflect>, Reflect, Matcher extends BaseMatcher<Matcher, Match>> {
+    interface TypeMatch<Self extends TypeMatch<Self, Matcher>, Matcher extends TypeMatcher<Matcher>> extends ReflectMatch<Self, Class<?>, Matcher> {
+        @NonNull
+        StringMatch getName();
+
+        @NonNull
+        ClassMatch getSuperClass();
+
+        @NonNull
+        ClassLazySequence getInterfaces();
+
+        @NonNull
+        MethodLazySequence getDeclaredMethods();
+
+        @NonNull
+        ConstructorLazySequence getDeclaredConstructors();
+
+        @NonNull
+        FieldLazySequence getDeclaredFields();
+
+        @NonNull
+        ClassMatch getArrayType();
+    }
+
+    interface ClassMatch extends TypeMatch<ClassMatch, ClassMatcher> {
+        @NonNull
+        ParameterMatch asParameter(int index);
+    }
+
+    interface ParameterMatch extends TypeMatch<ParameterMatch, ParameterMatcher> {
+    }
+
+    interface MemberMatch<Self extends MemberMatch<Self, Reflect, Matcher>, Reflect extends Member, Matcher extends MemberMatcher<Matcher>> extends ReflectMatch<Self, Reflect, Matcher> {
+        @NonNull
+        ClassMatch getDeclaringClass();
+    }
+
+    interface ExecutableMatch<Self extends ExecutableMatch<Self, Reflect, Matcher>, Reflect extends Member, Matcher extends ExecutableMatcher<Matcher>> extends MemberMatch<Self, Reflect, Matcher> {
+        @NonNull
+        ParameterLazySequence getParameterTypes();
+
+        @DexAnalysis
+        @NonNull
+        FieldLazySequence getAssignedFields();
+
+        @DexAnalysis
+        @NonNull
+        FieldLazySequence getAccessedFields();
+
+        @DexAnalysis
+        @NonNull
+        MethodLazySequence getInvokedMethods();
+
+        @DexAnalysis
+        @NonNull
+        ConstructorLazySequence getInvokedConstructors();
+    }
+
+    interface MethodMatch extends ExecutableMatch<MethodMatch, Method, MethodMatcher> {
+        @NonNull
+        StringMatch getName();
+
+        @NonNull
+        ClassMatch getReturnType();
+    }
+
+    interface ConstructorMatch extends ExecutableMatch<ConstructorMatch, Constructor<?>, ConstructorMatcher> {
+    }
+
+    interface FieldMatch extends MemberMatch<FieldMatch, Field, FieldMatcher> {
+        @NonNull
+        StringMatch getName();
+
+        @NonNull
+        ClassMatch getType();
+    }
+
+    interface StringMatch extends BaseMatch<StringMatch, String, StringMatcher> {
+
+    }
+
+    interface LazySequence<Self extends LazySequence<Self, Match, Reflect, Matcher>, Match extends BaseMatch<Match, Reflect, Matcher>, Reflect, Matcher extends BaseMatcher<Matcher>> {
         @NonNull
         Match first();
 
@@ -292,7 +381,7 @@ public interface HookBuilder {
         <Bind extends LazyBind> Self bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Iterable<Reflect>> consumer);
     }
 
-    interface TypeLazySequence<Self extends TypeLazySequence<Self, Match, Matcher>, Match extends TypeMatch<Match>, Matcher extends TypeMatcher<Matcher, Match>> extends LazySequence<Self, Match, Class<?>, Matcher> {
+    interface TypeLazySequence<Self extends TypeLazySequence<Self, Match, Matcher>, Match extends TypeMatch<Match, Matcher>, Matcher extends TypeMatcher<Matcher>> extends LazySequence<Self, Match, Class<?>, Matcher> {
         @NonNull
         MethodLazySequence methods(@NonNull Consumer<MethodMatcher> matcher);
 
@@ -318,7 +407,7 @@ public interface HookBuilder {
     interface ParameterLazySequence extends TypeLazySequence<ParameterLazySequence, ParameterMatch, ParameterMatcher> {
     }
 
-    interface MemberLazySequence<Self extends MemberLazySequence<Self, Match, Reflect, Matcher>, Match extends MemberMatch<Match, Reflect>, Reflect extends Member, Matcher extends MemberMatcher<Matcher, Match>> extends LazySequence<Self, Match, Reflect, Matcher> {
+    interface MemberLazySequence<Self extends MemberLazySequence<Self, Match, Reflect, Matcher>, Match extends MemberMatch<Match, Reflect, Matcher>, Reflect extends Member, Matcher extends MemberMatcher<Matcher>> extends LazySequence<Self, Match, Reflect, Matcher> {
         @NonNull
         ClassLazySequence declaringClasses(@NonNull Consumer<ClassMatcher> matcher);
 
@@ -335,7 +424,7 @@ public interface HookBuilder {
     }
 
 
-    interface ExecutableLazySequence<Self extends ExecutableLazySequence<Self, Match, Reflect, Matcher>, Match extends ExecutableMatch<Match, Reflect>, Reflect extends Member, Matcher extends ExecutableMatcher<Matcher, Match>> extends MemberLazySequence<Self, Match, Reflect, Matcher> {
+    interface ExecutableLazySequence<Self extends ExecutableLazySequence<Self, Match, Reflect, Matcher>, Match extends ExecutableMatch<Match, Reflect, Matcher>, Reflect extends Member, Matcher extends ExecutableMatcher<Matcher>> extends MemberLazySequence<Self, Match, Reflect, Matcher> {
         @NonNull
         ParameterLazySequence parameters(@NonNull Consumer<ParameterMatcher> matcher);
 
@@ -352,86 +441,6 @@ public interface HookBuilder {
     }
 
     interface ConstructorLazySequence extends ExecutableLazySequence<ConstructorLazySequence, ConstructorMatch, Constructor<?>, ConstructorMatcher> {
-    }
-
-    interface TypeMatch<Self extends TypeMatch<Self>> extends ReflectMatch<Self, Class<?>> {
-        @NonNull
-        StringMatch getName();
-
-        @NonNull
-        ClassMatch getSuperClass();
-
-        @NonNull
-        ClassLazySequence getInterfaces();
-
-        @NonNull
-        MethodLazySequence getDeclaredMethods();
-
-        @NonNull
-        ConstructorLazySequence getDeclaredConstructors();
-
-        @NonNull
-        FieldLazySequence getDeclaredFields();
-
-        @NonNull
-        ClassMatch getArrayType();
-    }
-
-    interface ClassMatch extends TypeMatch<ClassMatch> {
-        @NonNull
-        ParameterMatch asParameter(int index);
-    }
-
-    interface ParameterMatch extends TypeMatch<ParameterMatch> {
-    }
-
-    interface MemberMatch<Self extends MemberMatch<Self, Reflect>, Reflect extends Member> extends ReflectMatch<Self, Reflect> {
-        @NonNull
-        ClassMatch getDeclaringClass();
-    }
-
-    interface ExecutableMatch<Self extends ExecutableMatch<Self, Reflect>, Reflect extends Member> extends MemberMatch<Self, Reflect> {
-        @NonNull
-        ParameterLazySequence getParameterTypes();
-
-        @DexAnalysis
-        @NonNull
-        FieldLazySequence getAssignedFields();
-
-        @DexAnalysis
-        @NonNull
-        FieldLazySequence getAccessedFields();
-
-        @DexAnalysis
-        @NonNull
-        MethodLazySequence getInvokedMethods();
-
-        @DexAnalysis
-        @NonNull
-        ConstructorLazySequence getInvokedConstructors();
-    }
-
-    interface MethodMatch extends ExecutableMatch<MethodMatch, Method> {
-        @NonNull
-        StringMatch getName();
-
-        @NonNull
-        ClassMatch getReturnType();
-    }
-
-    interface ConstructorMatch extends ExecutableMatch<ConstructorMatch, Constructor<?>> {
-    }
-
-    interface FieldMatch extends MemberMatch<FieldMatch, Field> {
-        @NonNull
-        StringMatch getName();
-
-        @NonNull
-        ClassMatch getType();
-    }
-
-    interface StringMatch extends BaseMatch<StringMatch, String> {
-
     }
 
     interface LazyBind {
