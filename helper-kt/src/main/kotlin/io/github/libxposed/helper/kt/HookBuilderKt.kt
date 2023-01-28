@@ -10,7 +10,6 @@ import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Member
 import java.lang.reflect.Method
-import kotlin.experimental.ExperimentalTypeInference
 
 
 @DslMarker
@@ -549,7 +548,6 @@ class StringMatchKt @PublishedApi internal constructor(match: StringMatch) :
 
 @Suppress("UNCHECKED_CAST")
 @Hooker
-@OptIn(ExperimentalTypeInference::class)
 sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(
     @PublishedApi internal val seq: Seq
 ) where Self : LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>, MatchKt : BaseMatchKt<MatchKt, Match, Reflect, Matcher, MatcherKt>, Reflect : Any, MatcherKt : BaseMatcherKt<Matcher>, Match : BaseMatch<Match, Reflect, Matcher>, Matcher : BaseMatcher<Matcher>, Seq : LazySequence<Seq, Match, Reflect, Matcher> {
@@ -568,21 +566,19 @@ sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, S
         return this as Self
     }
 
-    @OverloadResolutionByLambdaReturnType
-    inline fun onMatch(crossinline handler: DummyHooker.(Sequence<Reflect>) -> Reflect): MatchKt =
-        newMatch(seq.onMatch(MatchConsumer<Iterable<Reflect>, Reflect> {
+    inline fun pick(crossinline handler: DummyHooker.(Sequence<Reflect>) -> Reflect): MatchKt =
+        newMatch(seq.pick {
             handler(
                 DummyHooker, it.asSequence()
             )
-        }))
+        })
 
-    @OverloadResolutionByLambdaReturnType
-    inline fun onMatch(crossinline handler: DummyHooker.(Sequence<Reflect>) -> Unit): Self =
-        newSelf(seq.onMatch(Consumer<Iterable<Reflect>> { t ->
+    inline fun filter(crossinline handler: DummyHooker.(Sequence<Reflect>) -> Unit): Self =
+        newSelf(seq.filter { t ->
             DummyHooker.handler(
                 t.asSequence()
             )
-        }))
+        })
 
     inline fun all(crossinline init: MatcherKt.() -> Unit) = newSelf(seq.all {
         newMatcher(it).init()

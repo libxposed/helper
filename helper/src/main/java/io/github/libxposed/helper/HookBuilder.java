@@ -366,10 +366,10 @@ public interface HookBuilder {
         Self all(@NonNull Consumer<Matcher> consumer);
 
         @NonNull
-        Self onMatch(@NonNull Consumer<Iterable<Reflect>> consumer);
+        Self filter(@NonNull Consumer<Iterable<Reflect>> consumer);
 
         @NonNull
-        Match onMatch(@NonNull MatchConsumer<Iterable<Reflect>, Reflect> consumer);
+        Match pick(@NonNull MatchConsumer<Iterable<Reflect>, Reflect> consumer);
 
         @NonNull
         ContainerSyntax<Match> conjunction();
