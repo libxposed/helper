@@ -611,6 +611,13 @@ sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, S
         return this as Self
     }
 
+    inline fun onMatch(crossinline handler: DummyHooker.(Sequence<Reflect>) -> Unit): Self {
+        seq.onMatch {
+            DummyHooker.handler(it.asSequence())
+        }
+        return this as Self
+    }
+
     @PublishedApi
     internal abstract fun newMatch(impl: Match): MatchKt
 

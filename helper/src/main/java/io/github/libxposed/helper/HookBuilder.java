@@ -372,6 +372,9 @@ public interface HookBuilder {
         Match pick(@NonNull MatchConsumer<Iterable<Reflect>, Reflect> consumer);
 
         @NonNull
+        Self onMatch(@NonNull Consumer<Iterable<Reflect>> consumer);
+
+        @NonNull
         ContainerSyntax<Match> conjunction();
 
         @NonNull
