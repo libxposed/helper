@@ -64,8 +64,7 @@ class ContainerSyntaxKt<MatchKt, Match> @PublishedApi internal constructor(@Publ
     infix fun or(element: ContainerSyntaxKt<MatchKt, Match>) =
         ContainerSyntaxKt<MatchKt, Match>(syntax.or(element.syntax))
 
-    operator fun not(): ContainerSyntaxKt<MatchKt, Match> =
-        ContainerSyntaxKt<MatchKt, Match>(syntax.not())
+    operator fun not() = ContainerSyntaxKt<MatchKt, Match>(syntax.not())
 }
 
 @Matcher
@@ -480,7 +479,7 @@ class ClassMatchKt @PublishedApi internal constructor(match: ClassMatch) :
     TypeMatchKt<ClassMatchKt, ClassMatch, ClassMatcher, ClassMatcherKt>(match) {
     override fun newSelf(match: ClassMatch) = ClassMatchKt(match)
 
-    operator fun get(index: Int): ParameterMatchKt = ParameterMatchKt(match.asParameter(index))
+    operator fun get(index: Int) = ParameterMatchKt(match.asParameter(index))
     override fun newMatcher(match: ClassMatcher) = ClassMatcherKt(match)
 }
 
@@ -526,7 +525,7 @@ class MethodMatchKt @PublishedApi internal constructor(match: MethodMatch) :
     val returnType: ClassMatchKt
         inline get() = ClassMatchKt(match.returnType)
 
-    override fun newSelf(match: MethodMatch): MethodMatchKt = MethodMatchKt(match)
+    override fun newSelf(match: MethodMatch) = MethodMatchKt(match)
     override fun newMatcher(match: MethodMatcher) = MethodMatcherKt(match)
 }
 
@@ -534,7 +533,7 @@ class ConstructorMatchKt @PublishedApi internal constructor(match: ConstructorMa
     ExecutableMatchKt<ConstructorMatchKt, ConstructorMatch, Constructor<*>, ConstructorMatcher, ConstructorMatcherKt>(
         match
     ) {
-    override fun newSelf(match: ConstructorMatch): ConstructorMatchKt = ConstructorMatchKt(match)
+    override fun newSelf(match: ConstructorMatch) = ConstructorMatchKt(match)
     override fun newMatcher(match: ConstructorMatcher) = ConstructorMatcherKt(match)
 }
 
@@ -545,7 +544,7 @@ class FieldMatchKt @PublishedApi internal constructor(match: FieldMatch) :
     val type: ClassMatchKt
         inline get() = ClassMatchKt(match.type)
 
-    override fun newSelf(match: FieldMatch): FieldMatchKt = FieldMatchKt(match)
+    override fun newSelf(match: FieldMatch) = FieldMatchKt(match)
     override fun newMatcher(match: FieldMatcher) = FieldMatcherKt(match)
 }
 
@@ -572,23 +571,22 @@ sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, S
         return this as Self
     }
 
-    inline fun pick(crossinline handler: DummyHooker.(Sequence<Reflect>) -> Reflect): MatchKt =
+    inline fun pick(crossinline handler: DummyHooker.(Sequence<Reflect>) -> Reflect) =
         newMatch(seq.pick {
             handler(
                 DummyHooker, it.asSequence()
             )
         })
 
-    inline fun filter(crossinline handler: DummyHooker.(Reflect) -> Boolean): Self =
-        newSelf(seq.filter {
-            DummyHooker.handler(it)
-        })
+    inline fun filter(crossinline handler: DummyHooker.(Reflect) -> Boolean) = newSelf(seq.filter {
+        DummyHooker.handler(it)
+    })
 
     inline fun all(crossinline init: MatcherKt.() -> Unit) = newSelf(seq.all {
         newMatcher(it).init()
     })
 
-    inline fun first(crossinline init: MatcherKt.() -> Unit): MatchKt = newMatch(seq.first {
+    inline fun first(crossinline init: MatcherKt.() -> Unit) = newMatch(seq.first {
         newMatcher(it).init()
     })
 
