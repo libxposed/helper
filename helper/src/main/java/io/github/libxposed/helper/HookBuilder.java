@@ -104,13 +104,7 @@ public interface HookBuilder {
 
     interface ContainerSyntax<Match extends BaseMatch<Match, ?, ?>> {
         @NonNull
-        ContainerSyntax<Match> and(@NonNull Match element);
-
-        @NonNull
         ContainerSyntax<Match> and(@NonNull ContainerSyntax<Match> predicate);
-
-        @NonNull
-        ContainerSyntax<Match> or(@NonNull Match element);
 
         @NonNull
         ContainerSyntax<Match> or(@NonNull ContainerSyntax<Match> predicate);
@@ -355,7 +349,7 @@ public interface HookBuilder {
 
     }
 
-    interface LazySequence<Self extends LazySequence<Self, Match, Reflect, Matcher>, Match extends BaseMatch<Match, Reflect, Matcher>, Reflect, Matcher extends BaseMatcher<Matcher>> {
+    interface LazySequence<Self extends LazySequence<Self, Match, Reflect, Matcher>, Match extends ReflectMatch<Match, Reflect, Matcher>, Reflect, Matcher extends ReflectMatcher<Matcher>> {
         @NonNull
         Match first();
 

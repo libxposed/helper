@@ -58,13 +58,8 @@ class MatchResultKt @PublishedApi internal constructor(val result: MatchResult) 
 }
 
 class ContainerSyntaxKt<MatchKt, Match> @PublishedApi internal constructor(@PublishedApi internal val syntax: ContainerSyntax<Match>) where MatchKt : BaseMatchKt<MatchKt, Match, *, *, *>, Match : BaseMatch<Match, *, *> {
-    infix fun and(element: MatchKt) = ContainerSyntaxKt<MatchKt, Match>(syntax.and(element.match))
-
     infix fun and(element: ContainerSyntaxKt<MatchKt, Match>) =
         ContainerSyntaxKt<MatchKt, Match>(syntax.and(element.syntax))
-
-    infix fun or(element: MatchKt): ContainerSyntaxKt<MatchKt, Match> =
-        ContainerSyntaxKt<MatchKt, Match>(syntax.or(element.match))
 
     infix fun or(element: ContainerSyntaxKt<MatchKt, Match>) =
         ContainerSyntaxKt<MatchKt, Match>(syntax.or(element.syntax))
@@ -561,7 +556,7 @@ class StringMatchKt @PublishedApi internal constructor(match: StringMatch) :
 @Hooker
 sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(
     @PublishedApi internal val seq: Seq
-) where Self : LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>, MatchKt : BaseMatchKt<MatchKt, Match, Reflect, Matcher, MatcherKt>, Reflect : Any, MatcherKt : BaseMatcherKt<Matcher>, Match : BaseMatch<Match, Reflect, Matcher>, Matcher : BaseMatcher<Matcher>, Seq : LazySequence<Seq, Match, Reflect, Matcher> {
+) where Self : LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>, MatchKt : ReflectMatchKt<MatchKt, Match, Reflect, Matcher, MatcherKt>, Reflect : Any, MatcherKt : ReflectMatcherKt<Matcher>, Match : ReflectMatch<Match, Reflect, Matcher>, Matcher : ReflectMatcher<Matcher>, Seq : LazySequence<Seq, Match, Reflect, Matcher> {
     fun first() = newMatch(seq.first())
     fun unaryPlus() = ContainerSyntaxKt<MatchKt, Match>(seq.conjunction())
 
