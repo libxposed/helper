@@ -1345,41 +1345,49 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public ConstructorLazySequence constructors(@NonNull Consumer<ConstructorMatcher> matcher) {
-        return null;
+        var m = new ConstructorMatcherImpl(false);
+        matcher.accept(m);
+        return m.build();
     }
 
     @NonNull
     @Override
     public ConstructorMatch firstConstructor(@NonNull Consumer<ConstructorMatcher> matcher) {
-        return null;
+        var m = new ConstructorMatcherImpl(true);
+        matcher.accept(m);
+        return m.build().first();
     }
 
     @NonNull
     @Override
     public FieldLazySequence fields(@NonNull Consumer<FieldMatcher> matcher) {
-        return null;
+        var m = new FieldMatcherImpl(false);
+        matcher.accept(m);
+        return m.build();
     }
 
     @NonNull
     @Override
     public FieldMatch firstField(@NonNull Consumer<FieldMatcher> matcher) {
-        return null;
+        var m = new FieldMatcherImpl(true);
+        matcher.accept(m);
+        return m.build().first();
     }
 
     @NonNull
     @Override
     public ClassLazySequence classes(@NonNull Consumer<ClassMatcher> matcher) {
-        var impl = new ClassMatcherImpl(false);
-        matcher.accept(impl);
-        return null;
+        var m = new ClassMatcherImpl(false);
+        matcher.accept(m);
+        return m.build();
     }
 
     @NonNull
     @Override
     public ClassMatch firstClass(@NonNull Consumer<ClassMatcher> matcher) {
-        var impl = new ClassMatcherImpl(true);
-        matcher.accept(impl);
-        return null;
+        var m = new ClassMatcherImpl(true);
+        matcher.accept(m);
+        return m.build().first();
     }
 
     @NonNull
