@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import dalvik.system.BaseDexClassLoader;
-import io.github.libxposed.api.XposedContextWrapper;
+import io.github.libxposed.api.XposedInterface;
 
 @SuppressWarnings("unused")
 public interface HookBuilder {
@@ -60,7 +60,7 @@ public interface HookBuilder {
     }
 
     @NonNull
-    static MatchResult buildHook(@NonNull XposedContextWrapper ctx, @NonNull BaseDexClassLoader classLoader, @NonNull String sourcePath, Consumer<HookBuilder> consumer) {
+    static MatchResult buildHooks(@NonNull XposedInterface ctx, @NonNull BaseDexClassLoader classLoader, @NonNull String sourcePath, Consumer<HookBuilder> consumer) {
         var builder = new HookBuilderImpl(ctx, classLoader, sourcePath);
         consumer.accept(builder);
         return builder.build();
@@ -158,6 +158,12 @@ public interface HookBuilder {
 
         @NonNull
         Self setIsSynthetic(boolean isSynthetic);
+
+        @NonNull
+        Self setIncludeSuper(boolean includeSuper);
+
+        @NonNull
+        Self setIncludeInterface(boolean includeInterface);
     }
 
     interface FieldMatcher extends MemberMatcher<FieldMatcher> {

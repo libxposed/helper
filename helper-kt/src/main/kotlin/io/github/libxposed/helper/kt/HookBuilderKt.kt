@@ -4,8 +4,8 @@ package io.github.libxposed.helper.kt
 
 import dalvik.system.BaseDexClassLoader
 import io.github.libxposed.api.XposedInterface
+import io.github.libxposed.helper.HookBuilder
 import io.github.libxposed.helper.HookBuilder.*
-import io.github.libxposed.helper.HookBuilderImpl
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Member
@@ -217,6 +217,20 @@ sealed class MemberMatcherKt<Matcher>(matcher: Matcher) :
         ) inline get() = wo
         inline set(value) {
             matcher.setIsSynthetic(value)
+        }
+    var includeSuper: Boolean
+        @Deprecated(
+            "Write only", level = DeprecationLevel.HIDDEN
+        ) inline get() = wo
+        inline set(value) {
+            matcher.setIncludeSuper(value)
+        }
+    var includeInterface: Boolean
+        @Deprecated(
+            "Write only", level = DeprecationLevel.HIDDEN
+        ) inline get() = wo
+        inline set(value) {
+            matcher.setIncludeInterface(value)
         }
 }
 
@@ -755,10 +769,7 @@ class ConstructorLazySequenceKt @PublishedApi internal constructor(seq: Construc
 
 
 @Hooker
-class HookBuilderKt(ctx: XposedInterface, classLoader: BaseDexClassLoader, sourcePath: String) {
-    @PublishedApi
-    internal val builder = HookBuilderImpl(ctx, classLoader, sourcePath)
-
+class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {
     var lastMatchResult: MatchResultKt
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
@@ -854,14 +865,10 @@ class HookBuilderKt(ctx: XposedInterface, classLoader: BaseDexClassLoader, sourc
         inline get() = FieldMatchKt(builder.exactField(this))
     val String.exactParameter: ParameterMatchKt
         inline get() = ParameterMatchKt(builder.exactParameter(this))
-
-    fun build() = MatchResultKt(builder.build())
 }
 
 inline fun XposedInterface.buildHooks(
-    classLoader: BaseDexClassLoader, sourcePath: String, init: HookBuilderKt.() -> Unit
-): MatchResultKt {
-    val builder = HookBuilderKt(this, classLoader, sourcePath)
-    builder.init()
-    return builder.build()
-}
+    classLoader: BaseDexClassLoader, sourcePath: String, crossinline init: HookBuilderKt.() -> Unit
+) = MatchResultKt(buildHooks(this, classLoader, sourcePath) {
+    HookBuilderKt(it).init()
+})
