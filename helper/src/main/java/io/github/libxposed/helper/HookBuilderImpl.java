@@ -901,48 +901,6 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        public final Base filter(@NonNull Predicate<Reflect> consumer) {
-            var s = newSelf();
-            var filterObserver = new Observer<Iterable<Reflect>>() {
-                @Override
-                public void onMatch(@NonNull Iterable<Reflect> result) {
-                    var filtered = new ArrayList<Reflect>();
-                    for (var reflect : result) {
-                        if (consumer.test(reflect)) {
-                            filtered.add(reflect);
-                        }
-                    }
-                    s.match(filtered);
-                }
-
-                @Override
-                public void onMiss() {
-
-                }
-            };
-            return (Base) s;
-        }
-
-        @NonNull
-        @Override
-        public final Match pick(@NonNull MatchConsumer<Iterable<Reflect>, Reflect> consumer) {
-            var m = newMatch();
-            var pickObserver = new Observer<Iterable<Reflect>>() {
-                @Override
-                public void onMatch(@NonNull Iterable<Reflect> result) {
-                    m.match(consumer.accept(result));
-                }
-
-                @Override
-                public void onMiss() {
-
-                }
-            };
-            return (Match) m;
-        }
-
-        @NonNull
-        @Override
         public final Base onMatch(@NonNull Consumer<Iterable<Reflect>> consumer) {
             var onMatchObserver = new Observer<Iterable<Reflect>>() {
                 @Override

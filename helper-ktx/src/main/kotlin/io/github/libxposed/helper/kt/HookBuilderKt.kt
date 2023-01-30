@@ -555,17 +555,6 @@ sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, S
         return this as Self
     }
 
-    inline fun pick(crossinline handler: DummyHooker.(Sequence<Reflect>) -> Reflect) =
-        newMatch(seq.pick {
-            handler(
-                DummyHooker, it.asSequence()
-            )
-        })
-
-    inline fun filter(crossinline handler: DummyHooker.(Reflect) -> Boolean) = newSelf(seq.filter {
-        DummyHooker.handler(it)
-    })
-
     inline fun all(crossinline init: MatcherKt.() -> Unit) = newSelf(seq.all {
         newMatcher(it).init()
     })

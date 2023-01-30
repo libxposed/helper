@@ -353,12 +353,6 @@ public interface HookBuilder {
         Self all(@NonNull Consumer<Matcher> consumer);
 
         @NonNull
-        Self filter(@NonNull Predicate<Reflect> consumer);
-
-        @NonNull
-        Match pick(@NonNull MatchConsumer<Iterable<Reflect>, Reflect> consumer);
-
-        @NonNull
         Self onMatch(@NonNull Consumer<Iterable<Reflect>> consumer);
 
         @NonNull
