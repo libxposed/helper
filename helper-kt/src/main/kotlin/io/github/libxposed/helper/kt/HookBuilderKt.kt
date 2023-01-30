@@ -811,6 +811,7 @@ class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {
         inline get() = StringMatchKt(builder.exact(this))
     val Class<*>.exact: ClassMatchKt
         inline get() = ClassMatchKt(builder.exact(this))
+    fun Class<*>.exact(index: Int) = ParameterMatchKt(builder.exact(this, index))
     val Method.exact: MethodMatchKt
         inline get() = MethodMatchKt(builder.exact(this))
     val Constructor<*>.exact: ConstructorMatchKt
@@ -831,6 +832,7 @@ class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {
         inline get() = ConstructorMatchKt(builder.exactConstructor(this))
     val String.exactField: FieldMatchKt
         inline get() = FieldMatchKt(builder.exactField(this))
+    fun String.exactParameter(index: Int) = ParameterMatchKt(builder.exactParameter(this, index))
 }
 
 inline fun XposedInterface.buildHooks(
