@@ -59,10 +59,10 @@ jobs:
           path: ~/.m2
       - name: Prepare pages
         run: |
-          mkdir -p docs/helper
-          cp -r helper/build/intermediates/java_doc_dir/release docs/helper
-          mkdir -p docs/helper-ktx
-          cp -r helper-ktx/build/intermediates/java_doc_dir/release docs/helper
+          mkdir -p docs
+          cp -r helper/build/intermediates/java_doc_dir/release/* docs/
+          mkdir -p docs/ktx
+          cp -r helper-ktx/build/intermediates/java_doc_dir/release/* docs/ktx
       - name: Upload pages
         uses: actions/upload-pages-artifact@v1
         with:
