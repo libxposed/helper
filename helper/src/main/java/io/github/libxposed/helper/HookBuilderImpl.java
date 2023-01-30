@@ -833,10 +833,10 @@ final class HookBuilderImpl implements HookBuilder {
         protected volatile Iterable<Reflect> matches = null;
 
         @NonNull
-        private final Object VALUE = new Object();
+        protected final Object VALUE = new Object();
 
         @NonNull
-        private final Map<Observer<Iterable<Reflect>>, Object> observers = new ConcurrentHashMap<>();
+        protected final Map<Observer<Iterable<Reflect>>, Object> observers = new ConcurrentHashMap<>();
 
         protected LazySequenceImpl(@NonNull MatcherImpl matcher) {
             this.matcher = matcher;
@@ -895,6 +895,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 }
             };
+            m.pending = true;
             return (Base) m.build();
         }
 
@@ -1161,6 +1162,34 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private abstract class ExecutableLazySequenceImpl<Self extends ExecutableLazySequenceImpl<Self, Base, Match, Reflect, Matcher, MatchImpl, MatcherImpl>, Base extends ExecutableLazySequence<Base, Match, Reflect, Matcher>, Match extends ExecutableMatch<Match, Reflect, Matcher>, Reflect extends Member, Matcher extends ExecutableMatcher<Matcher>, MatchImpl extends ExecutableMatchImpl<MatchImpl, Match, Reflect, Matcher, MatcherImpl>, MatcherImpl extends ExecutableMatcherImpl<MatcherImpl, Matcher, Reflect, Self>> extends MemberLazySequenceImpl<Self, Base, Match, Reflect, Matcher, MatchImpl, MatcherImpl> implements ExecutableLazySequence<Base, Match, Reflect, Matcher> {
+        private final class ParameterObserver implements Observer<Iterable<Reflect>> {
+            private final ParameterMatcherImpl m;
+
+            private ParameterObserver(ParameterMatcherImpl m) {
+                this.m = m;
+            }
+
+            @Override
+            public void onMatch(@NonNull Iterable<Reflect> result) {
+                var parameters = new ArrayList<Class<?>>();
+                for (var r : result) {
+                    if (r instanceof Method) {
+                        parameters.addAll(Arrays.asList(((Method) r).getParameterTypes()));
+                    } else if (r instanceof Constructor) {
+                        parameters.addAll(Arrays.asList(((Constructor<?>) r).getParameterTypes()));
+                    }
+                }
+                m.match(parameters);
+            }
+
+            @Override
+            public void onMiss() {
+
+            }
+        }
+
+        ;
+
         private ExecutableLazySequenceImpl(MatcherImpl matcher) {
             super(matcher);
         }
@@ -1168,13 +1197,19 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final ParameterLazySequence parameters(@NonNull Consumer<ParameterMatcher> matcher) {
-            return null;
+            var m = new ParameterMatcherImpl(false);
+            var parametersObserver = new ParameterObserver(m);
+            observers.put(parametersObserver, VALUE);
+            return m.build();
         }
 
         @NonNull
         @Override
         public final ParameterMatch firstParameter(@NonNull Consumer<ParameterMatcher> matcher) {
-            return null;
+            var m = new ParameterMatcherImpl(true);
+            var parametersObserver = new ParameterObserver(m);
+            observers.put(parametersObserver, VALUE);
+            return m.build().first();
         }
     }
 
@@ -1614,8 +1649,7 @@ final class HookBuilderImpl implements HookBuilder {
         try {
             m.setExact(Class.forName(name, false, classLoader));
         } catch (ClassNotFoundException e) {
-            if (exceptionHandler != null)
-                exceptionHandler.test(e);
+            if (exceptionHandler != null) exceptionHandler.test(e);
         }
         return m.build().first();
     }
