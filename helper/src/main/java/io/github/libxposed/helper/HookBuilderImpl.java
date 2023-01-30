@@ -12,9 +12,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.ConcurrentModificationException;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
@@ -139,7 +137,7 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    private abstract class ReflectMatcherImpl<Self extends ReflectMatcherImpl<Self, Base, Reflect, SeqImpl>, Base extends ReflectMatcher<Base>, Reflect, SeqImpl extends LazySequenceImpl<?, ?, Reflect, ?>> extends BaseMatcherImpl<Self, Reflect> implements ReflectMatcher<Base> {
+    private abstract class ReflectMatcherImpl<Self extends ReflectMatcherImpl<Self, Base, Reflect, SeqImpl>, Base extends ReflectMatcher<Base>, Reflect, SeqImpl extends LazySequenceImpl<SeqImpl, ?, ?, Reflect, Base, ?, Self>> extends BaseMatcherImpl<Self, Reflect> implements ReflectMatcher<Base> {
         private final static int packageFlag = Modifier.PUBLIC | Modifier.PRIVATE | Modifier.PROTECTED;
 
         @Nullable
@@ -256,7 +254,7 @@ final class HookBuilderImpl implements HookBuilder {
             return in;
         }
 
-        protected final void onMatch(@NonNull Collection<Reflect> matches) {
+        protected final void match(@NonNull Iterable<Reflect> matches) {
             var lazySequence = this.lazySequence;
             if (leafCount.get() != 1 || lazySequence == null) {
                 throw new IllegalStateException("Illegal state when onMatch");
@@ -266,7 +264,7 @@ final class HookBuilderImpl implements HookBuilder {
                 // TODO: on miss
                 return;
             }
-            lazySequence.onMatch(matches);
+            lazySequence.match(matches);
         }
 
         protected final void setExact(@Nullable Reflect exact) {
@@ -276,7 +274,7 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    private abstract class TypeMatcherImpl<Self extends TypeMatcherImpl<Self, Base, SeqImpl>, Base extends TypeMatcher<Base>, SeqImpl extends LazySequenceImpl<?, ?, Class<?>, ?>> extends ReflectMatcherImpl<Self, Base, Class<?>, SeqImpl> implements TypeMatcher<Base> {
+    private abstract class TypeMatcherImpl<Self extends TypeMatcherImpl<Self, Base, SeqImpl>, Base extends TypeMatcher<Base>, SeqImpl extends TypeLazySequenceImpl<SeqImpl, ?, ?, Base, ?, Self>> extends ReflectMatcherImpl<Self, Base, Class<?>, SeqImpl> implements TypeMatcher<Base> {
         @Nullable
         protected ClassMatchImpl superClass = null;
 
@@ -379,7 +377,7 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    private abstract class MemberMatcherImpl<Self extends MemberMatcherImpl<Self, Base, Reflect, SeqImpl>, Base extends MemberMatcher<Base>, Reflect extends Member, SeqImpl extends LazySequenceImpl<?, ?, Reflect, ?>> extends ReflectMatcherImpl<Self, Base, Reflect, SeqImpl> implements MemberMatcher<Base> {
+    private abstract class MemberMatcherImpl<Self extends MemberMatcherImpl<Self, Base, Reflect, SeqImpl>, Base extends MemberMatcher<Base>, Reflect extends Member, SeqImpl extends MemberLazySequenceImpl<SeqImpl, ?, ?, Reflect, Base, ?, Self>> extends ReflectMatcherImpl<Self, Base, Reflect, SeqImpl> implements MemberMatcher<Base> {
         @Nullable
         protected ClassMatchImpl declaringClass = null;
 
@@ -487,7 +485,7 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    private abstract class ExecutableMatcherImpl<Self extends ExecutableMatcherImpl<Self, Base, Reflect, SeqImpl>, Base extends ExecutableMatcher<Base>, Reflect extends Member, SeqImpl extends LazySequenceImpl<?, ?, Reflect, ?>> extends MemberMatcherImpl<Self, Base, Reflect, SeqImpl> implements ExecutableMatcher<Base> {
+    private abstract class ExecutableMatcherImpl<Self extends ExecutableMatcherImpl<Self, Base, Reflect, SeqImpl>, Base extends ExecutableMatcher<Base>, Reflect extends Member, SeqImpl extends ExecutableLazySequenceImpl<SeqImpl, ?, ?, Reflect, Base, ?, Self>> extends MemberMatcherImpl<Self, Base, Reflect, SeqImpl> implements ExecutableMatcher<Base> {
         protected int parameterCount = -1;
 
         @Nullable
@@ -706,7 +704,7 @@ final class HookBuilderImpl implements HookBuilder {
                 this.value = syntax;
             }
 
-            private <M extends ReflectMatch<M, Reflect, ?>> Operand(@NonNull LazySequenceImpl<?, M, Reflect, ?> seq) {
+            private <M extends ReflectMatch<M, Reflect, ?>, MI extends ReflectMatchImpl<MI, M, Reflect, ?, ?>> Operand(@NonNull LazySequenceImpl<?, ?, M, Reflect, ?, MI, ?> seq) {
                 this.value = seq;
             }
         }
@@ -745,7 +743,7 @@ final class HookBuilderImpl implements HookBuilder {
             this.operands = new UnaryOperands(new Operand(operand), operator);
         }
 
-        private <M extends ReflectMatch<M, Reflect, ?>> ContainerSyntaxImpl(@NonNull LazySequenceImpl<?, M, Reflect, ?> operand, char operator) {
+        private <M extends ReflectMatch<M, Reflect, ?>, MI extends ReflectMatchImpl<MI, M, Reflect, ?, ?>> ContainerSyntaxImpl(@NonNull LazySequenceImpl<?, ?, M, Reflect, ?, MI, ?> operand, char operator) {
             this.operands = new UnaryOperands(new Operand(operand), operator);
         }
 
@@ -783,7 +781,7 @@ final class HookBuilderImpl implements HookBuilder {
                 // TODO
                 return false;
             } else if (operand.value instanceof LazySequence) {
-                var matches = ((LazySequenceImpl<?, ?, Reflect, ?>) operand.value).matches;
+                var matches = ((LazySequenceImpl<?, ?, ?, Reflect, ?, ?, ?>) operand.value).matches;
                 if (matches == null) return false;
                 if (operator == '^') {
                     for (var match : matches) {
@@ -827,9 +825,9 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    private abstract class LazySequenceImpl<Base extends LazySequence<Base, Match, Reflect, Matcher>, Match extends ReflectMatch<Match, Reflect, Matcher>, Reflect, Matcher extends ReflectMatcher<Matcher>> implements LazySequence<Base, Match, Reflect, Matcher> {
+    private abstract class LazySequenceImpl<Self extends LazySequenceImpl<Self, Base, Match, Reflect, Matcher, MatchImpl, MatcherImpl>, Base extends LazySequence<Base, Match, Reflect, Matcher>, Match extends ReflectMatch<Match, Reflect, Matcher>, Reflect, Matcher extends ReflectMatcher<Matcher>, MatchImpl extends ReflectMatchImpl<MatchImpl, Match, Reflect, Matcher, MatcherImpl>, MatcherImpl extends ReflectMatcherImpl<MatcherImpl, Matcher, Reflect, Self>> implements LazySequence<Base, Match, Reflect, Matcher> {
         @NonNull
-        protected final ReflectMatcherImpl<?, ?, Reflect, ?> matcher;
+        protected final MatcherImpl matcher;
 
         @Nullable
         protected volatile Iterable<Reflect> matches = null;
@@ -840,46 +838,123 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         private final Map<Observer<Iterable<Reflect>>, Object> observers = new ConcurrentHashMap<>();
 
-        protected LazySequenceImpl(@NonNull ReflectMatcherImpl<?, ?, Reflect, ?> matcher) {
+        protected LazySequenceImpl(@NonNull MatcherImpl matcher) {
             this.matcher = matcher;
         }
 
         @NonNull
         @Override
         public final Match first() {
-            return null;
+            var m = newMatch();
+            var firstObserver = new Observer<Iterable<Reflect>>() {
+                @Override
+                public void onMatch(@NonNull Iterable<Reflect> result) {
+                    m.match(result.iterator().next());
+                }
+
+                @Override
+                public void onMiss() {
+
+                }
+            };
+            return (Match) m;
         }
 
         @NonNull
         @Override
         public final Match first(@NonNull Consumer<Matcher> consumer) {
-            return null;
+            var m = newMatcher(true);
+            var firstObserver = new Observer<Iterable<Reflect>>() {
+                @Override
+                public void onMatch(@NonNull Iterable<Reflect> result) {
+                    m.match(result);
+                }
+
+                @Override
+                public void onMiss() {
+
+                }
+            };
+            m.pending = true;
+            return m.build().first();
         }
 
         @NonNull
         @Override
         public final Base all(@NonNull Consumer<Matcher> consumer) {
-            // TODO
-            return (Base) this;
+            var m = newMatcher(false);
+            var allObserver = new Observer<Iterable<Reflect>>() {
+
+                @Override
+                public void onMatch(@NonNull Iterable<Reflect> result) {
+                    m.match(result);
+                }
+
+                @Override
+                public void onMiss() {
+
+                }
+            };
+            return (Base) m.build();
         }
 
         @NonNull
         @Override
         public final Base filter(@NonNull Predicate<Reflect> consumer) {
-            // TODO
-            return (Base) this;
+            var s = newSelf();
+            var filterObserver = new Observer<Iterable<Reflect>>() {
+                @Override
+                public void onMatch(@NonNull Iterable<Reflect> result) {
+                    var filtered = new ArrayList<Reflect>();
+                    for (var reflect : result) {
+                        if (consumer.test(reflect)) {
+                            filtered.add(reflect);
+                        }
+                    }
+                    s.match(filtered);
+                }
+
+                @Override
+                public void onMiss() {
+
+                }
+            };
+            return (Base) s;
         }
 
         @NonNull
         @Override
         public final Match pick(@NonNull MatchConsumer<Iterable<Reflect>, Reflect> consumer) {
-            return null;
+            var m = newMatch();
+            var pickObserver = new Observer<Iterable<Reflect>>() {
+                @Override
+                public void onMatch(@NonNull Iterable<Reflect> result) {
+                    m.match(consumer.accept(result));
+                }
+
+                @Override
+                public void onMiss() {
+
+                }
+            };
+            return (Match) m;
         }
 
         @NonNull
         @Override
         public final Base onMatch(@NonNull Consumer<Iterable<Reflect>> consumer) {
-            // TODO
+            var onMatchObserver = new Observer<Iterable<Reflect>>() {
+                @Override
+                public void onMatch(@NonNull Iterable<Reflect> result) {
+                    consumer.accept(result);
+                }
+
+                @Override
+                public void onMiss() {
+
+                }
+            };
+            observers.put(onMatchObserver, VALUE);
             return (Base) this;
         }
 
@@ -910,17 +985,39 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final <Bind extends LazyBind> Base bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Iterable<Reflect>> consumer) {
-            // TODO
+            var bindObserver = new Observer<Iterable<Reflect>>() {
+                @Override
+                public void onMatch(@NonNull Iterable<Reflect> result) {
+                    consumer.accept(bind, result);
+                }
+
+                @Override
+                public void onMiss() {
+
+                }
+            };
             return (Base) this;
         }
 
-        protected final void onMatch(@NonNull Iterable<Reflect> matches) {
-            // TODO
+        protected final void match(@NonNull Iterable<Reflect> matches) {
+            this.matches = matches;
+            for (var observer : observers.keySet()) {
+                observer.onMatch(matches);
+            }
         }
+
+        @NonNull
+        protected abstract MatchImpl newMatch();
+
+        @NonNull
+        protected abstract MatcherImpl newMatcher(boolean matchFirst);
+
+        @NonNull
+        protected abstract Self newSelf();
     }
 
-    private abstract class TypeLazySequenceImpl<Base extends TypeLazySequence<Base, Match, Matcher>, Match extends TypeMatch<Match, Matcher>, Matcher extends TypeMatcher<Matcher>> extends LazySequenceImpl<Base, Match, Class<?>, Matcher> implements TypeLazySequence<Base, Match, Matcher> {
-        protected TypeLazySequenceImpl(TypeMatcherImpl<?, ?, ?> matcher) {
+    private abstract class TypeLazySequenceImpl<Self extends TypeLazySequenceImpl<Self, Base, Match, Matcher, MatchImpl, MatcherImpl>, Base extends TypeLazySequence<Base, Match, Matcher>, Match extends TypeMatch<Match, Matcher>, Matcher extends TypeMatcher<Matcher>, MatchImpl extends TypeMatchImpl<MatchImpl, Match, Matcher, MatcherImpl>, MatcherImpl extends TypeMatcherImpl<MatcherImpl, Matcher, Self>> extends LazySequenceImpl<Self, Base, Match, Class<?>, Matcher, MatchImpl, MatcherImpl> implements TypeLazySequence<Base, Match, Matcher> {
+        protected TypeLazySequenceImpl(MatcherImpl matcher) {
             super(matcher);
         }
 
@@ -961,20 +1058,56 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
-    private final class ClassLazySequenceImpl extends TypeLazySequenceImpl<ClassLazySequence, ClassMatch, ClassMatcher> implements ClassLazySequence {
+    private final class ClassLazySequenceImpl extends TypeLazySequenceImpl<ClassLazySequenceImpl, ClassLazySequence, ClassMatch, ClassMatcher, ClassMatchImpl, ClassMatcherImpl> implements ClassLazySequence {
         private ClassLazySequenceImpl(ClassMatcherImpl matcher) {
             super(matcher);
         }
-    }
 
-    private final class ParameterLazySequenceImpl extends TypeLazySequenceImpl<ParameterLazySequence, ParameterMatch, ParameterMatcher> implements ParameterLazySequence {
-        private ParameterLazySequenceImpl(ParameterMatcherImpl matcher) {
-            super(matcher);
+        @NonNull
+        @Override
+        protected ClassMatchImpl newMatch() {
+            return new ClassMatchImpl(matcher);
+        }
+
+        @NonNull
+        @Override
+        protected ClassMatcherImpl newMatcher(boolean matchFirst) {
+            return new ClassMatcherImpl(matchFirst);
+        }
+
+        @NonNull
+        @Override
+        protected ClassLazySequenceImpl newSelf() {
+            return new ClassLazySequenceImpl(matcher);
         }
     }
 
-    private abstract class MemberLazySequenceImpl<Base extends MemberLazySequence<Base, Match, Reflect, Matcher>, Match extends MemberMatch<Match, Reflect, Matcher>, Reflect extends Member, Matcher extends MemberMatcher<Matcher>> extends LazySequenceImpl<Base, Match, Reflect, Matcher> implements MemberLazySequence<Base, Match, Reflect, Matcher> {
-        protected MemberLazySequenceImpl(MemberMatcherImpl<?, ?, Reflect, ?> matcher) {
+    private final class ParameterLazySequenceImpl extends TypeLazySequenceImpl<ParameterLazySequenceImpl, ParameterLazySequence, ParameterMatch, ParameterMatcher, ParameterMatchImpl, ParameterMatcherImpl> implements ParameterLazySequence {
+        private ParameterLazySequenceImpl(ParameterMatcherImpl matcher) {
+            super(matcher);
+        }
+
+        @NonNull
+        @Override
+        protected ParameterMatchImpl newMatch() {
+            return new ParameterMatchImpl(matcher);
+        }
+
+        @NonNull
+        @Override
+        protected ParameterMatcherImpl newMatcher(boolean matchFirst) {
+            return new ParameterMatcherImpl(matchFirst);
+        }
+
+        @NonNull
+        @Override
+        protected ParameterLazySequenceImpl newSelf() {
+            return new ParameterLazySequenceImpl(matcher);
+        }
+    }
+
+    private abstract class MemberLazySequenceImpl<Self extends MemberLazySequenceImpl<Self, Base, Match, Reflect, Matcher, MatchImpl, MatcherImpl>, Base extends MemberLazySequence<Base, Match, Reflect, Matcher>, Match extends MemberMatch<Match, Reflect, Matcher>, Reflect extends Member, Matcher extends MemberMatcher<Matcher>, MatchImpl extends MemberMatchImpl<MatchImpl, Match, Reflect, Matcher, MatcherImpl>, MatcherImpl extends MemberMatcherImpl<MatcherImpl, Matcher, Reflect, Self>> extends LazySequenceImpl<Self, Base, Match, Reflect, Matcher, MatchImpl, MatcherImpl> implements MemberLazySequence<Base, Match, Reflect, Matcher> {
+        protected MemberLazySequenceImpl(MatcherImpl matcher) {
             super(matcher);
         }
 
@@ -991,9 +1124,27 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
-    private final class FieldLazySequenceImpl extends MemberLazySequenceImpl<FieldLazySequence, FieldMatch, Field, FieldMatcher> implements FieldLazySequence {
+    private final class FieldLazySequenceImpl extends MemberLazySequenceImpl<FieldLazySequenceImpl, FieldLazySequence, FieldMatch, Field, FieldMatcher, FieldMatchImpl, FieldMatcherImpl> implements FieldLazySequence {
         private FieldLazySequenceImpl(FieldMatcherImpl matcher) {
             super(matcher);
+        }
+
+        @NonNull
+        @Override
+        protected FieldMatchImpl newMatch() {
+            return new FieldMatchImpl(matcher);
+        }
+
+        @NonNull
+        @Override
+        protected FieldMatcherImpl newMatcher(boolean matchFirst) {
+            return new FieldMatcherImpl(matchFirst);
+        }
+
+        @NonNull
+        @Override
+        protected FieldLazySequenceImpl newSelf() {
+            return new FieldLazySequenceImpl(matcher);
         }
 
         @NonNull
@@ -1009,8 +1160,8 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
-    private abstract class ExecutableLazySequenceImpl<Base extends ExecutableLazySequence<Base, Match, Reflect, Matcher>, Match extends ExecutableMatch<Match, Reflect, Matcher>, Reflect extends Member, Matcher extends ExecutableMatcher<Matcher>> extends MemberLazySequenceImpl<Base, Match, Reflect, Matcher> implements ExecutableLazySequence<Base, Match, Reflect, Matcher> {
-        private ExecutableLazySequenceImpl(ExecutableMatcherImpl<?, ?, Reflect, ?> matcher) {
+    private abstract class ExecutableLazySequenceImpl<Self extends ExecutableLazySequenceImpl<Self, Base, Match, Reflect, Matcher, MatchImpl, MatcherImpl>, Base extends ExecutableLazySequence<Base, Match, Reflect, Matcher>, Match extends ExecutableMatch<Match, Reflect, Matcher>, Reflect extends Member, Matcher extends ExecutableMatcher<Matcher>, MatchImpl extends ExecutableMatchImpl<MatchImpl, Match, Reflect, Matcher, MatcherImpl>, MatcherImpl extends ExecutableMatcherImpl<MatcherImpl, Matcher, Reflect, Self>> extends MemberLazySequenceImpl<Self, Base, Match, Reflect, Matcher, MatchImpl, MatcherImpl> implements ExecutableLazySequence<Base, Match, Reflect, Matcher> {
+        private ExecutableLazySequenceImpl(MatcherImpl matcher) {
             super(matcher);
         }
 
@@ -1027,9 +1178,27 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
-    private final class MethodLazySequenceImpl extends ExecutableLazySequenceImpl<MethodLazySequence, MethodMatch, Method, MethodMatcher> implements MethodLazySequence {
+    private final class MethodLazySequenceImpl extends ExecutableLazySequenceImpl<MethodLazySequenceImpl, MethodLazySequence, MethodMatch, Method, MethodMatcher, MethodMatchImpl, MethodMatcherImpl> implements MethodLazySequence {
         private MethodLazySequenceImpl(MethodMatcherImpl matcher) {
             super(matcher);
+        }
+
+        @NonNull
+        @Override
+        protected MethodMatchImpl newMatch() {
+            return new MethodMatchImpl(matcher);
+        }
+
+        @NonNull
+        @Override
+        protected MethodMatcherImpl newMatcher(boolean matchFirst) {
+            return new MethodMatcherImpl(matchFirst);
+        }
+
+        @NonNull
+        @Override
+        protected MethodLazySequenceImpl newSelf() {
+            return new MethodLazySequenceImpl(matcher);
         }
 
         @NonNull
@@ -1045,9 +1214,27 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
-    private final class ConstructorLazySequenceImpl extends ExecutableLazySequenceImpl<ConstructorLazySequence, ConstructorMatch, Constructor<?>, ConstructorMatcher> implements ConstructorLazySequence {
+    private final class ConstructorLazySequenceImpl extends ExecutableLazySequenceImpl<ConstructorLazySequenceImpl, ConstructorLazySequence, ConstructorMatch, Constructor<?>, ConstructorMatcher, ConstructorMatchImpl, ConstructorMatcherImpl> implements ConstructorLazySequence {
         private ConstructorLazySequenceImpl(ConstructorMatcherImpl matcher) {
             super(matcher);
+        }
+
+        @NonNull
+        @Override
+        protected ConstructorMatchImpl newMatch() {
+            return new ConstructorMatchImpl(matcher);
+        }
+
+        @NonNull
+        @Override
+        protected ConstructorMatcherImpl newMatcher(boolean matchFirst) {
+            return new ConstructorMatcherImpl(matchFirst);
+        }
+
+        @NonNull
+        @Override
+        protected ConstructorLazySequenceImpl newSelf() {
+            return new ConstructorLazySequenceImpl(matcher);
         }
     }
 
@@ -1147,6 +1334,11 @@ final class HookBuilderImpl implements HookBuilder {
         public final <Bind extends LazyBind> Base bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Reflect> consumer) {
             // TODO
             return (Base) this;
+        }
+
+        protected final void match(@NonNull Reflect match) {
+            this.match = match;
+            // TODO: for each observer
         }
     }
 
@@ -1673,7 +1865,7 @@ final class HookBuilderImpl implements HookBuilder {
                         }
                     }
                     hasMatched[0] = hasMatched[0] || !matches.isEmpty();
-                    classMatcher.onMatch(matches);
+                    classMatcher.match(matches);
                 });
                 tasks.add(task);
             }
@@ -1716,7 +1908,7 @@ final class HookBuilderImpl implements HookBuilder {
                         }
                     }
                     hasMatched[0] = hasMatched[0] || !matches.isEmpty();
-                    fieldMatcher.onMatch(matches);
+                    fieldMatcher.match(matches);
                 });
                 tasks.add(task);
             }
@@ -1767,7 +1959,7 @@ final class HookBuilderImpl implements HookBuilder {
                         }
                     }
                     hasMatched[0] = hasMatched[0] || !matches.isEmpty();
-                    methodMatcher.onMatch(matches);
+                    methodMatcher.match(matches);
                 });
 
                 tasks.add(task);
@@ -1812,7 +2004,7 @@ final class HookBuilderImpl implements HookBuilder {
                         }
                     }
                     hasMatched[0] = hasMatched[0] || !matches.isEmpty();
-                    constructorMatcher.onMatch(matches);
+                    constructorMatcher.match(matches);
                 });
 
                 tasks.add(task);
