@@ -126,8 +126,11 @@ final class HookBuilderImpl implements HookBuilder {
         return this;
     }
 
-    private abstract static class BaseMatcherImpl<Self extends BaseMatcherImpl<Self, Base, Reflect>, Base extends BaseMatcher<Base>, Reflect> implements BaseMatcher<Base> {
-        protected boolean matchFirst;
+    private abstract static class BaseMatcherImpl<Self extends BaseMatcherImpl<Self, Reflect>, Reflect> {
+        @Nullable
+        protected Reflect exact = null;
+
+        protected final boolean matchFirst;
 
         protected BaseMatcherImpl(boolean matchFirst) {
             this.matchFirst = matchFirst;
@@ -135,7 +138,7 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    private abstract class ReflectMatcherImpl<Self extends ReflectMatcherImpl<Self, Base, Reflect, SeqImpl>, Base extends ReflectMatcher<Base>, Reflect, SeqImpl extends LazySequenceImpl<?, ?, Reflect, ?>> extends BaseMatcherImpl<Self, Base, Reflect> implements ReflectMatcher<Base> {
+    private abstract class ReflectMatcherImpl<Self extends ReflectMatcherImpl<Self, Base, Reflect, SeqImpl>, Base extends ReflectMatcher<Base>, Reflect, SeqImpl extends LazySequenceImpl<?, ?, Reflect, ?>> extends BaseMatcherImpl<Self, Reflect> implements ReflectMatcher<Base> {
         private final static int packageFlag = Modifier.PUBLIC | Modifier.PRIVATE | Modifier.PROTECTED;
 
         @Nullable
@@ -177,15 +180,6 @@ final class HookBuilderImpl implements HookBuilder {
         protected final synchronized SeqImpl build() {
             return lazySequence = onBuild();
         }
-
-        @NonNull
-        @Override
-        public final Base setMatchFirst(boolean matchFirst) {
-            ensureNotFinalized();
-            this.matchFirst = matchFirst;
-            return (Base) this;
-        }
-
 
         @NonNull
         @Override
@@ -239,7 +233,7 @@ final class HookBuilderImpl implements HookBuilder {
         protected abstract SeqImpl onBuild();
 
         @NonNull
-        protected final <T extends BaseMatchImpl<T, U, RR, ?, ?>, U extends BaseMatch<U, RR, ?>, RR> T addDependency(@Nullable T field, @NonNull U input) {
+        protected final <T extends BaseMatchImpl<T, U, RR, ?>, U extends BaseMatch<U, RR>, RR> T addDependency(@Nullable T field, @NonNull U input) {
             var in = (T) input;
             if (field != null) {
                 in.removeObserver((Observer<RR>) dependencyCallback);
@@ -251,7 +245,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         @NonNull
-        protected final <T extends ContainerSyntaxImpl<M, ?, RR>, U extends ContainerSyntax<M>, M extends BaseMatch<M, RR, ?>, RR> T addDependencies(@Nullable T field, @NonNull U input) {
+        protected final <T extends ContainerSyntaxImpl<M, ?, RR>, U extends ContainerSyntax<M>, M extends BaseMatch<M, RR>, RR> T addDependencies(@Nullable T field, @NonNull U input) {
             var in = (T) input;
             // TODO
             if (field != null) {
@@ -680,36 +674,12 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
-    private final class StringMatcherImpl extends BaseMatcherImpl<StringMatcherImpl, StringMatcher, String> implements StringMatcher {
-        @Nullable
-        private String exact = null;
-
+    private final class StringMatcherImpl extends BaseMatcherImpl<StringMatcherImpl, String> {
         @Nullable
         private String prefix = null;
 
         private StringMatcherImpl(boolean matchFirst) {
             super(matchFirst);
-        }
-
-        @NonNull
-        @Override
-        public StringMatcher setExact(@NonNull String exact) {
-            this.exact = exact;
-            return this;
-        }
-
-        @NonNull
-        @Override
-        public StringMatcher setPrefix(@NonNull String prefix) {
-            this.prefix = prefix;
-            return this;
-        }
-
-        @NonNull
-        @Override
-        public StringMatcher setMatchFirst(boolean matchFirst) {
-            this.matchFirst = matchFirst;
-            return this;
         }
 
         private StringMatch build() {
@@ -718,7 +688,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
-    private final class ContainerSyntaxImpl<Match extends BaseMatch<Match, Reflect, ?>, MatchImpl extends BaseMatchImpl<MatchImpl, Match, Reflect, ?, ?>, Reflect> implements ContainerSyntax<Match> {
+    private final class ContainerSyntaxImpl<Match extends BaseMatch<Match, Reflect>, MatchImpl extends BaseMatchImpl<MatchImpl, Match, Reflect, ?>, Reflect> implements ContainerSyntax<Match> {
         private final class Operand {
             private @NonNull Object value;
 
@@ -853,7 +823,7 @@ final class HookBuilderImpl implements HookBuilder {
     @SuppressWarnings("unchecked")
     private abstract class LazySequenceImpl<Base extends LazySequence<Base, Match, Reflect, Matcher>, Match extends ReflectMatch<Match, Reflect, Matcher>, Reflect, Matcher extends ReflectMatcher<Matcher>> implements LazySequence<Base, Match, Reflect, Matcher> {
         @NonNull
-        protected final BaseMatcherImpl<?, ?, Reflect> matcher;
+        protected final ReflectMatcherImpl<?, ?, Reflect, ?> matcher;
 
         @Nullable
         protected volatile Iterable<Reflect> matches = null;
@@ -1076,7 +1046,7 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    private abstract class BaseMatchImpl<Self extends BaseMatchImpl<Self, Base, Reflect, Matcher, MatcherImpl>, Base extends BaseMatch<Base, Reflect, Matcher>, Reflect, Matcher extends BaseMatcher<Matcher>, MatcherImpl extends BaseMatcherImpl<MatcherImpl, Matcher, Reflect>> implements BaseMatch<Base, Reflect, Matcher> {
+    private abstract class BaseMatchImpl<Self extends BaseMatchImpl<Self, Base, Reflect, MatcherImpl>, Base extends BaseMatch<Base, Reflect>, Reflect, MatcherImpl extends BaseMatcherImpl<MatcherImpl, Reflect>> implements BaseMatch<Base, Reflect> {
         @NonNull
         protected final MatcherImpl matcher;
 
@@ -1118,7 +1088,7 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    private abstract class ReflectMatchImpl<Self extends ReflectMatchImpl<Self, Base, Reflect, Matcher, MatcherImpl>, Base extends ReflectMatch<Base, Reflect, Matcher>, Reflect, Matcher extends ReflectMatcher<Matcher>, MatcherImpl extends ReflectMatcherImpl<MatcherImpl, Matcher, Reflect, ?>> extends BaseMatchImpl<Self, Base, Reflect, Matcher, MatcherImpl> implements ReflectMatch<Base, Reflect, Matcher> {
+    private abstract class ReflectMatchImpl<Self extends ReflectMatchImpl<Self, Base, Reflect, Matcher, MatcherImpl>, Base extends ReflectMatch<Base, Reflect, Matcher>, Reflect, Matcher extends ReflectMatcher<Matcher>, MatcherImpl extends ReflectMatcherImpl<MatcherImpl, Matcher, Reflect, ?>> extends BaseMatchImpl<Self, Base, Reflect, MatcherImpl> implements ReflectMatch<Base, Reflect, Matcher> {
         @Nullable
         protected String key = null;
 
@@ -1344,7 +1314,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
-    private final class StringMatchImpl extends BaseMatchImpl<StringMatchImpl, StringMatch, String, StringMatcher, StringMatcherImpl> implements StringMatch {
+    private final class StringMatchImpl extends BaseMatchImpl<StringMatchImpl, StringMatch, String, StringMatcherImpl> implements StringMatch {
         private StringMatchImpl(StringMatcherImpl matcher) {
             super(matcher);
         }
@@ -1404,19 +1374,21 @@ final class HookBuilderImpl implements HookBuilder {
 
     @NonNull
     @Override
-    public StringMatch string(@NonNull Consumer<StringMatcher> matcher) {
-        return null;
-    }
-
-    @NonNull
-    @Override
     public StringMatch exact(@NonNull String string) {
-        return null;
+        var m = new StringMatcherImpl(true);
+        m.exact = string;
+        return m.build();
     }
 
     @NonNull
     @Override
     public StringMatch prefix(@NonNull String prefix) {
+        return null;
+    }
+
+    @NonNull
+    @Override
+    public StringMatch firstPrefix(@NonNull String prefix) {
         return null;
     }
 
@@ -1605,7 +1577,7 @@ final class HookBuilderImpl implements HookBuilder {
                         final var nameMatcher = classMatcher.name.matcher;
                         if (nameMatcher.prefix != null) {
                             low = binarySearchLowerBound(classNames, nameMatcher.prefix);
-                            high = binarySearchLowerBound(classNames, nameMatcher.prefix + Character.MAX_VALUE);
+                            high = nameMatcher.matchFirst ? low + 1 : binarySearchLowerBound(classNames, nameMatcher.prefix + Character.MAX_VALUE);
                         }
                         if (nameMatcher.exact != null) {
                             low = binarySearchLowerBound(classNames, nameMatcher.exact);

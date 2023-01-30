@@ -57,7 +57,7 @@ class MatchResultKt @PublishedApi internal constructor(val result: MatchResult) 
         inline get() = result.matchedConstructors
 }
 
-class ContainerSyntaxKt<MatchKt, Match> @PublishedApi internal constructor(@PublishedApi internal val syntax: ContainerSyntax<Match>) where MatchKt : BaseMatchKt<MatchKt, Match, *, *, *>, Match : BaseMatch<Match, *, *> {
+class ContainerSyntaxKt<MatchKt, Match> @PublishedApi internal constructor(@PublishedApi internal val syntax: ContainerSyntax<Match>) where MatchKt : BaseMatchKt<MatchKt, Match, *>, Match : BaseMatch<Match, *> {
     infix fun and(element: ContainerSyntaxKt<MatchKt, Match>) =
         ContainerSyntaxKt<MatchKt, Match>(syntax.and(element.syntax))
 
@@ -67,19 +67,7 @@ class ContainerSyntaxKt<MatchKt, Match> @PublishedApi internal constructor(@Publ
     operator fun not() = ContainerSyntaxKt<MatchKt, Match>(syntax.not())
 }
 
-@Matcher
-sealed class BaseMatcherKt<Matcher>(@PublishedApi internal val matcher: Matcher) where Matcher : BaseMatcher<Matcher> {
-    var matchFirst: Boolean
-        @Deprecated(
-            "Write only", level = DeprecationLevel.HIDDEN
-        ) inline get() = wo
-        set(value) {
-            matcher.setMatchFirst(value)
-        }
-}
-
-sealed class ReflectMatcherKt<Matcher>(matcher: Matcher) :
-    BaseMatcherKt<Matcher>(matcher) where Matcher : ReflectMatcher<Matcher> {
+sealed class ReflectMatcherKt<Matcher>(@PublishedApi internal val matcher: Matcher) where Matcher : ReflectMatcher<Matcher> {
     var key: String
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
@@ -181,24 +169,6 @@ class ParameterMatcherKt @PublishedApi internal constructor(matcher: ParameterMa
         ) inline get() = wo
         inline set(value) {
             matcher.setIndex(value)
-        }
-}
-
-class StringMatcherKt @PublishedApi internal constructor(matcher: StringMatcher) :
-    BaseMatcherKt<StringMatcher>(matcher) {
-    var exact: String
-        @Deprecated(
-            "Write only", level = DeprecationLevel.HIDDEN
-        ) inline get() = wo
-        inline set(value) {
-            matcher.setExact(value)
-        }
-    var prefix: String
-        @Deprecated(
-            "Write only", level = DeprecationLevel.HIDDEN
-        ) inline get() = wo
-        inline set(value) {
-            matcher.setPrefix(value)
         }
 }
 
@@ -417,9 +387,9 @@ class ConstructorMatcherKt @PublishedApi internal constructor(matcher: Construct
     ExecutableMatcherKt<ConstructorMatcher>(matcher)
 
 @Hooker
-sealed class BaseMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(
+sealed class BaseMatchKt<Self, Match, Reflect>(
     @PublishedApi internal val match: Match
-) where Self : BaseMatchKt<Self, Match, Reflect, Matcher, MatcherKt>, Match : BaseMatch<Match, Reflect, Matcher>, Matcher : BaseMatcher<Matcher>, MatcherKt : BaseMatcherKt<Matcher> {
+) where Self : BaseMatchKt<Self, Match, Reflect>, Match : BaseMatch<Match, Reflect> {
     operator fun unaryPlus() = ContainerSyntaxKt<Self, Match>(match.observe())
 
     operator fun unaryMinus() = ContainerSyntaxKt<Self, Match>(match.reverse())
@@ -427,7 +397,7 @@ sealed class BaseMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(
 
 @Suppress("UNCHECKED_CAST")
 sealed class ReflectMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: Match) :
-    BaseMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match) where Self : ReflectMatchKt<Self, Match, Reflect, Matcher, MatcherKt>, Match : ReflectMatch<Match, Reflect, Matcher>, Matcher : ReflectMatcher<Matcher>, MatcherKt : ReflectMatcherKt<Matcher> {
+    BaseMatchKt<Self, Match, Reflect>(match) where Self : ReflectMatchKt<Self, Match, Reflect, Matcher, MatcherKt>, Match : ReflectMatch<Match, Reflect, Matcher>, Matcher : ReflectMatcher<Matcher>, MatcherKt : ReflectMatcherKt<Matcher> {
     var key: String?
         inline get() = match.key
         inline set(value) {
@@ -563,7 +533,7 @@ class FieldMatchKt @PublishedApi internal constructor(match: FieldMatch) :
 }
 
 class StringMatchKt @PublishedApi internal constructor(match: StringMatch) :
-    BaseMatchKt<StringMatchKt, StringMatch, String, StringMatcher, StringMatcherKt>(match)
+    BaseMatchKt<StringMatchKt, StringMatch, String>(match)
 
 @Suppress("UNCHECKED_CAST")
 @Hooker
@@ -837,10 +807,6 @@ class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {
             ConstructorMatcherKt(it).init()
         })
 
-    inline fun string(crossinline init: StringMatcherKt.() -> Unit) = StringMatchKt(builder.string {
-        StringMatcherKt(it).init()
-    })
-
     val String.exact: StringMatchKt
         inline get() = StringMatchKt(builder.exact(this))
     val Class<*>.exact: ClassMatchKt
@@ -855,6 +821,8 @@ class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {
         inline get() = FieldMatchKt(builder.exact(this))
     val String.prefix: StringMatchKt
         inline get() = StringMatchKt(builder.prefix(this))
+    val String.firstPrefix: StringMatchKt
+        inline get() = StringMatchKt(builder.firstPrefix(this))
     val String.exactClass: ClassMatchKt
         inline get() = ClassMatchKt(builder.exactClass(this))
     val String.exactMethod: MethodMatchKt

@@ -80,12 +80,7 @@ public interface HookBuilder {
         Map<String, Constructor<?>> getMatchedConstructors();
     }
 
-    interface BaseMatcher<Self extends BaseMatcher<Self>> {
-        @NonNull
-        Self setMatchFirst(boolean matchFirst);
-    }
-
-    interface ReflectMatcher<Self extends ReflectMatcher<Self>> extends BaseMatcher<Self> {
+    interface ReflectMatcher<Self extends ReflectMatcher<Self>> {
         @NonNull
         Self setKey(@NonNull String key);
 
@@ -102,7 +97,7 @@ public interface HookBuilder {
         Self setIsPackage(boolean isPackage);
     }
 
-    interface ContainerSyntax<Match extends BaseMatch<Match, ?, ?>> {
+    interface ContainerSyntax<Match extends BaseMatch<Match, ?>> {
         @NonNull
         ContainerSyntax<Match> and(@NonNull ContainerSyntax<Match> predicate);
 
@@ -142,14 +137,6 @@ public interface HookBuilder {
     interface ParameterMatcher extends TypeMatcher<ParameterMatcher> {
         @NonNull
         ParameterMatcher setIndex(int index);
-    }
-
-    interface StringMatcher extends BaseMatcher<StringMatcher> {
-        @NonNull
-        StringMatcher setExact(@NonNull String exact);
-
-        @NonNull
-        StringMatcher setPrefix(@NonNull String prefix);
     }
 
     interface MemberMatcher<Self extends MemberMatcher<Self>> extends ReflectMatcher<Self> {
@@ -247,7 +234,7 @@ public interface HookBuilder {
     interface ConstructorMatcher extends ExecutableMatcher<ConstructorMatcher> {
     }
 
-    interface BaseMatch<Self extends BaseMatch<Self, Reflect, Matcher>, Reflect, Matcher extends BaseMatcher<Matcher>> {
+    interface BaseMatch<Self extends BaseMatch<Self, Reflect>, Reflect> {
         @NonNull
         ContainerSyntax<Self> observe();
 
@@ -255,7 +242,7 @@ public interface HookBuilder {
         ContainerSyntax<Self> reverse();
     }
 
-    interface ReflectMatch<Self extends ReflectMatch<Self, Reflect, Matcher>, Reflect, Matcher extends ReflectMatcher<Matcher>> extends BaseMatch<Self, Reflect, Matcher> {
+    interface ReflectMatch<Self extends ReflectMatch<Self, Reflect, Matcher>, Reflect, Matcher extends ReflectMatcher<Matcher>> extends BaseMatch<Self, Reflect> {
         @Nullable
         String getKey();
 
@@ -351,7 +338,7 @@ public interface HookBuilder {
         ClassMatch getType();
     }
 
-    interface StringMatch extends BaseMatch<StringMatch, String, StringMatcher> {
+    interface StringMatch extends BaseMatch<StringMatch, String> {
 
     }
 
@@ -494,13 +481,13 @@ public interface HookBuilder {
     ClassMatch firstClass(@NonNull Consumer<ClassMatcher> matcher);
 
     @NonNull
-    StringMatch string(@NonNull Consumer<StringMatcher> matcher);
-
-    @NonNull
     StringMatch exact(@NonNull String string);
 
     @NonNull
     StringMatch prefix(@NonNull String prefix);
+
+    @NonNull
+    StringMatch firstPrefix(@NonNull String prefix);
 
     @NonNull
     ClassMatch exactClass(@NonNull String name);
