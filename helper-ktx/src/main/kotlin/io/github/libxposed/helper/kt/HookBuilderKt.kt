@@ -2,6 +2,7 @@
 
 package io.github.libxposed.helper.kt
 
+import android.os.Handler
 import dalvik.system.BaseDexClassLoader
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.helper.HookBuilder
@@ -10,6 +11,7 @@ import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Member
 import java.lang.reflect.Method
+import java.util.concurrent.ExecutorService
 
 
 @DslMarker
@@ -424,6 +426,13 @@ sealed class ReflectMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: Mat
         return this as Self
     }
 
+    inline fun onMiss(crossinline handler: DummyHooker.() -> Unit): Self {
+        match.onMiss {
+            DummyHooker.handler()
+        }
+        return this as Self
+    }
+
     inline fun substituteIfMiss(crossinline substitute: () -> Self): Self {
         match.substituteIfMiss {
             substitute().match
@@ -578,6 +587,13 @@ sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, S
     inline fun onMatch(crossinline handler: DummyHooker.(Sequence<Reflect>) -> Unit): Self {
         seq.onMatch {
             DummyHooker.handler(it.asSequence())
+        }
+        return this as Self
+    }
+
+    inline fun onMiss(crossinline handler: DummyHooker.() -> Unit): Self {
+        seq.onMiss {
+            DummyHooker.handler()
         }
         return this as Self
     }
@@ -752,6 +768,22 @@ class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {
         ) inline get() = wo
         inline set(value) {
             builder.setForceDexAnalysis(value)
+        }
+
+    var executorService: ExecutorService
+        @Deprecated(
+            "Write only", level = DeprecationLevel.HIDDEN
+        ) inline get() = wo
+        inline set(value) {
+            builder.setExecutorService(value)
+        }
+
+    var callbackHandler: Handler
+        @Deprecated(
+            "Write only", level = DeprecationLevel.HIDDEN
+        ) inline get() = wo
+        inline set(value) {
+            builder.setCallbackHandler(value)
         }
 
     inline fun methods(crossinline init: MethodMatcherKt.() -> Unit) =

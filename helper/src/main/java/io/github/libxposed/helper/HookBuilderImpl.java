@@ -2,7 +2,6 @@ package io.github.libxposed.helper;
 
 import android.annotation.SuppressLint;
 import android.os.Handler;
-import android.util.ArrayMap;
 
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
@@ -23,7 +22,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -51,8 +49,6 @@ final class HookBuilderImpl implements HookBuilder {
     private boolean forceDexAnalysis = false;
 
     private boolean includeAnnotations = false;
-
-    private final @NonNull ArrayList<StringMatcherImpl> stringMatchers = new ArrayList<>();
 
     private final @NonNull ArrayList<ClassMatcherImpl> classMatchers = new ArrayList<>();
 
@@ -801,7 +797,6 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         private StringMatch build() {
-            stringMatchers.add(this);
             return new StringMatchImpl(this);
         }
     }
