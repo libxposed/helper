@@ -443,8 +443,6 @@ sealed class ReflectMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: Mat
 
 sealed class TypeMatchKt<Self, Match, Matcher, MatcherKt>(match: Match) :
     ReflectMatchKt<Self, Match, Class<*>, Matcher, MatcherKt>(match) where Self : TypeMatchKt<Self, Match, Matcher, MatcherKt>, Match : TypeMatch<Match, Matcher>, Matcher : TypeMatcher<Matcher>, MatcherKt : TypeMatcherKt<Matcher> {
-    val name: StringMatchKt
-        inline get() = StringMatchKt(match.name)
     val superClass: ClassMatchKt
         inline get() = ClassMatchKt(match.superClass)
     val interfaces: ClassLazySequenceKt
@@ -504,8 +502,6 @@ sealed class ExecutableMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: 
 
 class MethodMatchKt @PublishedApi internal constructor(match: MethodMatch) :
     ExecutableMatchKt<MethodMatchKt, MethodMatch, Method, MethodMatcher, MethodMatcherKt>(match) {
-    val name: StringMatchKt
-        inline get() = StringMatchKt(match.name)
     val returnType: ClassMatchKt
         inline get() = ClassMatchKt(match.returnType)
 
@@ -523,8 +519,6 @@ class ConstructorMatchKt @PublishedApi internal constructor(match: ConstructorMa
 
 class FieldMatchKt @PublishedApi internal constructor(match: FieldMatch) :
     MemberMatchKt<FieldMatchKt, FieldMatch, Field, FieldMatcher, FieldMatcherKt>(match) {
-    val name: StringMatchKt
-        inline get() = StringMatchKt(match.name)
     val type: ClassMatchKt
         inline get() = ClassMatchKt(match.type)
 

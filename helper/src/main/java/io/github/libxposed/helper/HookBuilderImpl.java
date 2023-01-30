@@ -178,8 +178,20 @@ final class HookBuilderImpl implements HookBuilder {
             }
         }
 
+        protected final synchronized SeqImpl build(@Nullable Reflect exact) {
+            this.exact = exact;
+            var hasExact = exact != null;
+            var lazySequence = onBuild();
+            if (hasExact) {
+                leafCount.compareAndSet(1, 0);
+                lazySequence.matches = Collections.singletonList(exact);
+                pending = true;
+            }
+            return this.lazySequence = lazySequence;
+        }
+
         protected final synchronized SeqImpl build() {
-            return lazySequence = onBuild();
+            return build(null);
         }
 
         @NonNull
@@ -287,11 +299,6 @@ final class HookBuilderImpl implements HookBuilder {
             else return false;
             if ((modifiers & includeModifiers) != includeModifiers) return false;
             return (modifiers & excludeModifiers) == 0;
-        }
-
-        protected final void setExact(@Nullable Reflect exact) {
-            this.exact = exact;
-            leafCount.compareAndSet(1, 0);
         }
     }
 
@@ -1083,7 +1090,6 @@ final class HookBuilderImpl implements HookBuilder {
                     for (var type : result) {
                         methods.addAll(Arrays.asList(type.getDeclaredMethods()));
                     }
-                    // TODO: not right
                     m.doMatch(methods);
                 }
 
@@ -1994,62 +2000,65 @@ final class HookBuilderImpl implements HookBuilder {
     public ClassMatch exactClass(@NonNull String name) {
         // TODO: support binary name
         var m = new ClassMatcherImpl(true);
+        Class<?> exact = null;
         try {
-            m.setExact(Class.forName(name, false, classLoader));
+            exact = Class.forName(name, false, classLoader);
         } catch (ClassNotFoundException e) {
             if (exceptionHandler != null) exceptionHandler.test(e);
         }
-        return m.build().first();
+        return m.build(exact).first();
     }
 
     @NonNull
     @Override
     public ClassMatch exact(@NonNull Class<?> clazz) {
         var m = new ClassMatcherImpl(true);
-        m.setExact(clazz);
-        return m.build().first();
+        return m.build(clazz).first();
     }
 
     @NonNull
     @Override
     public MethodMatch exactMethod(@NonNull String signature) {
-        return null;
+        var m = new MethodMatcherImpl(true);
+        // TODO
+        return m.build().first();
     }
 
     @NonNull
     @Override
     public MethodMatch exact(@NonNull Method method) {
         var m = new MethodMatcherImpl(true);
-        m.setExact(method);
-        return m.build().first();
+        return m.build(method).first();
     }
 
     @NonNull
     @Override
     public ConstructorMatch exactConstructor(@NonNull String signature) {
-        return null;
+        var m = new ConstructorMatcherImpl(true);
+        // TODO
+        return m.build().first();
     }
 
     @NonNull
     @Override
     public ConstructorMatch exact(@NonNull Constructor<?> constructor) {
         var m = new ConstructorMatcherImpl(true);
-        m.setExact(constructor);
-        return m.build().first();
+        return m.build(constructor).first();
     }
 
     @NonNull
     @Override
     public FieldMatch exactField(@NonNull String signature) {
-        return null;
+        var m = new FieldMatcherImpl(true);
+        // TODO
+        return m.build().first();
     }
 
     @NonNull
     @Override
     public FieldMatch exact(@NonNull Field field) {
         var m = new FieldMatcherImpl(true);
-        m.setExact(field);
-        return m.build().first();
+        return m.build(field).first();
     }
 
     @NonNull
@@ -2062,9 +2071,8 @@ final class HookBuilderImpl implements HookBuilder {
     @Override
     public ParameterMatch exact(@NonNull Class<?> clazz, int index) {
         var m = new ParameterMatcherImpl(true);
-        m.setExact(clazz);
         m.index = index;
-        return m.build().first();
+        return m.build(clazz).first();
     }
 
     @NonNull
