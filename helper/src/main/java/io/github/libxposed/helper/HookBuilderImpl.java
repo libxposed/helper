@@ -1,8 +1,11 @@
 package io.github.libxposed.helper;
 
 import android.annotation.SuppressLint;
+import android.os.Handler;
+import android.util.ArrayMap;
 
 import androidx.annotation.CallSuper;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -16,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -58,12 +62,24 @@ final class HookBuilderImpl implements HookBuilder {
 
     private final @NonNull ArrayList<ConstructorMatcherImpl> constructorMatchers = new ArrayList<>();
 
+    private final @NonNull HashMap<LazyBind, AtomicInteger> binds = new HashMap<>();
+
     private ExecutorService executorService;
 
-    private interface Observer<T> {
-        void onMatch(@NonNull T result);
+    private Handler callbackHandler;
 
+    private interface BaseObserver<T> {
+    }
+
+    private interface MatchObserver<T> extends BaseObserver<T> {
+        void onMatch(@NonNull T result);
+    }
+
+    private interface MissObserver<T> extends BaseObserver<T> {
         void onMiss();
+    }
+
+    private interface Observer<T> extends MatchObserver<T>, MissObserver<T> {
     }
 
     private final class MatchResultImpl implements MatchResult {
@@ -115,6 +131,13 @@ final class HookBuilderImpl implements HookBuilder {
 
     @NonNull
     @Override
+    public HookBuilder setCallbackHandler(@NonNull Handler callbackHandler) {
+        this.callbackHandler = callbackHandler;
+        return this;
+    }
+
+    @NonNull
+    @Override
     public HookBuilder setLastMatchResult(@NonNull MatchResult matchResult) {
         this.matchResult = (MatchResultImpl) matchResult;
         return this;
@@ -156,17 +179,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         protected final AtomicInteger leafCount = new AtomicInteger(1);
 
-        private final Observer<?> dependencyCallback = new Observer<>() {
-            @Override
-            public void onMatch(@NonNull Object result) {
-                leafCount.decrementAndGet();
-            }
-
-            @Override
-            public void onMiss() {
-
-            }
-        };
+        private final MatchObserver<?> dependencyCallback = (MatchObserver<Object>) result -> leafCount.decrementAndGet();
 
         protected ReflectMatcherImpl(boolean matchFirst) {
             super(matchFirst);
@@ -183,9 +196,9 @@ final class HookBuilderImpl implements HookBuilder {
             var hasExact = exact != null;
             var lazySequence = onBuild();
             if (hasExact) {
+                pending = true;
                 leafCount.compareAndSet(1, 0);
                 lazySequence.matches = Collections.singletonList(exact);
-                pending = true;
             }
             return this.lazySequence = lazySequence;
         }
@@ -245,10 +258,10 @@ final class HookBuilderImpl implements HookBuilder {
         protected abstract SeqImpl onBuild();
 
         @NonNull
-        protected final <T extends BaseMatchImpl<T, U, RR>, U extends BaseMatch<U, RR>, RR> T addDependency(@Nullable T field, @NonNull U input) {
+        protected final <T extends ReflectMatchImpl<T, U, RR, ?>, U extends ReflectMatch<U, RR, ?>, RR> T addDependency(@Nullable T field, @NonNull U input) {
             var in = (T) input;
             if (field != null) {
-                in.removeObserver((Observer<RR>) dependencyCallback);
+                in.removeObserver((MatchObserver<RR>) dependencyCallback);
             } else {
                 leafCount.incrementAndGet();
             }
@@ -257,7 +270,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         @NonNull
-        protected final <T extends ContainerSyntaxImpl<M, ?, RR>, U extends ContainerSyntax<M>, M extends BaseMatch<M, RR>, RR> T addDependencies(@Nullable T field, @NonNull U input) {
+        protected final <T extends ContainerSyntaxImpl<M, ?, RR>, U extends ContainerSyntax<M>, M extends ReflectMatch<M, RR, ?>, RR> T addDependencies(@Nullable T field, @NonNull U input) {
             var in = (T) input;
             // TODO
             if (field != null) {
@@ -270,10 +283,12 @@ final class HookBuilderImpl implements HookBuilder {
         // do match on reflect
         protected final boolean doMatch(@NonNull Iterable<Reflect> candidates) {
             var lazySequence = this.lazySequence;
-            if (leafCount.get() != 1 || lazySequence == null) {
-                throw new IllegalStateException("Illegal state when onMatch");
+            if (lazySequence == null) {
+                throw new IllegalStateException("Illegal state when doMatch");
             }
-            leafCount.decrementAndGet();
+            if (leafCount.getAndDecrement() != 1) {
+                return false;
+            }
             var matches = new ArrayList<Reflect>();
             for (var candidate : candidates) {
                 if (doMatch(candidate)) {
@@ -284,7 +299,7 @@ final class HookBuilderImpl implements HookBuilder {
                 }
             }
             if (matches.isEmpty()) {
-                // TODO: on miss
+                miss();
                 return false;
             }
             lazySequence.match(candidates);
@@ -292,13 +307,21 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         @CallSuper
-        boolean doMatch(@NonNull Reflect reflect) {
+        protected boolean doMatch(@NonNull Reflect reflect) {
             final int modifiers;
             if (reflect instanceof Class<?>) modifiers = ((Class<?>) reflect).getModifiers();
             else if (reflect instanceof Member) modifiers = ((Member) reflect).getModifiers();
             else return false;
             if ((modifiers & includeModifiers) != includeModifiers) return false;
             return (modifiers & excludeModifiers) == 0;
+        }
+
+        protected final void miss() {
+            var lazySequence = this.lazySequence;
+            if (lazySequence == null) {
+                throw new IllegalStateException("Illegal state when miss");
+            }
+            lazySequence.miss();
         }
     }
 
@@ -318,11 +341,11 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         @Override
-        boolean doMatch(@NonNull Class<?> theClass) {
+        protected boolean doMatch(@NonNull Class<?> theClass) {
             if (!super.doMatch(theClass)) return false;
             if (superClass != null) {
                 final var superClass = theClass.getSuperclass();
-                if (superClass == null || this.superClass.match != superClass) return false;
+                return superClass != null && this.superClass.match == superClass;
             }
             return true;
         }
@@ -331,7 +354,7 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         public final Base setName(@NonNull StringMatch name) {
             ensureNotFinalized();
-            this.name = addDependency(this.name, name);
+            this.name = (StringMatchImpl) name;
             return (Base) this;
         }
 
@@ -395,7 +418,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         @Override
-        boolean doMatch(@NonNull Class<?> theClass) {
+        protected boolean doMatch(@NonNull Class<?> theClass) {
             if (!super.doMatch(theClass)) return false;
             if (containsInterfaces != null) {
                 final var ifArray = theClass.getInterfaces();
@@ -443,7 +466,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         @Override
-        boolean doMatch(@NonNull Reflect reflect) {
+        protected boolean doMatch(@NonNull Reflect reflect) {
             if (!super.doMatch(reflect)) return false;
             if (declaringClass != null) {
                 final var declaringClass = this.declaringClass.match;
@@ -503,7 +526,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         @Override
-        boolean doMatch(@NonNull Field field) {
+        protected boolean doMatch(@NonNull Field field) {
             if (!super.doMatch(field)) return false;
             if (type != null && type.match != field.getType()) return false;
             return name == null || name.doMatch(field.getName());
@@ -513,7 +536,7 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         public FieldMatcher setName(@NonNull StringMatch name) {
             ensureNotFinalized();
-            this.name = addDependency(this.name, name);
+            this.name = (StringMatchImpl) name;
             return this;
         }
 
@@ -584,7 +607,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         @Override
-        boolean doMatch(@NonNull Reflect reflect) {
+        protected boolean doMatch(@NonNull Reflect reflect) {
             if (!super.doMatch(reflect)) return false;
             final int parameterCount;
             if (reflect instanceof Method) {
@@ -619,7 +642,7 @@ final class HookBuilderImpl implements HookBuilder {
         public final Base setReferredStrings(@NonNull ContainerSyntax<StringMatch> referredStrings) {
             ensureNotFinalized();
             dexAnalysis = true;
-            this.referredStrings = addDependencies(this.referredStrings, referredStrings);
+            this.referredStrings = (ContainerSyntaxImpl<StringMatch, ?, String>) referredStrings;
             return (Base) this;
         }
 
@@ -691,7 +714,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         @Override
-        boolean doMatch(@NonNull Method method) {
+        protected boolean doMatch(@NonNull Method method) {
             if (!super.doMatch(method)) return false;
             if (returnType != null && returnType.match != method.getReturnType()) return false;
             return name == null || name.doMatch(method.getName());
@@ -708,7 +731,7 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         public MethodMatcher setName(@NonNull StringMatch name) {
             ensureNotFinalized();
-            this.name = addDependency(this.name, name);
+            this.name = (StringMatchImpl) name;
             return this;
         }
 
@@ -926,8 +949,12 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         private final Object VALUE = new Object();
 
+        @GuardedBy("this")
+        private volatile boolean done = false;
+
+        @GuardedBy("this")
         @NonNull
-        private final Map<Observer<Iterable<Reflect>>, Object> observers = new ConcurrentHashMap<>();
+        private final Map<BaseObserver<Iterable<Reflect>>, Object> observers = new HashMap<>();
 
         protected LazySequenceImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?> matcher) {
             this.matcher = matcher;
@@ -940,12 +967,13 @@ final class HookBuilderImpl implements HookBuilder {
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Iterable<Reflect> result) {
-                    m.match(result.iterator().next());
+                    if (result.iterator().hasNext()) m.match(result.iterator().next());
+                    else onMiss();
                 }
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
             return (Match) m;
@@ -964,7 +992,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
             return m.build().first();
@@ -983,7 +1011,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
             return (Base) m.build();
@@ -992,17 +1020,14 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final Base onMatch(@NonNull Consumer<Iterable<Reflect>> consumer) {
-            addObserver(new Observer<>() {
-                @Override
-                public void onMatch(@NonNull Iterable<Reflect> result) {
-                    consumer.accept(result);
-                }
+            addMatchObserver(result -> callbackHandler.post(() -> consumer.accept(result)));
+            return (Base) this;
+        }
 
-                @Override
-                public void onMiss() {
-
-                }
-            });
+        @NonNull
+        @Override
+        public final Base onMiss(@NonNull Runnable runnable) {
+            addMissObserver(() -> callbackHandler.post(runnable));
             return (Base) this;
         }
 
@@ -1033,15 +1058,30 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final <Bind extends LazyBind> Base bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Iterable<Reflect>> consumer) {
+            if (binds.containsKey(bind)) {
+                binds.put(bind, new AtomicInteger(1));
+            } else {
+                var c = binds.get(bind);
+                if (c != null) c.incrementAndGet();
+            }
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Iterable<Reflect> result) {
-                    consumer.accept(bind, result);
+                    var c = binds.get(bind);
+                    if (c == null) return;
+                    var old = c.decrementAndGet();
+                    if (old >= 0) {
+                        callbackHandler.post(() -> consumer.accept(bind, result));
+                        if (old == 0) {
+                            callbackHandler.post(bind::onMatch);
+                        }
+                    }
                 }
 
                 @Override
                 public void onMiss() {
-
+                    var c = binds.get(bind);
+                    if (c != null && c.getAndSet(0) > 0) callbackHandler.post(bind::onMiss);
                 }
             });
             return (Base) this;
@@ -1050,7 +1090,17 @@ final class HookBuilderImpl implements HookBuilder {
         protected final void match(@NonNull Iterable<Reflect> matches) {
             this.matches = matches;
             for (var observer : observers.keySet()) {
-                observer.onMatch(matches);
+                if (observer instanceof MatchObserver) {
+                    ((MatchObserver<Iterable<Reflect>>) observer).onMatch(matches);
+                }
+            }
+        }
+
+        protected final void miss() {
+            for (var observer : observers.keySet()) {
+                if (observer instanceof MissObserver) {
+                    ((MissObserver<Iterable<Reflect>>) observer).onMiss();
+                }
             }
         }
 
@@ -1063,15 +1113,26 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         protected abstract Self newSelf();
 
-        protected final void addObserver(@NonNull Observer<Iterable<Reflect>> observer) {
+        protected final synchronized void addObserver(@NonNull Observer<Iterable<Reflect>> observer) {
             observers.put(observer, VALUE);
             var m = matches;
-            if (m != null) {
-                observer.onMatch(m);
-            }
+            if (m != null) observer.onMatch(m);
+            else if (done) observer.onMiss();
         }
 
-        protected final void removeObserver(@NonNull Observer<Iterable<Reflect>> observer) {
+        protected final synchronized void addMatchObserver(@NonNull MatchObserver<Iterable<Reflect>> observer) {
+            observers.put(observer, VALUE);
+            var m = matches;
+            if (m != null) observer.onMatch(m);
+        }
+
+        protected final synchronized void addMissObserver(@NonNull MissObserver<Iterable<Reflect>> observer) {
+            observers.put(observer, VALUE);
+            var m = matches;
+            if (done && m == null) observer.onMiss();
+        }
+
+        protected final synchronized void removeObserver(@NonNull Observer<Iterable<Reflect>> observer) {
             observers.remove(observer);
         }
     }
@@ -1095,7 +1156,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
         }
@@ -1114,7 +1175,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
         }
@@ -1133,7 +1194,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
         }
@@ -1259,7 +1320,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
         }
@@ -1302,7 +1363,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
         }
@@ -1363,7 +1424,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
         }
@@ -1409,7 +1470,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
         }
@@ -1477,12 +1538,6 @@ final class HookBuilderImpl implements HookBuilder {
 
     @SuppressWarnings("unchecked")
     private abstract class BaseMatchImpl<Self extends BaseMatchImpl<Self, Base, Reflect>, Base extends BaseMatch<Base, Reflect>, Reflect> implements BaseMatch<Base, Reflect> {
-        @NonNull
-        private final Object VALUE = new Object();
-
-        @NonNull
-        private final Map<Observer<Reflect>, Object> observers = new ConcurrentHashMap<>();
-
         protected BaseMatchImpl() {
         }
 
@@ -1498,30 +1553,13 @@ final class HookBuilderImpl implements HookBuilder {
             return new ContainerSyntaxImpl<>((Self) this, '-');
         }
 
-        protected final void onMatch(Reflect reflect) {
-            for (Observer<Reflect> observer : observers.keySet()) {
-                observer.onMatch(reflect);
-            }
-        }
-
-        protected final void addObserver(Observer<Reflect> observer) {
-            observers.put(observer, VALUE);
-        }
-
-        protected final void removeObserver(Observer<Reflect> observer) {
-            observers.remove(observer);
-        }
-
-        @CallSuper
-        protected void match(Reflect match) {
-            for (Observer<Reflect> observer : observers.keySet()) {
-                observer.onMatch(match);
-            }
-        }
     }
 
     @SuppressWarnings("unchecked")
     private abstract class ReflectMatchImpl<Self extends ReflectMatchImpl<Self, Base, Reflect, Matcher>, Base extends ReflectMatch<Base, Reflect, Matcher>, Reflect, Matcher extends ReflectMatcher<Matcher>> extends BaseMatchImpl<Self, Base, Reflect> implements ReflectMatch<Base, Reflect, Matcher> {
+        @NonNull
+        private final Object VALUE = new Object();
+
         @NonNull
         protected final ReflectMatcherImpl<?, ?, ?, ?> matcher;
 
@@ -1530,6 +1568,13 @@ final class HookBuilderImpl implements HookBuilder {
 
         @Nullable
         protected volatile Reflect match = null;
+
+        @GuardedBy("this")
+        private volatile boolean done = false;
+
+        @GuardedBy("this")
+        @NonNull
+        private final Map<BaseObserver<Reflect>, Object> observers = new HashMap<>();
 
         protected ReflectMatchImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?> matcher) {
             this.matcher = matcher;
@@ -1551,17 +1596,14 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final Base onMatch(@NonNull Consumer<Reflect> consumer) {
-            addObserver(new Observer<>() {
-                @Override
-                public void onMatch(@NonNull Reflect result) {
-                    consumer.accept(result);
-                }
+            addMatchObserver(result -> callbackHandler.post(() -> consumer.accept(result)));
+            return (Base) this;
+        }
 
-                @Override
-                public void onMiss() {
-
-                }
-            });
+        @NonNull
+        @Override
+        public Base onMiss(@NonNull Runnable handler) {
+            addMissObserver(() -> callbackHandler.post(handler));
             return (Base) this;
         }
 
@@ -1581,23 +1623,72 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final <Bind extends LazyBind> Base bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Reflect> consumer) {
+            if (binds.containsKey(bind)) {
+                binds.put(bind, new AtomicInteger(1));
+            } else {
+                var c = binds.get(bind);
+                if (c != null) c.incrementAndGet();
+            }
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Reflect result) {
-                    consumer.accept(bind, result);
+                    var c = binds.get(bind);
+                    if (c == null) return;
+                    var old = c.decrementAndGet();
+                    if (old >= 0) {
+                        callbackHandler.post(() -> consumer.accept(bind, result));
+                        if (old == 0) {
+                            callbackHandler.post(bind::onMatch);
+                        }
+                    }
                 }
 
                 @Override
                 public void onMiss() {
-
+                    var c = binds.get(bind);
+                    if (c != null && c.getAndSet(0) > 0) callbackHandler.post(bind::onMiss);
                 }
             });
             return (Base) this;
         }
 
-        protected final void match(@NonNull Reflect match) {
+        protected final synchronized void addObserver(Observer<Reflect> observer) {
+            observers.put(observer, VALUE);
+            var m = match;
+            if (m != null) observer.onMatch(m);
+            else if (done) observer.onMiss();
+        }
+
+        protected final synchronized void addMatchObserver(MatchObserver<Reflect> observer) {
+            observers.put(observer, VALUE);
+            var m = match;
+            if (m != null) observer.onMatch(m);
+        }
+
+        protected final synchronized void addMissObserver(MissObserver<Reflect> observer) {
+            observers.put(observer, VALUE);
+            var m = match;
+            if (done && m == null) observer.onMiss();
+        }
+
+        protected final synchronized void removeObserver(BaseObserver<Reflect> observer) {
+            observers.remove(observer);
+        }
+
+        protected final synchronized void match(Reflect match) {
             this.match = match;
-            super.match(match);
+            this.done = true;
+            for (BaseObserver<Reflect> observer : observers.keySet()) {
+                if (observer instanceof MatchObserver)
+                    ((MatchObserver<Reflect>) observer).onMatch(match);
+            }
+        }
+
+        protected final synchronized void miss() {
+            this.done = true;
+            for (BaseObserver<Reflect> observer : observers.keySet()) {
+                if (observer instanceof MissObserver) ((MissObserver<Reflect>) observer).onMiss();
+            }
         }
     }
 
@@ -1621,7 +1712,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
             return m;
@@ -1639,7 +1730,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
             return m;
@@ -1657,7 +1748,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
             return m;
@@ -1675,7 +1766,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
             return m;
@@ -1693,7 +1784,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
             return m;
@@ -1711,7 +1802,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
             return m;
@@ -1735,7 +1826,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
             return m;
@@ -1772,7 +1863,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
             return m;
@@ -1796,7 +1887,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
             return m;
@@ -1824,7 +1915,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
             return m;
@@ -1880,7 +1971,7 @@ final class HookBuilderImpl implements HookBuilder {
 
                 @Override
                 public void onMiss() {
-
+                    m.miss();
                 }
             });
             return m;

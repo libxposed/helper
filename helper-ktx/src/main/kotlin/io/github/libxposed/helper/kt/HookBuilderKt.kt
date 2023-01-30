@@ -39,11 +39,15 @@ annotation class AnnotationAnalysis
 @Hooker
 abstract class LazyBind {
     @PublishedApi
-    internal val bind = LazyBind {
-        onMatch()
+    internal val bind = object : HookBuilder.LazyBind {
+        override fun onMatch() = this@LazyBind.onMatch()
+
+        override fun onMiss() = this@LazyBind.onMiss()
     }
 
     abstract fun onMatch()
+
+    abstract fun onMiss()
 }
 
 class MatchResultKt @PublishedApi internal constructor(val result: MatchResult) {
@@ -794,6 +798,7 @@ class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {
         inline get() = StringMatchKt(builder.exact(this))
     val Class<*>.exact: ClassMatchKt
         inline get() = ClassMatchKt(builder.exact(this))
+
     fun Class<*>.exact(index: Int) = ParameterMatchKt(builder.exact(this, index))
     val Method.exact: MethodMatchKt
         inline get() = MethodMatchKt(builder.exact(this))
@@ -815,6 +820,7 @@ class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {
         inline get() = ConstructorMatchKt(builder.exactConstructor(this))
     val String.exactField: FieldMatchKt
         inline get() = FieldMatchKt(builder.exactField(this))
+
     fun String.exactParameter(index: Int) = ParameterMatchKt(builder.exactParameter(this, index))
 }
 

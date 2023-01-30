@@ -1,5 +1,7 @@
 package io.github.libxposed.helper;
 
+import android.os.Handler;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresOptIn;
@@ -253,6 +255,9 @@ public interface HookBuilder {
         Self onMatch(@NonNull Consumer<Reflect> consumer);
 
         @NonNull
+        Self onMiss(@NonNull Runnable handler);
+
+        @NonNull
         Self substituteIfMiss(@NonNull Supplier<Self> substitute);
 
         @NonNull
@@ -347,6 +352,9 @@ public interface HookBuilder {
         Self onMatch(@NonNull Consumer<Iterable<Reflect>> consumer);
 
         @NonNull
+        Self onMiss(@NonNull Runnable runnable);
+
+        @NonNull
         ContainerSyntax<Match> conjunction();
 
         @NonNull
@@ -426,6 +434,8 @@ public interface HookBuilder {
 
     interface LazyBind {
         void onMatch();
+
+        void onMiss();
     }
 
     @DexAnalysis
@@ -434,6 +444,9 @@ public interface HookBuilder {
 
     @NonNull
     HookBuilder setExecutorService(@NonNull ExecutorService executorService);
+
+    @NonNull
+    HookBuilder setCallbackHandler(@NonNull Handler callbackHandler);
 
     @NonNull
     HookBuilder setLastMatchResult(@NonNull MatchResult preferenceName);
