@@ -47,7 +47,7 @@ jobs:
           echo 'org.gradle.parallel=true' >> gradle.properties
           echo 'org.gradle.vfs.watch=true' >> gradle.properties
           echo 'org.gradle.jvmargs=-Xmx2048m' >> gradle.properties
-          ./gradlew :helper:publishToMavenLocal
+          ./gradlew publishToMavenLocal
           ./gradlew --stop
         env:
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.maven_pgp_signingKey }}
@@ -57,3 +57,17 @@ jobs:
         with:
           name: library
           path: ~/.m2
+      - name: Prepare pages
+        run: |
+          mkdir -p docs/helper
+          cp -r helper/build/intermediates/java_doc_dir/release docs/helper
+          mkdir -p docs/helper-ktx
+          cp -r helper-ktx/build/intermediates/java_doc_dir/release docs/helper
+      - name: Upload pages
+        uses: actions/upload-pages-artifact@v1
+        with:
+          # Upload entire repository
+          path: 'docs'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@main
