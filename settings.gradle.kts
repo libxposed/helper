@@ -20,4 +20,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "helper"
-include(":helper", ":helper-kt")
+include(":helper", ":helper-ktx")

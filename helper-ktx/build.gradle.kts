@@ -55,12 +55,12 @@ dependencies {
 
 publishing {
     publications {
-        register<MavenPublication>("helperKt") {
-            artifactId = "helper-kt"
+        register<MavenPublication>("helperKtx") {
+            artifactId = "helper-ktx"
             group = "io.github.libxposed"
             version = "100.0.1"
             pom {
-                name.set("helper-kt")
+                name.set("helper-ktx")
                 description.set("Modern Xposed Helper for Kotlin")
                 url.set("https://github.com/libxposed/helper")
                 licenses {
