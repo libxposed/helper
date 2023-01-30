@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.ConcurrentModificationException;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
@@ -266,6 +267,11 @@ final class HookBuilderImpl implements HookBuilder {
                 return;
             }
             lazySequence.onMatch(matches);
+        }
+
+        protected final void setExact(@Nullable Reflect exact) {
+            this.exact = exact;
+            leafCount.compareAndSet(1, 0);
         }
     }
 
@@ -1323,13 +1329,17 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public MethodLazySequence methods(@NonNull Consumer<MethodMatcher> matcher) {
-        return null;
+        var m = new MethodMatcherImpl(false);
+        matcher.accept(m);
+        return m.build();
     }
 
     @NonNull
     @Override
     public MethodMatch firstMethod(@NonNull Consumer<MethodMatcher> matcher) {
-        return null;
+        var m = new MethodMatcherImpl(true);
+        matcher.accept(m);
+        return m.build().first();
     }
 
     @NonNull
@@ -1383,25 +1393,39 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public StringMatch prefix(@NonNull String prefix) {
-        return null;
+        var m = new StringMatcherImpl(false);
+        m.prefix = prefix;
+        return m.build();
     }
 
     @NonNull
     @Override
     public StringMatch firstPrefix(@NonNull String prefix) {
-        return null;
+        var m = new StringMatcherImpl(true);
+        m.prefix = prefix;
+        return m.build();
     }
 
     @NonNull
     @Override
     public ClassMatch exactClass(@NonNull String name) {
-        return null;
+        // TODO: support binary name
+        var m = new ClassMatcherImpl(true);
+        try {
+            m.setExact(Class.forName(name, false, classLoader));
+        } catch (ClassNotFoundException e) {
+            if (exceptionHandler != null)
+                exceptionHandler.test(e);
+        }
+        return m.build().first();
     }
 
     @NonNull
     @Override
     public ClassMatch exact(@NonNull Class<?> clazz) {
-        return null;
+        var m = new ClassMatcherImpl(true);
+        m.setExact(clazz);
+        return m.build().first();
     }
 
     @NonNull
@@ -1413,7 +1437,9 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public MethodMatch exact(@NonNull Method method) {
-        return null;
+        var m = new MethodMatcherImpl(true);
+        m.setExact(method);
+        return m.build().first();
     }
 
     @NonNull
@@ -1425,7 +1451,9 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public ConstructorMatch exact(@NonNull Constructor<?> constructor) {
-        return null;
+        var m = new ConstructorMatcherImpl(true);
+        m.setExact(constructor);
+        return m.build().first();
     }
 
     @NonNull
@@ -1437,18 +1465,29 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public FieldMatch exact(@NonNull Field field) {
+        var m = new FieldMatcherImpl(true);
+        m.setExact(field);
+        return m.build().first();
+    }
+
+    @NonNull
+    @Override
+    public ParameterMatch exactParameter(@NonNull String signature, int index) {
         return null;
     }
 
     @NonNull
     @Override
-    public ParameterMatch exactParameter(@NonNull String signature) {
-        return null;
+    public ParameterMatch exact(@NonNull Class<?> clazz, int index) {
+        var m = new ParameterMatcherImpl(true);
+        m.setExact(clazz);
+        m.index = index;
+        return m.build().first();
     }
 
     @NonNull
     @Override
-    public ParameterMatch exact(@NonNull Class<?>... params) {
+    public ContainerSyntax<ParameterMatch> exact(@NonNull Class<?>... params) {
         return null;
     }
 

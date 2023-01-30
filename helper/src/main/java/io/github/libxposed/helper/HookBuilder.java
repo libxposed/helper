@@ -514,8 +514,11 @@ public interface HookBuilder {
     FieldMatch exact(@NonNull Field field);
 
     @NonNull
-    ParameterMatch exactParameter(@NonNull String signature);
+    ParameterMatch exactParameter(@NonNull String signature, int index);
 
     @NonNull
-    ParameterMatch exact(@NonNull Class<?>... params);
+    ParameterMatch exact(@NonNull Class<?> clazz, int index);
+
+    @NonNull
+    ContainerSyntax<ParameterMatch> exact(@NonNull Class<?>... matchers);
 }
