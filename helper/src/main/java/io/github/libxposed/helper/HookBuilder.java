@@ -264,9 +264,6 @@ public interface HookBuilder {
 
     interface TypeMatch<Self extends TypeMatch<Self, Matcher>, Matcher extends TypeMatcher<Matcher>> extends ReflectMatch<Self, Class<?>, Matcher> {
         @NonNull
-        StringMatch getName();
-
-        @NonNull
         ClassMatch getSuperClass();
 
         @NonNull
@@ -321,9 +318,6 @@ public interface HookBuilder {
 
     interface MethodMatch extends ExecutableMatch<MethodMatch, Method, MethodMatcher> {
         @NonNull
-        StringMatch getName();
-
-        @NonNull
         ClassMatch getReturnType();
     }
 
@@ -331,9 +325,6 @@ public interface HookBuilder {
     }
 
     interface FieldMatch extends MemberMatch<FieldMatch, Field, FieldMatcher> {
-        @NonNull
-        StringMatch getName();
-
         @NonNull
         ClassMatch getType();
     }
