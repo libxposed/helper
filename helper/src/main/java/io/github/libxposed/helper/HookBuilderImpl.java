@@ -163,7 +163,6 @@ final class HookBuilderImpl implements HookBuilder {
     private abstract class ReflectMatcherImpl<Self extends ReflectMatcherImpl<Self, Base, Reflect, SeqImpl>, Base extends ReflectMatcher<Base>, Reflect, SeqImpl extends LazySequenceImpl<?, ?, Reflect, Base, ?, Self>> extends BaseMatcherImpl<Self, Reflect> implements ReflectMatcher<Base> {
         private final static int packageFlag = Modifier.PUBLIC | Modifier.PRIVATE | Modifier.PROTECTED;
 
-        // TODO: use it
         @Nullable
         protected String key = null;
 
@@ -208,6 +207,10 @@ final class HookBuilderImpl implements HookBuilder {
                 pending = true;
                 leafCount.compareAndSet(1, 0);
                 lazySequence.matches = Collections.singletonList(exact);
+            }
+            // specially, if matchFirst is true, propagate the key to the first match
+            if (matchFirst && key != null) {
+                var f = lazySequence.first().setKey(key);
             }
             return this.lazySequence = lazySequence;
         }
@@ -1015,6 +1018,10 @@ final class HookBuilderImpl implements HookBuilder {
         @GuardedBy("this")
         private volatile boolean done = false;
 
+        // specially cache `first` since it's the only one that do not need to define any callback
+        @Nullable
+        private volatile Match first = null;
+
         @GuardedBy("this")
         @NonNull
         private final Map<BaseObserver<Iterable<Reflect>>, Object> observers = new HashMap<>();
@@ -1030,20 +1037,25 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final Match first() {
-            var m = newMatch();
-            addObserver(new Observer<>() {
-                @Override
-                public void onMatch(@NonNull Iterable<Reflect> result) {
-                    if (result.iterator().hasNext()) m.match(result.iterator().next());
-                    else onMiss();
-                }
+            var f = first;
+            if (f == null) {
+                var m = newMatch();
+                addObserver(new Observer<>() {
+                    @Override
+                    public void onMatch(@NonNull Iterable<Reflect> result) {
+                        var i = result.iterator();
+                        if (i.hasNext()) m.match(i.next());
+                        else onMiss();
+                    }
 
-                @Override
-                public void onMiss() {
-                    m.miss();
-                }
-            });
-            return (Match) m;
+                    @Override
+                    public void onMiss() {
+                        m.miss();
+                    }
+                });
+                first = f = (Match) m;
+            }
+            return f;
         }
 
         @NonNull
