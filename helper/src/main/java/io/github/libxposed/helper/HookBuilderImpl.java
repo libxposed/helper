@@ -178,7 +178,17 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         protected final AtomicInteger leafCount = new AtomicInteger(1);
 
-        private final MatchObserver<?> dependencyCallback = (MatchObserver<Object>) result -> leafCount.decrementAndGet();
+        private final Observer<?> dependencyCallback = new Observer<>() {
+            @Override
+            public void onMatch(@NonNull Object result) {
+                leafCount.decrementAndGet();
+            }
+
+            @Override
+            public void onMiss() {
+                miss();
+            }
+        };
 
         protected ReflectMatcherImpl(boolean matchFirst) {
             super(matchFirst);
@@ -269,7 +279,7 @@ final class HookBuilderImpl implements HookBuilder {
         protected final <T extends ReflectMatchImpl<T, U, RR, ?, ?>, U extends ReflectMatch<U, RR, ?>, RR> T addDependency(@Nullable T field, @NonNull U input) {
             var in = (T) input;
             if (field != null) {
-                in.removeObserver((MatchObserver<RR>) dependencyCallback);
+                in.removeObserver((Observer<RR>) dependencyCallback);
             } else {
                 leafCount.incrementAndGet();
             }
@@ -280,11 +290,10 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         protected final <T extends ContainerSyntaxImpl<M, ?, RR>, U extends ContainerSyntax<M>, M extends ReflectMatch<M, RR, ?>, RR> T addDependencies(@Nullable T field, @NonNull U input) {
             var in = (T) input;
-            // TODO
             if (field != null) {
-                // ?
+                field.removeObserver(dependencyCallback, leafCount);
             }
-//            input.addSupports(this);
+            in.addObserver(dependencyCallback, leafCount);
             return in;
         }
 
@@ -814,6 +823,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private final class ContainerSyntaxImpl<Match extends BaseMatch<Match, Reflect>, MatchImpl extends BaseMatchImpl<MatchImpl, Match, Reflect>, Reflect> implements ContainerSyntax<Match> {
         private final class Operand {
             private @NonNull Object value;
@@ -895,7 +905,6 @@ final class HookBuilderImpl implements HookBuilder {
             return new ContainerSyntaxImpl<>(this, '!');
         }
 
-        @SuppressWarnings("unchecked")
         private boolean operandTest(@NonNull Operand operand, @NonNull HashSet<Reflect> set, char operator) {
             if (operand.value instanceof ReflectMatchImpl) {
                 return set.contains(((ReflectMatchImpl<?, ?, Reflect, ?, ?>) operand.value).match);
@@ -943,6 +952,52 @@ final class HookBuilderImpl implements HookBuilder {
                 }
             }
             return false;
+        }
+
+        private void addObserver(@NonNull Operand operand, @NonNull Observer<?> observer, @Nullable AtomicInteger count) {
+            if (operand.value instanceof ReflectMatchImpl) {
+                ((ReflectMatchImpl<?, ?, Reflect, ?, ?>) operand.value).addObserver((Observer<Reflect>) observer);
+                if (count != null) count.incrementAndGet();
+            } else if (operand.value instanceof LazySequenceImpl) {
+                ((LazySequenceImpl<?, ?, Reflect, ?, ?, ?>) operand.value).addObserver((Observer<Iterable<Reflect>>) observer);
+                if (count != null) count.incrementAndGet();
+            } else {
+                ((ContainerSyntaxImpl<?, ?, Reflect>) operand.value).addObserver(observer, count);
+            }
+        }
+
+        void addObserver(@NonNull Observer<?> observer, @Nullable AtomicInteger count) {
+            if (operands instanceof ContainerSyntaxImpl.BinaryOperands) {
+                BinaryOperands binaryOperands = (BinaryOperands) operands;
+                addObserver(binaryOperands.left, observer, count);
+                addObserver(binaryOperands.right, observer, count);
+            } else if (operands instanceof ContainerSyntaxImpl.UnaryOperands) {
+                UnaryOperands unaryOperands = (UnaryOperands) operands;
+                addObserver(unaryOperands.operand, observer, count);
+            }
+        }
+
+        private void removeObserver(@NonNull Operand operand, @NonNull Observer<?> observer, @Nullable AtomicInteger count) {
+            if (operand.value instanceof ReflectMatchImpl) {
+                ((ReflectMatchImpl<?, ?, Reflect, ?, ?>) operand.value).removeObserver((Observer<Reflect>) observer);
+                if (count != null) count.decrementAndGet();
+            } else if (operand.value instanceof LazySequenceImpl) {
+                ((LazySequenceImpl<?, ?, Reflect, ?, ?, ?>) operand.value).removeObserver((Observer<Iterable<Reflect>>) observer);
+                if (count != null) count.decrementAndGet();
+            } else {
+                ((ContainerSyntaxImpl<?, ?, Reflect>) operand.value).removeObserver(observer, count);
+            }
+        }
+
+        void removeObserver(@NonNull Observer<?> observer, @Nullable AtomicInteger count) {
+            if (operands instanceof ContainerSyntaxImpl.BinaryOperands) {
+                BinaryOperands binaryOperands = (BinaryOperands) operands;
+                removeObserver(binaryOperands.left, observer, count);
+                removeObserver(binaryOperands.right, observer, count);
+            } else if (operands instanceof ContainerSyntaxImpl.UnaryOperands) {
+                UnaryOperands unaryOperands = (UnaryOperands) operands;
+                removeObserver(unaryOperands.operand, observer, count);
+            }
         }
     }
 
