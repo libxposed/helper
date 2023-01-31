@@ -191,7 +191,7 @@ final class HookBuilderImpl implements HookBuilder {
         protected final synchronized SeqImpl build(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher, @Nullable Reflect exact) {
             this.exact = exact;
             var hasExact = exact != null;
-            var lazySequence = onBuild(indirectMatcher);
+            var lazySequence = onBuild(indirectMatcher, exact);
             if (hasExact) {
                 pending = true;
                 leafCount.compareAndSet(1, 0);
@@ -260,7 +260,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         @NonNull
-        protected abstract SeqImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher);
+        protected abstract SeqImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher, @Nullable Reflect exact);
 
         @NonNull
         protected final <T extends ReflectMatchImpl<T, U, RR, ?>, U extends ReflectMatch<U, RR, ?>, RR> T addDependency(@Nullable T field, @NonNull U input) {
@@ -418,8 +418,8 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        protected ClassLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher) {
-            classMatchers.add(this);
+        protected ClassLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher, @Nullable Class<?> exact) {
+            if (indirectMatcher == this && exact == null) classMatchers.add(this);
             return new ClassLazySequenceImpl(indirectMatcher);
         }
 
@@ -445,7 +445,7 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        protected ParameterLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher) {
+        protected ParameterLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher, @Nullable Class<?> exact) {
             return new ParameterLazySequenceImpl(indirectMatcher);
         }
 
@@ -526,8 +526,8 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        protected FieldLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher) {
-            fieldMatchers.add(this);
+        protected FieldLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher, @Nullable Field exact) {
+            if (indirectMatcher == this && exact == null) fieldMatchers.add(this);
             return new FieldLazySequenceImpl(indirectMatcher);
         }
 
@@ -728,8 +728,8 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        protected MethodLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher) {
-            methodMatchers.add(this);
+        protected MethodLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher, @Nullable Method exact) {
+            if (indirectMatcher == this && exact == null) methodMatchers.add(this);
             return new MethodLazySequenceImpl(indirectMatcher);
         }
 
@@ -792,8 +792,8 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        protected ConstructorLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher) {
-            constructorMatchers.add(this);
+        protected ConstructorLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher, @Nullable Constructor<?> exact) {
+            if (indirectMatcher == this && exact == null) constructorMatchers.add(this);
             return new ConstructorLazySequenceImpl(indirectMatcher);
         }
     }
