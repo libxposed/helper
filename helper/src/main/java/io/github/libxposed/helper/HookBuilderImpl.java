@@ -326,6 +326,7 @@ final class HookBuilderImpl implements HookBuilder {
             if (lazySequence == null) {
                 throw new IllegalStateException("Illegal state when miss");
             }
+            leafCount.set(0);
             lazySequence.miss();
         }
     }
@@ -2310,7 +2311,11 @@ final class HookBuilderImpl implements HookBuilder {
                         var declaringClass = fieldMatcher.declaringClass.match;
                         if (declaringClass != null) classList.add(declaringClass);
                     } else {
-                        // TODO
+                        if (exceptionHandler != null) {
+                            exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
+                        }
+                        fieldMatcher.miss();
+                        return;
                     }
                     final ArrayList<Field> candidates = new ArrayList<>();
 
@@ -2336,7 +2341,11 @@ final class HookBuilderImpl implements HookBuilder {
                         var declaringClass = methodMatcher.declaringClass.match;
                         if (declaringClass != null) classList.add(declaringClass);
                     } else {
-                        // TODO
+                        if (exceptionHandler != null) {
+                            exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
+                        }
+                        methodMatcher.miss();
+                        return;
                     }
 
                     final ArrayList<Method> candidates = new ArrayList<>();
@@ -2363,7 +2372,11 @@ final class HookBuilderImpl implements HookBuilder {
                     if (constructorMatcher.declaringClass != null && constructorMatcher.declaringClass.match != null) {
                         classList.add(constructorMatcher.declaringClass.match);
                     } else {
-                        // TODO
+                        if (exceptionHandler != null) {
+                            exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
+                        }
+                        constructorMatcher.miss();
+                        return;
                     }
 
                     final ArrayList<Constructor<?>> nameMatched = new ArrayList<>();
