@@ -218,6 +218,7 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         public final Base setKey(@NonNull String key) {
             ensureNotFinalized();
+            pending = false;
             this.key = key;
             return (Base) this;
         }
@@ -1031,6 +1032,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final Base onMatch(@NonNull Consumer<Iterable<Reflect>> consumer) {
+            matcher.pending = false;
             addMatchObserver(result -> callbackHandler.post(() -> consumer.accept(result)));
             return (Base) this;
         }
@@ -1595,12 +1597,14 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         public final Base setKey(@Nullable String key) {
             this.key = key;
+            matcher.pending = false;
             return (Base) this;
         }
 
         @NonNull
         @Override
         public final Base onMatch(@NonNull Consumer<Reflect> consumer) {
+            matcher.pending = false;
             addMatchObserver(result -> callbackHandler.post(() -> consumer.accept(result)));
             return (Base) this;
         }
