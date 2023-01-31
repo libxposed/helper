@@ -7,6 +7,8 @@ import dalvik.system.BaseDexClassLoader
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.helper.HookBuilder
 import io.github.libxposed.helper.HookBuilder.*
+import java.io.InputStream
+import java.io.OutputStream
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Member
@@ -50,17 +52,6 @@ abstract class LazyBind {
     abstract fun onMatch()
 
     abstract fun onMiss()
-}
-
-class MatchResultKt @PublishedApi internal constructor(val result: MatchResult) {
-    val matchedClasses: Map<String, Class<*>>
-        inline get() = result.matchedClasses
-    val matchedFields: Map<String, Field>
-        inline get() = result.matchedFields
-    val matchedMethods: Map<String, Method>
-        inline get() = result.matchedMethods
-    val matchedConstructors: Map<String, Constructor<*>>
-        inline get() = result.matchedConstructors
 }
 
 class ContainerSyntaxKt<MatchKt, Match> @PublishedApi internal constructor(@PublishedApi internal val syntax: ContainerSyntax<Match>) where MatchKt : BaseMatchKt<MatchKt, Match, *>, Match : BaseMatch<Match, *> {
@@ -743,14 +734,6 @@ class ConstructorLazySequenceKt @PublishedApi internal constructor(seq: Construc
 
 @Hooker
 class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {
-    var lastMatchResult: MatchResultKt
-        @Deprecated(
-            "Write only", level = DeprecationLevel.HIDDEN
-        ) inline get() = wo
-        inline set(value) {
-            builder.setLastMatchResult((value.result))
-        }
-
     var exceptionHandler: (Throwable) -> Boolean
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
@@ -784,6 +767,32 @@ class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {
         ) inline get() = wo
         inline set(value) {
             builder.setCallbackHandler(value)
+        }
+
+    var cacheInputStream: InputStream
+        @Deprecated(
+            "Write only", level = DeprecationLevel.HIDDEN
+        ) inline get() = wo
+        inline set(value) {
+            builder.setCacheInputStream(value)
+        }
+
+    var cacheOutputStream: OutputStream
+        @Deprecated(
+            "Write only", level = DeprecationLevel.HIDDEN
+        ) inline get() = wo
+        inline set(value) {
+            builder.setCacheOutputStream(value)
+        }
+
+    var cacheChecker: (Map<String, Any>) -> Boolean
+        @Deprecated(
+            "Write only", level = DeprecationLevel.HIDDEN
+        ) inline get() = wo
+        inline set(crossinline value) {
+            builder.setCacheChecker {
+                value(it)
+            }
         }
 
     inline fun methods(crossinline init: MethodMatcherKt.() -> Unit) =
@@ -858,6 +867,6 @@ class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {
 
 inline fun XposedInterface.buildHooks(
     classLoader: BaseDexClassLoader, sourcePath: String, crossinline init: HookBuilderKt.() -> Unit
-) = MatchResultKt(buildHooks(this, classLoader, sourcePath) {
+) = buildHooks(this, classLoader, sourcePath) {
     HookBuilderKt(it).init()
-})
+}

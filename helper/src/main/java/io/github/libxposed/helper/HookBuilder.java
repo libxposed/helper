@@ -6,6 +6,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresOptIn;
 
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -15,6 +17,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 
 import dalvik.system.BaseDexClassLoader;
@@ -62,24 +65,10 @@ public interface HookBuilder {
     }
 
     @NonNull
-    static MatchResult buildHooks(@NonNull XposedInterface ctx, @NonNull BaseDexClassLoader classLoader, @NonNull String sourcePath, Consumer<HookBuilder> consumer) {
+    static CountDownLatch buildHooks(@NonNull XposedInterface ctx, @NonNull BaseDexClassLoader classLoader, @NonNull String sourcePath, Consumer<HookBuilder> consumer) {
         var builder = new HookBuilderImpl(ctx, classLoader, sourcePath);
         consumer.accept(builder);
         return builder.build();
-    }
-
-    interface MatchResult {
-        @NonNull
-        Map<String, Class<?>> getMatchedClasses();
-
-        @NonNull
-        Map<String, Field> getMatchedFields();
-
-        @NonNull
-        Map<String, Method> getMatchedMethods();
-
-        @NonNull
-        Map<String, Constructor<?>> getMatchedConstructors();
     }
 
     interface ReflectMatcher<Self extends ReflectMatcher<Self>> {
@@ -449,7 +438,13 @@ public interface HookBuilder {
     HookBuilder setCallbackHandler(@NonNull Handler callbackHandler);
 
     @NonNull
-    HookBuilder setLastMatchResult(@NonNull MatchResult preferenceName);
+    HookBuilder setCacheChecker(@NonNull Predicate<Map<String, Object>> cacheChecker);
+
+    @NonNull
+    HookBuilder setCacheInputStream(@NonNull InputStream cacheInputStream);
+
+    @NonNull
+    HookBuilder setCacheOutputStream(@NonNull OutputStream cacheOutputStream);
 
     @NonNull
     HookBuilder setExceptionHandler(@NonNull Predicate<Throwable> handler);
