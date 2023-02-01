@@ -493,7 +493,6 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private final class ParameterMatcherImpl extends TypeMatcherImpl<ParameterMatcherImpl, ParameterMatcher, ParameterLazySequenceImpl> implements ParameterMatcher {
-        // TODO: use it
         private int index = -1;
 
         private ParameterMatcherImpl(boolean matchFirst) {
@@ -1582,11 +1581,28 @@ final class HookBuilderImpl implements HookBuilder {
                 @Override
                 public void onMatch(@NonNull Iterable<Reflect> result) {
                     final var parameters = new ArrayList<Class<?>>();
-                    for (final var r : result) {
-                        if (r instanceof Method) {
-                            parameters.addAll(Arrays.asList(((Method) r).getParameterTypes()));
-                        } else if (r instanceof Constructor) {
-                            parameters.addAll(Arrays.asList(((Constructor<?>) r).getParameterTypes()));
+                    final var idx = m.index;
+                    if (idx == -1) {
+                        for (final var r : result) {
+                            if (r instanceof Method) {
+                                parameters.addAll(Arrays.asList(((Method) r).getParameterTypes()));
+                            } else if (r instanceof Constructor) {
+                                parameters.addAll(Arrays.asList(((Constructor<?>) r).getParameterTypes()));
+                            }
+                        }
+                    } else {
+                        for (final var r : result) {
+                            if (r instanceof Method) {
+                                var params = ((Method) r).getParameterTypes();
+                                if (idx < params.length) {
+                                    parameters.add(params[idx]);
+                                }
+                            } else if (r instanceof Constructor) {
+                                var params = ((Constructor<?>) r).getParameterTypes();
+                                if (idx < params.length) {
+                                    parameters.add(params[idx]);
+                                }
+                            }
                         }
                     }
                     m.doMatch(parameters);
