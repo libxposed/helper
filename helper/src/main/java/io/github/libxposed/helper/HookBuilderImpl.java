@@ -20,7 +20,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -51,24 +50,6 @@ import io.github.libxposed.api.XposedInterface;
 @SuppressLint("SoonBlockedPrivateApi")
 @SuppressWarnings({"unused", "FieldCanBeLocal", "FieldMayBeFinal", "JavaReflectionMemberAccess"})
 final class HookBuilderImpl implements HookBuilder {
-    @Nullable
-    static final Field indexField;
-
-    static {
-        Field f;
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                f = Parameter.class.getDeclaredField("index");
-                f.setAccessible(true);
-            } else {
-                f = null;
-            }
-        } catch (Throwable ignored) {
-            f = null;
-        }
-        indexField = f;
-    }
-
     private final @NonNull XposedInterface ctx;
     private final @NonNull BaseDexClassLoader classLoader;
 
@@ -155,6 +136,39 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private interface Observer<T> extends MatchObserver<T>, MissObserver<T> {
+    }
+
+    private final static class ParameterImpl implements Parameter {
+        @NonNull
+        final private Class<?> type;
+
+        final private int index;
+
+        @NonNull
+        final private Member declaringExecutable;
+
+        ParameterImpl(@NonNull Class<?> type, int index, @NonNull Member declaringExecutable) {
+            this.type = type;
+            this.index = index;
+            this.declaringExecutable = declaringExecutable;
+        }
+
+        @NonNull
+        @Override
+        public Class<?> getType() {
+            return type;
+        }
+
+        @Override
+        public int getIndex() {
+            return 0;
+        }
+
+        @NonNull
+        @Override
+        public Member getDeclaringExecutable() {
+            return declaringExecutable;
+        }
     }
 
     HookBuilderImpl(@NonNull XposedInterface ctx, @NonNull BaseDexClassLoader classLoader, @NonNull String sourcePath) {
@@ -389,10 +403,10 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         // do match on reflect
-        protected final boolean doMatch(@NonNull Iterable<Reflect> candidates) {
+        protected final void doMatch(@NonNull Iterable<Reflect> candidates) {
             if (leafCount.getAndDecrement() != 1) {
                 this.candidates = candidates;
-                return false;
+                return;
             }
             final var matches = new ArrayList<Reflect>();
             for (final var candidate : candidates) {
@@ -405,10 +419,9 @@ final class HookBuilderImpl implements HookBuilder {
             }
             if (matches.isEmpty()) {
                 miss();
-                return false;
+            } else {
+                match(matches);
             }
-            match(matches);
-            return true;
         }
 
         @CallSuper
@@ -534,9 +547,6 @@ final class HookBuilderImpl implements HookBuilder {
         private int index = -1;
 
         @Nullable
-        private StringMatchImpl name = null;
-
-        @Nullable
         private ClassMatchImpl type = null;
 
         private ParameterMatcherImpl(boolean matchFirst) {
@@ -560,20 +570,10 @@ final class HookBuilderImpl implements HookBuilder {
         protected boolean doMatch(@NonNull Parameter parameter) {
             if (!super.doMatch(parameter)) return false;
             try {
-                @Nullable Integer i = indexField != null ? (Integer) indexField.get(parameter) : null;
-                if (index >= 0 && i != null && index != i) return false;
+                if (index >= 0 && index != parameter.getIndex()) return false;
             } catch (Throwable ignored) {
             }
-            if (name != null && !name.doMatch(parameter.getName())) return false;
             return type == null || type.match == parameter.getType();
-        }
-
-        @NonNull
-        @Override
-        public ParameterMatcher setName(@NonNull StringMatch name) {
-            ensureNotFinalized();
-            this.name = (StringMatchImpl) name;
-            return this;
         }
 
         @NonNull
@@ -820,14 +820,6 @@ final class HookBuilderImpl implements HookBuilder {
         public final Base setParameterCount(int count) {
             ensureNotFinalized();
             this.parameterCount = count;
-            return (Base) this;
-        }
-
-        @NonNull
-        @Override
-        public final Base setParameterTypes(@NonNull ContainerSyntax<ClassMatch> parameterTypes) {
-            ensureNotFinalized();
-            this.parameterTypes = addDependencies(this.parameterTypes, parameterTypes);
             return (Base) this;
         }
 
@@ -1758,10 +1750,14 @@ final class HookBuilderImpl implements HookBuilder {
                     m.setNonPending();
                     final var parameters = new ArrayList<Parameter>();
                     for (final var r : result) {
+                        final var parameterTypes = new ArrayList<Class<?>>();
                         if (r instanceof Method) {
-                            parameters.addAll(Arrays.asList(((Method) r).getParameters()));
+                            parameterTypes.addAll(Arrays.asList(((Method) r).getParameterTypes()));
                         } else if (r instanceof Constructor) {
-                            parameters.addAll(Arrays.asList(((Constructor<?>) r).getParameters()));
+                            parameterTypes.addAll(Arrays.asList(((Constructor<?>) r).getParameterTypes()));
+                        }
+                        for (int i = 0; i < parameterTypes.size(); i++) {
+                            parameters.add(new ParameterImpl(parameterTypes.get(i), i, r));
                         }
                     }
                     m.doMatch(parameters);
@@ -1819,24 +1815,6 @@ final class HookBuilderImpl implements HookBuilder {
             final var m = new ParameterMatcherImpl(true);
             matcher.accept(m);
             addParametersObserver(m);
-            return m.build(this.matcher).first();
-        }
-
-        @NonNull
-        @Override
-        public ClassLazySequence parameterTypes(@NonNull Consumer<ClassMatcher> matcher) {
-            final var m = new ClassMatcherImpl(false);
-            matcher.accept(m);
-            addParameterTypesObserver(m);
-            return m.build(this.matcher);
-        }
-
-        @NonNull
-        @Override
-        public ClassMatch firstParameterType(@NonNull Consumer<ClassMatcher> matcher) {
-            final var m = new ClassMatcherImpl(true);
-            matcher.accept(m);
-            addParameterTypesObserver(m);
             return m.build(this.matcher).first();
         }
     }
@@ -2392,11 +2370,17 @@ final class HookBuilderImpl implements HookBuilder {
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Reflect result) {
+                    final var parameters = new ArrayList<Parameter>();
+                    final var parameterTypes = new ArrayList<Class<?>>();
                     if (result instanceof Method) {
-                        m.match(List.of(((Method) result).getParameters()));
+                        parameterTypes.addAll(Arrays.asList(((Method) result).getParameterTypes()));
                     } else if (result instanceof Constructor) {
-                        m.match(List.of(((Constructor<?>) result).getParameters()));
+                        parameterTypes.addAll(Arrays.asList(((Constructor<?>) result).getParameterTypes()));
                     }
+                    for (int i = 0; i < parameterTypes.size(); i++) {
+                        parameters.add(new ParameterImpl(parameterTypes.get(i), i, result));
+                    }
+                    m.match(parameters);
                 }
 
                 @Override

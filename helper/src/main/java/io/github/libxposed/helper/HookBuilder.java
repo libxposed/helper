@@ -18,7 +18,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -28,6 +27,18 @@ import io.github.libxposed.api.XposedInterface;
 
 @SuppressWarnings("unused")
 public interface HookBuilder {
+
+    // replacement for java.lang.reflect.Parameter that is not available before Android O
+    interface Parameter {
+        @NonNull
+        Class<?> getType();
+
+        int getIndex();
+
+        @NonNull
+        Member getDeclaringExecutable();
+    }
+
     @FunctionalInterface
     interface Supplier<T> {
         @NonNull
@@ -125,26 +136,26 @@ public interface HookBuilder {
         ClassMatcher setIsInterface(boolean isInterface);
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     interface ParameterMatcher extends ReflectMatcher<ParameterMatcher> {
-        @NonNull
-        ParameterMatcher setName(@NonNull StringMatch name);
-
         @NonNull
         ParameterMatcher setIndex(int index);
 
         @NonNull
         ParameterMatcher setType(@NonNull ClassMatch type);
 
+        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         ParameterMatcher setIsFinal(boolean isFinal);
 
+        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         ParameterMatcher setIsSynthetic(boolean isSynthetic);
 
+        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         ParameterMatcher setIsVarargs(boolean isVarargs);
 
+        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         ParameterMatcher setIsImplicit(boolean isImplicit);
     }
@@ -188,11 +199,7 @@ public interface HookBuilder {
         Self setParameterCount(int count);
 
         @NonNull
-        Self setParameterTypes(@NonNull ContainerSyntax<ClassMatch> parameterTypes);
-
-        @RequiresApi(Build.VERSION_CODES.O)
-        @NonNull
-        Self setParameters(@NonNull ContainerSyntax<ParameterMatch> parameterTypes);
+        Self setParameters(@NonNull ContainerSyntax<ParameterMatch> parameters);
 
         @DexAnalysis
         @NonNull
@@ -299,7 +306,6 @@ public interface HookBuilder {
         ClassMatch getArrayType();
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     interface ParameterMatch extends ReflectMatch<ParameterMatch, Parameter, ParameterMatcher> {
         @NonNull
         ClassMatch getType();
@@ -314,7 +320,6 @@ public interface HookBuilder {
         @NonNull
         ClassLazySequence getParameterTypes();
 
-        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         ParameterLazySequence getParameters();
 
@@ -404,7 +409,6 @@ public interface HookBuilder {
         FieldMatch firstField(@NonNull Consumer<FieldMatcher> matcher);
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     interface ParameterLazySequence extends LazySequence<ParameterLazySequence, ParameterMatch, Parameter, ParameterMatcher> {
         @NonNull
         ClassLazySequence types(@NonNull Consumer<ClassMatcher> matcher);
@@ -431,19 +435,11 @@ public interface HookBuilder {
 
 
     interface ExecutableLazySequence<Self extends ExecutableLazySequence<Self, Match, Reflect, Matcher>, Match extends ExecutableMatch<Match, Reflect, Matcher>, Reflect extends Member, Matcher extends ExecutableMatcher<Matcher>> extends MemberLazySequence<Self, Match, Reflect, Matcher> {
-        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         ParameterLazySequence parameters(@NonNull Consumer<ParameterMatcher> matcher);
 
-        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         ParameterMatch firstParameter(@NonNull Consumer<ParameterMatcher> matcher);
-
-        @NonNull
-        ClassLazySequence parameterTypes(@NonNull Consumer<ClassMatcher> matcher);
-
-        @NonNull
-        ClassMatch firstParameterType(@NonNull Consumer<ClassMatcher> matcher);
     }
 
     interface MethodLazySequence extends ExecutableLazySequence<MethodLazySequence, MethodMatch, Method, MethodMatcher> {

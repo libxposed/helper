@@ -11,7 +11,10 @@ import io.github.libxposed.helper.HookBuilder
 import io.github.libxposed.helper.HookBuilder.*
 import java.io.InputStream
 import java.io.OutputStream
-import java.lang.reflect.*
+import java.lang.reflect.Method
+import java.lang.reflect.Constructor
+import java.lang.reflect.Field
+import java.lang.reflect.Member
 import java.util.concurrent.ExecutorService
 
 
@@ -51,6 +54,17 @@ abstract class LazyBind {
     abstract fun onMatch()
 
     abstract fun onMiss()
+}
+
+class ParameterKt @PublishedApi internal constructor(@PublishedApi internal val parameter: Parameter) {
+    val type: Class<*>
+        inline get() = parameter.type
+
+    val declaringExecutable: Member
+        inline get() = parameter.declaringExecutable
+
+    val index: Int
+        inline get() = parameter.index
 }
 
 class ContainerSyntaxKt<MatchKt, Match> @PublishedApi internal constructor(@PublishedApi internal val syntax: ContainerSyntax<Match>) where MatchKt : BaseMatchKt<MatchKt, Match, *>, Match : BaseMatch<Match, *> {
@@ -154,7 +168,6 @@ class ClassMatcherKt @PublishedApi internal constructor(matcher: ClassMatcher) :
         }
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
 class ParameterMatcherKt @PublishedApi internal constructor(matcher: ParameterMatcher) :
     ReflectMatcherKt<ParameterMatcher>(matcher) {
     var index: Int
@@ -163,14 +176,6 @@ class ParameterMatcherKt @PublishedApi internal constructor(matcher: ParameterMa
         ) inline get() = wo
         inline set(value) {
             matcher.setIndex(value)
-        }
-
-    var name: StringMatchKt
-        @Deprecated(
-            "Write only", level = DeprecationLevel.HIDDEN
-        ) inline get() = wo
-        inline set(value) {
-            matcher.setName(value.match)
         }
 
     var type: ClassMatchKt
@@ -185,7 +190,7 @@ class ParameterMatcherKt @PublishedApi internal constructor(matcher: ParameterMa
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = wo
-        inline set(value) {
+        @RequiresApi(Build.VERSION_CODES.O) inline set(value) {
             matcher.setIsFinal(value)
         }
 
@@ -193,7 +198,7 @@ class ParameterMatcherKt @PublishedApi internal constructor(matcher: ParameterMa
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = wo
-        inline set(value) {
+        @RequiresApi(Build.VERSION_CODES.O) inline set(value) {
             matcher.setIsSynthetic(value)
         }
 
@@ -201,7 +206,7 @@ class ParameterMatcherKt @PublishedApi internal constructor(matcher: ParameterMa
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = wo
-        inline set(value) {
+        @RequiresApi(Build.VERSION_CODES.O) inline set(value) {
             matcher.setIsImplicit(value)
         }
 
@@ -209,7 +214,7 @@ class ParameterMatcherKt @PublishedApi internal constructor(matcher: ParameterMa
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = wo
-        inline set(value) {
+        @RequiresApi(Build.VERSION_CODES.O) inline set(value) {
             matcher.setIsVarargs(value)
         }
 }
@@ -302,19 +307,11 @@ sealed class ExecutableMatcherKt<Matcher>(matcher: Matcher) :
             matcher.setParameterCount(value)
         }
 
-    var parameterTypes: ContainerSyntaxKt<ClassMatchKt, ClassMatch>
-        @Deprecated(
-            "Write only", level = DeprecationLevel.HIDDEN
-        ) inline get() = wo
-        inline set(value) {
-            matcher.setParameterTypes(value.syntax)
-        }
-
     var parameters: ContainerSyntaxKt<ParameterMatchKt, ParameterMatch>
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = wo
-        @RequiresApi(Build.VERSION_CODES.O) inline set(value) {
+        inline set(value) {
             matcher.setParameters(value.syntax)
         }
 
@@ -455,22 +452,6 @@ sealed class ReflectMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: Mat
             match.key = value
         }
 
-    inline fun <Bind : LazyBind> bind(
-        bind: Bind, crossinline handler: Bind.(Reflect) -> Unit
-    ): Self {
-        match.bind(bind.bind) { _, r ->
-            bind.handler(r)
-        }
-        return this as Self
-    }
-
-    inline fun onMatch(crossinline handler: DummyHooker.(Reflect) -> Unit): Self {
-        match.onMatch {
-            DummyHooker.handler(it)
-        }
-        return this as Self
-    }
-
     inline fun onMiss(crossinline handler: DummyHooker.() -> Unit): Self {
         match.onMiss {
             DummyHooker.handler()
@@ -517,9 +498,24 @@ class ClassMatchKt @PublishedApi internal constructor(match: ClassMatch) :
     override fun newSelf(match: ClassMatch) = ClassMatchKt(match)
 
     override fun newMatcher(match: ClassMatcher) = ClassMatcherKt(match)
+
+    inline fun onMatch(crossinline handler: DummyHooker.(Class<*>) -> Unit): ClassMatchKt {
+        match.onMatch {
+            DummyHooker.handler(it)
+        }
+        return this
+    }
+
+    inline fun <Bind : LazyBind> bind(
+        bind: Bind, crossinline handler: Bind.(Class<*>) -> Unit
+    ): ClassMatchKt {
+        match.bind(bind.bind) { _, r ->
+            bind.handler(r)
+        }
+        return this
+    }
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
 class ParameterMatchKt @PublishedApi internal constructor(match: ParameterMatch) :
     ReflectMatchKt<ParameterMatchKt, ParameterMatch, Parameter, ParameterMatcher, ParameterMatcherKt>(
         match
@@ -529,6 +525,22 @@ class ParameterMatchKt @PublishedApi internal constructor(match: ParameterMatch)
 
     override fun newSelf(match: ParameterMatch) = ParameterMatchKt(match)
     override fun newMatcher(match: ParameterMatcher) = ParameterMatcherKt(match)
+
+    inline fun onMatch(crossinline handler: DummyHooker.(ParameterKt) -> Unit): ParameterMatchKt {
+        match.onMatch {
+            DummyHooker.handler(ParameterKt(it))
+        }
+        return this
+    }
+
+    inline fun <Bind : LazyBind> bind(
+        bind: Bind, crossinline handler: Bind.(ParameterKt) -> Unit
+    ): ParameterMatchKt {
+        match.bind(bind.bind) { _, r ->
+            bind.handler(ParameterKt(r))
+        }
+        return this
+    }
 }
 
 sealed class MemberMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: Match) :
@@ -543,7 +555,7 @@ sealed class ExecutableMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: 
         inline get() = ClassLazySequenceKt(match.parameterTypes)
 
     val parameters: ParameterLazySequenceKt
-        @RequiresApi(Build.VERSION_CODES.O) inline get() = ParameterLazySequenceKt(match.parameters)
+        inline get() = ParameterLazySequenceKt(match.parameters)
 
     @DexAnalysis
     val assignedFields: FieldLazySequenceKt
@@ -560,6 +572,24 @@ sealed class ExecutableMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: 
     @DexAnalysis
     val invokedConstructors: ConstructorLazySequenceKt
         inline get() = ConstructorLazySequenceKt(match.invokedConstructors)
+
+    @Suppress("UNCHECKED_CAST")
+    inline fun onMatch(crossinline handler: DummyHooker.(Reflect) -> Unit): Self {
+        match.onMatch {
+            DummyHooker.handler(it)
+        }
+        return this as Self
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    inline fun <Bind : LazyBind> bind(
+        bind: Bind, crossinline handler: Bind.(Reflect) -> Unit
+    ): Self {
+        match.bind(bind.bind) { _, r ->
+            bind.handler(r)
+        }
+        return this as Self
+    }
 }
 
 class MethodMatchKt @PublishedApi internal constructor(match: MethodMatch) :
@@ -601,16 +631,6 @@ sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, S
 
     fun unaryMinus() = ContainerSyntaxKt<MatchKt, Match>(seq.disjunction())
 
-    @Suppress("UNCHECKED_CAST")
-    inline fun <Bind : LazyBind> bind(
-        bind: Bind, crossinline handler: Bind.(Sequence<Reflect>) -> Unit
-    ): Self {
-        seq.bind(bind.bind) { _, r ->
-            bind.handler(r.asSequence())
-        }
-        return this as Self
-    }
-
     inline fun all(crossinline init: MatcherKt.() -> Unit) = newSelf(seq.all {
         newMatcher(it).init()
     })
@@ -629,13 +649,6 @@ sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, S
     inline fun matchIfMiss(crossinline handler: MatcherKt.() -> Unit): Self {
         seq.matchIfMiss {
             newMatcher(it).handler()
-        }
-        return this as Self
-    }
-
-    inline fun onMatch(crossinline handler: DummyHooker.(Sequence<Reflect>) -> Unit): Self {
-        seq.onMatch {
-            DummyHooker.handler(it.asSequence())
         }
         return this as Self
     }
@@ -696,6 +709,24 @@ class ClassLazySequenceKt @PublishedApi internal constructor(seq: ClassLazySeque
     override fun newMatcher(impl: ClassMatcher) = ClassMatcherKt(impl)
 
     override fun newSelf(impl: ClassLazySequence) = ClassLazySequenceKt(impl)
+
+
+    @Suppress("UNCHECKED_CAST")
+    inline fun <Bind : LazyBind> bind(
+        bind: Bind, crossinline handler: Bind.(Sequence<Class<*>>) -> Unit
+    ): ClassLazySequenceKt {
+        seq.bind(bind.bind) { _, r ->
+            bind.handler(r.asSequence())
+        }
+        return this
+    }
+
+    inline fun onMatch(crossinline handler: DummyHooker.(Sequence<Class<*>>) -> Unit): ClassLazySequenceKt {
+        seq.onMatch {
+            DummyHooker.handler(it.asSequence())
+        }
+        return this
+    }
 }
 
 sealed class MemberLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(seq: Seq) :
@@ -710,34 +741,38 @@ sealed class MemberLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matc
             ClassMatcherKt(it).init()
         })
 
+    @Suppress("UNCHECKED_CAST")
+    inline fun <Bind : LazyBind> bind(
+        bind: Bind, crossinline handler: Bind.(Sequence<Reflect>) -> Unit
+    ): Self {
+        seq.bind(bind.bind) { _, r ->
+            bind.handler(r.asSequence())
+        }
+        return this as Self
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    inline fun onMatch(crossinline handler: DummyHooker.(Sequence<Reflect>) -> Unit): Self {
+        seq.onMatch {
+            DummyHooker.handler(it.asSequence())
+        }
+        return this as Self
+    }
 }
 
 sealed class ExecutableLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(seq: Seq) :
     MemberLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(seq) where Self : ExecutableLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>, MatchKt : ExecutableMatchKt<MatchKt, Match, Reflect, Matcher, MatcherKt>, Reflect : Member, MatcherKt : ExecutableMatcherKt<Matcher>, Match : ExecutableMatch<Match, Reflect, Matcher>, Matcher : ExecutableMatcher<Matcher>, Seq : ExecutableLazySequence<Seq, Match, Reflect, Matcher> {
-    @RequiresApi(Build.VERSION_CODES.O)
     inline fun parameters(crossinline init: ParameterMatcherKt.() -> Unit) =
         ParameterLazySequenceKt(seq.parameters {
             ParameterMatcherKt(it).init()
         })
 
-    @RequiresApi(Build.VERSION_CODES.O)
     inline fun firstParameter(crossinline init: ParameterMatcherKt.() -> Unit) =
         ParameterMatchKt(seq.firstParameter {
             ParameterMatcherKt(it).init()
         })
-
-    inline fun parameterTypes(crossinline init: ClassMatcherKt.() -> Unit) =
-        ClassLazySequenceKt(seq.parameterTypes {
-            ClassMatcherKt(it).init()
-        })
-
-    inline fun firstParameterType(crossinline init: ClassMatcherKt.() -> Unit) =
-        ClassMatchKt(seq.firstParameterType {
-            ClassMatcherKt(it).init()
-        })
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
 class ParameterLazySequenceKt @PublishedApi internal constructor(impl: ParameterLazySequence) :
     LazySequenceKt<ParameterLazySequenceKt, ParameterMatchKt, Parameter, ParameterMatcherKt, ParameterMatch, ParameterMatcher, ParameterLazySequence>(
         impl
@@ -755,6 +790,23 @@ class ParameterLazySequenceKt @PublishedApi internal constructor(impl: Parameter
     override fun newMatcher(impl: ParameterMatcher) = ParameterMatcherKt(impl)
 
     override fun newSelf(impl: ParameterLazySequence) = ParameterLazySequenceKt(impl)
+
+    @Suppress("UNCHECKED_CAST")
+    inline fun <Bind : LazyBind> bind(
+        bind: Bind, crossinline handler: Bind.(Sequence<ParameterKt>) -> Unit
+    ): ParameterLazySequenceKt {
+        seq.bind(bind.bind) { _, r ->
+            bind.handler(r.asSequence().map { ParameterKt(it) })
+        }
+        return this
+    }
+
+    inline fun onMatch(crossinline handler: DummyHooker.(Sequence<ParameterKt>) -> Unit): ParameterLazySequenceKt {
+        seq.onMatch { r ->
+            DummyHooker.handler(r.asSequence().map { ParameterKt(it) })
+        }
+        return this
+    }
 }
 
 class FieldLazySequenceKt @PublishedApi internal constructor(impl: FieldLazySequence) :
