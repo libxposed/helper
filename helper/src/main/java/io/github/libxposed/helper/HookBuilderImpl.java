@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -87,13 +88,15 @@ final class HookBuilderImpl implements HookBuilder {
 
     private boolean includeAnnotations = false;
 
-    private final @NonNull ArrayList<ClassMatcherImpl> rootClassMatchers = new ArrayList<>();
+    private final @NonNull ConcurrentLinkedQueue<ClassMatcherImpl> rootClassMatchers = new ConcurrentLinkedQueue<>();
 
-    private final @NonNull ArrayList<FieldMatcherImpl> rootFieldMatchers = new ArrayList<>();
+    private final @NonNull ConcurrentLinkedQueue<FieldMatcherImpl> rootFieldMatchers = new ConcurrentLinkedQueue<>();
 
-    private final @NonNull ArrayList<MethodMatcherImpl> rootMethodMatchers = new ArrayList<>();
+    private final @NonNull ConcurrentLinkedQueue<MethodMatcherImpl> rootMethodMatchers = new ConcurrentLinkedQueue<>();
 
-    private final @NonNull ArrayList<ConstructorMatcherImpl> rootConstructorMatchers = new ArrayList<>();
+    private final @NonNull ConcurrentLinkedQueue<ConstructorMatcherImpl> rootConstructorMatchers = new ConcurrentLinkedQueue<>();
+
+    private final @NonNull ConcurrentLinkedQueue<ParameterMatcherImpl> rootParameterMatchers = new ConcurrentLinkedQueue<>();
 
     private final @NonNull HashMap<LazyBind, AtomicInteger> binds = new HashMap<>();
 
@@ -239,10 +242,19 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         protected final AtomicInteger leafCount = new AtomicInteger(1);
 
+        @Nullable
+        protected volatile Iterable<Reflect> candidates = null;
+
         private final Observer<?> dependencyCallback = new Observer<>() {
             @Override
             public void onMatch(@NonNull Object result) {
-                leafCount.decrementAndGet();
+                if (leafCount.decrementAndGet() == 1) {
+                    var c = candidates;
+                    if (c != null) {
+                        candidates = null;
+                        doMatch(c);
+                    }
+                }
             }
 
             @Override
@@ -261,10 +273,10 @@ final class HookBuilderImpl implements HookBuilder {
             }
         }
 
-        protected final synchronized SeqImpl build(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher, @Nullable Reflect exact) {
+        protected final synchronized SeqImpl build(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher, @Nullable Reflect exact) {
             this.exact = exact;
             final var hasExact = exact != null;
-            final var lazySequence = onBuild(indirectMatcher);
+            final var lazySequence = onBuild(rootMatcher);
             if (hasExact) {
                 pending = true;
                 leafCount.compareAndSet(1, 0);
@@ -288,8 +300,8 @@ final class HookBuilderImpl implements HookBuilder {
             return build(this, null);
         }
 
-        protected final synchronized SeqImpl build(@NonNull ReflectMatcherImpl<?, ?, ?, ?> indirectMatcher) {
-            return build(indirectMatcher, null);
+        protected final synchronized SeqImpl build(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
+            return build(rootMatcher, null);
         }
 
         @NonNull
@@ -378,7 +390,10 @@ final class HookBuilderImpl implements HookBuilder {
 
         // do match on reflect
         protected final boolean doMatch(@NonNull Iterable<Reflect> candidates) {
-            if (leafCount.getAndDecrement() != 1) return false;
+            if (leafCount.getAndDecrement() != 1) {
+                this.candidates = candidates;
+                return false;
+            }
             final var matches = new ArrayList<Reflect>();
             for (final var candidate : candidates) {
                 if (doMatch(candidate)) {
@@ -434,13 +449,14 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         protected ClassLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
             if (key != null) keyedClassMatchers.put(key, this);
+            if (rootMatcher != this) rootClassMatchers.add(this);
             return new ClassLazySequenceImpl(rootMatcher);
         }
 
         @CallSuper
         @Override
         protected void setNonPending() {
-            if (superClass != null) superClass.matcher.setNonPending();
+            if (superClass != null) superClass.rootMatcher.setNonPending();
             if (containsInterfaces != null) containsInterfaces.setNonPending();
         }
 
@@ -531,12 +547,13 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         protected ParameterLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
             if (key != null) keyedParameterMatchers.put(key, this);
+            if (rootMatcher != this) rootParameterMatchers.add(this);
             return new ParameterLazySequenceImpl(rootMatcher);
         }
 
         @Override
         protected void setNonPending() {
-            if (type != null) type.matcher.setNonPending();
+            if (type != null) type.rootMatcher.setNonPending();
         }
 
         @Override
@@ -620,7 +637,7 @@ final class HookBuilderImpl implements HookBuilder {
         @CallSuper
         @Override
         protected void setNonPending() {
-            if (declaringClass != null) declaringClass.matcher.setNonPending();
+            if (declaringClass != null) declaringClass.rootMatcher.setNonPending();
         }
 
         @Override
@@ -679,13 +696,14 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         protected void setNonPending() {
             super.setNonPending();
-            if (type != null) type.matcher.setNonPending();
+            if (type != null) type.rootMatcher.setNonPending();
         }
 
         @NonNull
         @Override
         protected FieldLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
             if (key != null) keyedFieldMatchers.put(key, this);
+            if (rootMatcher != this) rootFieldMatchers.add(this);
             return new FieldLazySequenceImpl(rootMatcher);
         }
 
@@ -901,7 +919,7 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         protected void setNonPending() {
             super.setNonPending();
-            if (returnType != null) returnType.matcher.setNonPending();
+            if (returnType != null) returnType.rootMatcher.setNonPending();
         }
 
         @Override
@@ -915,6 +933,7 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         protected MethodLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
             if (key != null) keyedMethodMatchers.put(key, this);
+            if (rootMatcher != this) rootMethodMatchers.add(this);
             return new MethodLazySequenceImpl(rootMatcher);
         }
 
@@ -1175,7 +1194,7 @@ final class HookBuilderImpl implements HookBuilder {
 
         private void setNonPending(@NonNull Operand operand) {
             if (operand.value instanceof ReflectMatchImpl) {
-                ((ReflectMatchImpl<?, ?, Reflect, ?, ?>) operand.value).matcher.setNonPending();
+                ((ReflectMatchImpl<?, ?, Reflect, ?, ?>) operand.value).rootMatcher.setNonPending();
             } else if (operand.value instanceof LazySequenceImpl) {
                 ((LazySequenceImpl<?, ?, Reflect, ?, ?, ?>) operand.value).matcher.setNonPending();
             } else {
@@ -1462,6 +1481,7 @@ final class HookBuilderImpl implements HookBuilder {
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Iterable<Class<?>> result) {
+                    m.setNonPending();
                     final var methods = new ArrayList<Method>();
                     for (final var type : result) {
                         methods.addAll(Arrays.asList(type.getDeclaredMethods()));
@@ -1481,6 +1501,7 @@ final class HookBuilderImpl implements HookBuilder {
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Iterable<Class<?>> result) {
+                    m.setNonPending();
                     final var constructors = new ArrayList<Constructor<?>>();
                     for (final var type : result) {
                         constructors.addAll(Arrays.asList(type.getDeclaredConstructors()));
@@ -1500,6 +1521,7 @@ final class HookBuilderImpl implements HookBuilder {
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Iterable<Class<?>> result) {
+                    m.setNonPending();
                     final var fields = new ArrayList<Field>();
                     for (final var type : result) {
                         fields.addAll(Arrays.asList(type.getDeclaredFields()));
@@ -1592,6 +1614,7 @@ final class HookBuilderImpl implements HookBuilder {
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Iterable<Parameter> result) {
+                    m.setNonPending();
                     final var types = new ArrayList<Class<?>>();
                     for (final var parameter : result) {
                         types.add(parameter.getType());
@@ -1635,6 +1658,7 @@ final class HookBuilderImpl implements HookBuilder {
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Iterable<Reflect> result) {
+                    m.setNonPending();
                     final var declaringClasses = new ArrayList<Class<?>>();
                     for (final var type : result) {
                         declaringClasses.add(type.getDeclaringClass());
@@ -1678,6 +1702,7 @@ final class HookBuilderImpl implements HookBuilder {
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Iterable<Field> result) {
+                    m.setNonPending();
                     final var types = new ArrayList<Class<?>>();
                     for (final var type : result) {
                         types.add(type.getType());
@@ -1730,8 +1755,8 @@ final class HookBuilderImpl implements HookBuilder {
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Iterable<Reflect> result) {
+                    m.setNonPending();
                     final var parameters = new ArrayList<Parameter>();
-                    final var idx = m.index;
                     for (final var r : result) {
                         if (r instanceof Method) {
                             parameters.addAll(Arrays.asList(((Method) r).getParameters()));
@@ -1754,6 +1779,7 @@ final class HookBuilderImpl implements HookBuilder {
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Iterable<Reflect> result) {
+                    m.setNonPending();
                     final var types = new ArrayList<Class<?>>();
                     for (final var r : result) {
                         if (r instanceof Method) {
@@ -1825,6 +1851,7 @@ final class HookBuilderImpl implements HookBuilder {
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Iterable<Method> result) {
+                    m.setNonPending();
                     final var types = new ArrayList<Class<?>>();
                     for (final var type : result) {
                         types.add(type.getReturnType());
@@ -1913,7 +1940,7 @@ final class HookBuilderImpl implements HookBuilder {
         private final Object VALUE = new Object();
 
         @NonNull
-        protected final ReflectMatcherImpl<?, ?, ?, ?> matcher;
+        protected final ReflectMatcherImpl<?, ?, ?, ?> rootMatcher;
 
         @Nullable
         protected volatile String key = null;
@@ -1932,8 +1959,8 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         private final Queue<ReflectMatchImpl<Self, Base, Reflect, Matcher, MatcherImpl>> missReplacements = new LinkedList<>();
 
-        protected ReflectMatchImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?> matcher) {
-            this.matcher = matcher;
+        protected ReflectMatchImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
+            this.rootMatcher = rootMatcher;
         }
 
         @Nullable
@@ -1946,14 +1973,14 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         public final Base setKey(@Nullable String key) {
             this.key = key;
-            matcher.setNonPending();
+            rootMatcher.setNonPending();
             return (Base) this;
         }
 
         @NonNull
         @Override
         public final Base onMatch(@NonNull Consumer<Reflect> consumer) {
-            matcher.setNonPending();
+            rootMatcher.setNonPending();
             addMatchObserver(result -> callbackHandler.post(() -> consumer.accept(result)));
             return (Base) this;
         }
@@ -1978,6 +2005,7 @@ final class HookBuilderImpl implements HookBuilder {
         public final synchronized Base matchFirstIfMiss(@NonNull Consumer<Matcher> consumer) {
             MatcherImpl m = newFirstMatcher();
             consumer.accept((Matcher) m);
+            m.pending = true;
             missReplacements.add((ReflectMatchImpl<Self, Base, Reflect, Matcher, MatcherImpl>) m.build().first());
             return (Base) this;
         }
@@ -2049,8 +2077,7 @@ final class HookBuilderImpl implements HookBuilder {
 
         private synchronized void performOnMiss() {
             for (BaseObserver<Reflect> observer : observers.keySet()) {
-                if (observer instanceof MissObserver)
-                    ((MissObserver<Reflect>) observer).onMiss();
+                if (observer instanceof MissObserver) ((MissObserver<Reflect>) observer).onMiss();
             }
         }
 
@@ -2065,7 +2092,7 @@ final class HookBuilderImpl implements HookBuilder {
             if (done) return;
             final var replacement = missReplacements.poll();
             if (replacement != null) {
-                replacement.matcher.setNonPending();
+                replacement.rootMatcher.setNonPending();
                 replacement.addObserver(new Observer<>() {
                     @Override
                     public void onMatch(@NonNull Reflect result) {
@@ -2103,7 +2130,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final ClassMatch getSuperClass() {
-            final var m = new ClassMatchImpl(matcher);
+            final var m = new ClassMatchImpl(rootMatcher);
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Class<?> result) {
@@ -2124,7 +2151,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final ClassLazySequence getInterfaces() {
-            final var m = new ClassLazySequenceImpl(matcher);
+            final var m = new ClassLazySequenceImpl(rootMatcher);
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Class<?> result) {
@@ -2142,7 +2169,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final MethodLazySequence getDeclaredMethods() {
-            var m = new MethodLazySequenceImpl(matcher);
+            var m = new MethodLazySequenceImpl(rootMatcher);
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Class<?> result) {
@@ -2160,7 +2187,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final ConstructorLazySequence getDeclaredConstructors() {
-            final var m = new ConstructorLazySequenceImpl(matcher);
+            final var m = new ConstructorLazySequenceImpl(rootMatcher);
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Class<?> result) {
@@ -2178,7 +2205,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final FieldLazySequence getDeclaredFields() {
-            final var m = new FieldLazySequenceImpl(matcher);
+            final var m = new FieldLazySequenceImpl(rootMatcher);
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Class<?> result) {
@@ -2196,7 +2223,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final ClassMatch getArrayType() {
-            final var m = new ClassMatchImpl(matcher);
+            final var m = new ClassMatchImpl(rootMatcher);
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Class<?> result) {
@@ -2250,7 +2277,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public ClassMatch getType() {
-            final var m = new ClassMatchImpl(matcher);
+            final var m = new ClassMatchImpl(rootMatcher);
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Parameter result) {
@@ -2274,7 +2301,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final ClassMatch getDeclaringClass() {
-            final var m = new ClassMatchImpl(matcher);
+            final var m = new ClassMatchImpl(rootMatcher);
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Member result) {
@@ -2314,7 +2341,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public ClassMatch getType() {
-            final var m = new ClassMatchImpl(matcher);
+            final var m = new ClassMatchImpl(rootMatcher);
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Field result) {
@@ -2338,7 +2365,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final ClassLazySequence getParameterTypes() {
-            final var m = new ClassLazySequenceImpl(matcher);
+            final var m = new ClassLazySequenceImpl(rootMatcher);
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Reflect result) {
@@ -2361,7 +2388,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public ParameterLazySequence getParameters() {
-            final var m = new ParameterLazySequenceImpl(matcher);
+            final var m = new ParameterLazySequenceImpl(rootMatcher);
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Reflect result) {
@@ -2437,7 +2464,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public ClassMatch getReturnType() {
-            final var m = new ClassMatchImpl(matcher);
+            final var m = new ClassMatchImpl(rootMatcher);
             addObserver(new Observer<>() {
                 @Override
                 public void onMatch(@NonNull Method result) {
@@ -2493,7 +2520,6 @@ final class HookBuilderImpl implements HookBuilder {
     @Override
     public MethodLazySequence methods(@NonNull Consumer<MethodMatcher> matcher) {
         final var m = new MethodMatcherImpl(false);
-        rootMethodMatchers.add(m);
         matcher.accept(m);
         return m.build();
     }
@@ -2502,7 +2528,6 @@ final class HookBuilderImpl implements HookBuilder {
     @Override
     public MethodMatch firstMethod(@NonNull Consumer<MethodMatcher> matcher) {
         final var m = new MethodMatcherImpl(true);
-        rootMethodMatchers.add(m);
         matcher.accept(m);
         return m.build().first();
     }
@@ -2511,7 +2536,6 @@ final class HookBuilderImpl implements HookBuilder {
     @Override
     public ConstructorLazySequence constructors(@NonNull Consumer<ConstructorMatcher> matcher) {
         final var m = new ConstructorMatcherImpl(false);
-        rootConstructorMatchers.add(m);
         matcher.accept(m);
         return m.build();
     }
@@ -2520,7 +2544,6 @@ final class HookBuilderImpl implements HookBuilder {
     @Override
     public ConstructorMatch firstConstructor(@NonNull Consumer<ConstructorMatcher> matcher) {
         final var m = new ConstructorMatcherImpl(true);
-        rootConstructorMatchers.add(m);
         matcher.accept(m);
         return m.build().first();
     }
@@ -2529,7 +2552,6 @@ final class HookBuilderImpl implements HookBuilder {
     @Override
     public FieldLazySequence fields(@NonNull Consumer<FieldMatcher> matcher) {
         final var m = new FieldMatcherImpl(false);
-        rootFieldMatchers.add(m);
         matcher.accept(m);
         return m.build();
     }
@@ -2538,7 +2560,6 @@ final class HookBuilderImpl implements HookBuilder {
     @Override
     public FieldMatch firstField(@NonNull Consumer<FieldMatcher> matcher) {
         final var m = new FieldMatcherImpl(true);
-        rootFieldMatchers.add(m);
         matcher.accept(m);
         return m.build().first();
     }
@@ -2547,7 +2568,6 @@ final class HookBuilderImpl implements HookBuilder {
     @Override
     public ClassLazySequence classes(@NonNull Consumer<ClassMatcher> matcher) {
         final var m = new ClassMatcherImpl(false);
-        rootClassMatchers.add(m);
         matcher.accept(m);
         return m.build();
     }
@@ -2556,7 +2576,6 @@ final class HookBuilderImpl implements HookBuilder {
     @Override
     public ClassMatch firstClass(@NonNull Consumer<ClassMatcher> matcher) {
         final var m = new ClassMatcherImpl(true);
-        rootClassMatchers.add(m);
         matcher.accept(m);
         return m.build().first();
     }
@@ -3016,38 +3035,43 @@ final class HookBuilderImpl implements HookBuilder {
                 // not leaf
                 if (classMatcher.leafCount.get() != 1) continue;
                 if (classMatcher.pending) continue;
+                hasMatched[0] = rootClassMatchers.remove(classMatcher) || hasMatched[0];
                 final var task = executorService.submit(() -> {
-                    int low = 0, high = classNames.size() - 1;
-                    if (classMatcher.name != null) {
-                        final var nameMatcher = classMatcher.name.matcher;
-                        if (nameMatcher.prefix != null) {
-                            low = binarySearchLowerBound(classNames, nameMatcher.prefix);
-                            high = nameMatcher.matchFirst ? low + 1 : binarySearchLowerBound(classNames, nameMatcher.prefix + Character.MAX_VALUE);
-                        }
-                        if (nameMatcher.exact != null) {
-                            low = binarySearchLowerBound(classNames, nameMatcher.exact);
-                            if (low < classNames.size() && classNames.get(low).equals(nameMatcher.exact)) {
-                                high = low + 1;
-                            } else {
-                                low = high + 1;
+                    var candidates = classMatcher.candidates;
+                    if (candidates == null) {
+                        int low = 0, high = classNames.size() - 1;
+                        if (classMatcher.name != null) {
+                            final var nameMatcher = classMatcher.name.matcher;
+                            if (nameMatcher.prefix != null) {
+                                low = binarySearchLowerBound(classNames, nameMatcher.prefix);
+                                high = binarySearchLowerBound(classNames, nameMatcher.prefix + Character.MAX_VALUE);
+                            }
+                            if (nameMatcher.exact != null) {
+                                low = binarySearchLowerBound(classNames, nameMatcher.exact);
+                                if (low < classNames.size() && classNames.get(low).equals(nameMatcher.exact)) {
+                                    high = low + 1;
+                                } else {
+                                    low = high + 1;
+                                }
                             }
                         }
-                    }
-                    final ArrayList<Class<?>> candidates = new ArrayList<>(high - low);
-                    for (int i = low; i < high && i < classNames.size(); i++) {
-                        final var className = classNames.get(i);
-                        // then check the rest conditions that need to load the class
-                        final Class<?> theClass;
-                        try {
-                            theClass = Class.forName(className, false, classLoader);
-                            candidates.add(theClass);
-                        } catch (ClassNotFoundException e) {
-                            if (exceptionHandler != null && !exceptionHandler.test(e)) {
-                                break;
+                        final ArrayList<Class<?>> c = new ArrayList<>(high - low);
+                        for (int i = low; i < high && i < classNames.size(); i++) {
+                            final var className = classNames.get(i);
+                            // then check the rest conditions that need to load the class
+                            final Class<?> theClass;
+                            try {
+                                theClass = Class.forName(className, false, classLoader);
+                                c.add(theClass);
+                            } catch (ClassNotFoundException e) {
+                                if (exceptionHandler != null && !exceptionHandler.test(e)) {
+                                    break;
+                                }
                             }
                         }
+                        candidates = c;
                     }
-                    hasMatched[0] = classMatcher.doMatch(candidates) || hasMatched[0];
+                    classMatcher.doMatch(candidates);
                 });
                 tasks.add(task);
             }
@@ -3057,27 +3081,30 @@ final class HookBuilderImpl implements HookBuilder {
                 // not leaf
                 if (fieldMatcher.leafCount.get() != 1) continue;
                 if (fieldMatcher.pending) continue;
-
+                hasMatched[0] = rootFieldMatchers.remove(fieldMatcher) || hasMatched[0];
                 final var task = executorService.submit(() -> {
-                    final ArrayList<Class<?>> classList = new ArrayList<>();
-                    if (fieldMatcher.declaringClass != null) {
-                        var declaringClass = fieldMatcher.declaringClass.match;
-                        if (declaringClass != null) classList.add(declaringClass);
-                    } else {
-                        if (exceptionHandler != null) {
-                            exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
+                    var candidates = fieldMatcher.candidates;
+                    if (candidates == null) {
+                        final ArrayList<Class<?>> classList = new ArrayList<>();
+                        if (fieldMatcher.declaringClass != null) {
+                            var declaringClass = fieldMatcher.declaringClass.match;
+                            if (declaringClass != null) classList.add(declaringClass);
+                        } else {
+                            if (exceptionHandler != null) {
+                                exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
+                            }
+                            fieldMatcher.miss();
+                            return;
                         }
-                        fieldMatcher.miss();
-                        return;
+                        final ArrayList<Field> c = new ArrayList<>();
+                        for (final var theClass : classList) {
+                            final var fields = theClass.getDeclaredFields();
+                            // TODO: if (fieldMatcher.includeSuper)
+                            c.addAll(List.of(fields));
+                        }
+                        candidates = c;
                     }
-                    final ArrayList<Field> candidates = new ArrayList<>();
-
-                    for (final var theClass : classList) {
-                        final var fields = theClass.getDeclaredFields();
-                        // TODO: if (fieldMatcher.includeSuper)
-                        candidates.addAll(List.of(fields));
-                    }
-                    hasMatched[0] = fieldMatcher.doMatch(candidates) || hasMatched[0];
+                    fieldMatcher.doMatch(candidates);
                 });
                 tasks.add(task);
             }
@@ -3087,27 +3114,30 @@ final class HookBuilderImpl implements HookBuilder {
                 // not leaf
                 if (methodMatcher.leafCount.get() != 1) continue;
                 if (methodMatcher.pending) continue;
-
+                hasMatched[0] = rootMethodMatchers.remove(methodMatcher) || hasMatched[0];
                 final var task = executorService.submit(() -> {
-                    final ArrayList<Class<?>> classList = new ArrayList<>();
-                    if (methodMatcher.declaringClass != null) {
-                        var declaringClass = methodMatcher.declaringClass.match;
-                        if (declaringClass != null) classList.add(declaringClass);
-                    } else {
-                        if (exceptionHandler != null) {
-                            exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
+                    var candidates = methodMatcher.candidates;
+                    if (candidates == null) {
+                        final ArrayList<Class<?>> classList = new ArrayList<>();
+                        if (methodMatcher.declaringClass != null) {
+                            var declaringClass = methodMatcher.declaringClass.match;
+                            if (declaringClass != null) classList.add(declaringClass);
+                        } else {
+                            if (exceptionHandler != null) {
+                                exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
+                            }
+                            methodMatcher.miss();
+                            return;
                         }
-                        methodMatcher.miss();
-                        return;
-                    }
 
-                    final ArrayList<Method> candidates = new ArrayList<>();
-
-                    for (final var clazz : classList) {
-                        final var methods = clazz.getDeclaredMethods();
-                        candidates.addAll(List.of(methods));
+                        var c = new ArrayList<Method>();
+                        for (final var clazz : classList) {
+                            final var methods = clazz.getDeclaredMethods();
+                            c.addAll(List.of(methods));
+                        }
+                        candidates = c;
                     }
-                    hasMatched[0] = methodMatcher.doMatch(candidates) || hasMatched[0];
+                    methodMatcher.doMatch(candidates);
                 });
 
                 tasks.add(task);
@@ -3118,45 +3148,48 @@ final class HookBuilderImpl implements HookBuilder {
                 // not leaf
                 if (constructorMatcher.leafCount.get() != 1) continue;
                 if (constructorMatcher.pending) continue;
+                hasMatched[0] = rootConstructorMatchers.remove(constructorMatcher) || hasMatched[0];
 
                 final var task = executorService.submit(() -> {
-                    final ArrayList<Class<?>> classList = new ArrayList<>();
+                    var candidates = constructorMatcher.candidates;
+                    if (candidates == null) {
+                        final ArrayList<Class<?>> classList = new ArrayList<>();
 
-                    if (constructorMatcher.declaringClass != null && constructorMatcher.declaringClass.match != null) {
-                        classList.add(constructorMatcher.declaringClass.match);
-                    } else {
-                        if (exceptionHandler != null) {
-                            exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
-                        }
-                        constructorMatcher.miss();
-                        return;
-                    }
-
-                    final ArrayList<Constructor<?>> nameMatched = new ArrayList<>();
-
-                    for (final var clazz : classList) {
-                        final var constructors = clazz.getDeclaredConstructors();
-                        for (final var constructor : constructors) {
-                            final var modifiers = constructor.getModifiers();
-                            if ((modifiers & constructorMatcher.includeModifiers) != constructorMatcher.includeModifiers)
-                                continue;
-                            if ((modifiers & constructorMatcher.excludeModifiers) != 0) continue;
-                            final var typeArrays = constructor.getParameterTypes();
-                            if (constructorMatcher.parameterCount >= 0 && constructorMatcher.parameterCount != typeArrays.length)
-                                continue;
-                            if (constructorMatcher.parameterTypes != null) {
-                                final var parameterTypes = new HashSet<Class<?>>(typeArrays.length);
-                                Collections.addAll(parameterTypes, typeArrays);
-                                if (!constructorMatcher.parameterTypes.test(parameterTypes))
-                                    continue;
+                        if (constructorMatcher.declaringClass != null && constructorMatcher.declaringClass.match != null) {
+                            classList.add(constructorMatcher.declaringClass.match);
+                        } else {
+                            if (exceptionHandler != null) {
+                                exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
                             }
-                            nameMatched.add(constructor);
-                            if (constructorMatcher.matchFirst) {
-                                break;
-                            }
+                            constructorMatcher.miss();
+                            return;
                         }
+
+                        var c = new ArrayList<Constructor<?>>();
+                        for (final var clazz : classList) {
+                            final var constructors = clazz.getDeclaredConstructors();
+                            c.addAll(List.of(constructors));
+                        }
+                        candidates = c;
                     }
-                    hasMatched[0] = constructorMatcher.doMatch(nameMatched) || hasMatched[0];
+                    constructorMatcher.doMatch(candidates);
+                });
+
+                tasks.add(task);
+            }
+            joinAndClearTasks(tasks);
+
+            for (final var parameterMatcher : rootParameterMatchers) {
+                if (parameterMatcher.leafCount.get() != 1) continue;
+                if (parameterMatcher.pending) continue;
+                hasMatched[0] = rootParameterMatchers.remove(parameterMatcher) || hasMatched[0];
+
+                final var task = executorService.submit(() -> {
+                    var candidates = parameterMatcher.candidates;
+                    if (candidates == null) {
+                        candidates = new ArrayList<>();
+                    }
+                    parameterMatcher.doMatch(candidates);
                 });
 
                 tasks.add(task);
