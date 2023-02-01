@@ -1073,8 +1073,25 @@ final class HookBuilderImpl implements HookBuilder {
             }
         }
 
+        private void setNonPending(@NonNull Operand operand) {
+            if (operand.value instanceof ReflectMatchImpl) {
+                ((ReflectMatchImpl<?, ?, Reflect, ?, ?>) operand.value).matcher.setNonPending();
+            } else if (operand.value instanceof LazySequenceImpl) {
+                ((LazySequenceImpl<?, ?, Reflect, ?, ?, ?>) operand.value).matcher.setNonPending();
+            } else {
+                ((ContainerSyntaxImpl<?, ?, Reflect>) operand.value).setNonPending();
+            }
+        }
+
         void setNonPending() {
-            // TODO
+            if (operands instanceof ContainerSyntaxImpl.BinaryOperands) {
+                BinaryOperands binaryOperands = (BinaryOperands) operands;
+                setNonPending(binaryOperands.left);
+                setNonPending(binaryOperands.right);
+            } else if (operands instanceof ContainerSyntaxImpl.UnaryOperands) {
+                UnaryOperands unaryOperands = (UnaryOperands) operands;
+                setNonPending(unaryOperands.operand);
+            }
         }
     }
 
