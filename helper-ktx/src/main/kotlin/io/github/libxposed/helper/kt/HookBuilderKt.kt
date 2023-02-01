@@ -710,8 +710,6 @@ class ClassLazySequenceKt @PublishedApi internal constructor(seq: ClassLazySeque
 
     override fun newSelf(impl: ClassLazySequence) = ClassLazySequenceKt(impl)
 
-
-    @Suppress("UNCHECKED_CAST")
     inline fun <Bind : LazyBind> bind(
         bind: Bind, crossinline handler: Bind.(Sequence<Class<*>>) -> Unit
     ): ClassLazySequenceKt {
@@ -857,7 +855,6 @@ class ConstructorLazySequenceKt @PublishedApi internal constructor(seq: Construc
 
     override fun newSelf(impl: ConstructorLazySequence) = ConstructorLazySequenceKt(impl)
 }
-
 
 @Hooker
 class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {

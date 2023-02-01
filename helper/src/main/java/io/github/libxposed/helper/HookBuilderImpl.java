@@ -1093,7 +1093,10 @@ final class HookBuilderImpl implements HookBuilder {
             if (operand.value instanceof ReflectMatchImpl) {
                 return set.contains(((ReflectMatchImpl<?, ?, Reflect, ?, ?>) operand.value).match);
             } else if (operand.value instanceof StringMatchImpl) {
-                // TODO
+                var m = ((StringMatchImpl) operand.value);
+                for (final var match : set) {
+                    if (m.doMatch(match.toString())) return true;
+                }
                 return false;
             } else if (operand.value instanceof LazySequence) {
                 final var matches = ((LazySequenceImpl<?, ?, Reflect, ?, ?, ?>) operand.value).matches;
@@ -1114,6 +1117,7 @@ final class HookBuilderImpl implements HookBuilder {
             }
         }
 
+        // TODO: instead of hash set, we should use a sorted set so that we can perform binary search
         private boolean test(@NonNull HashSet<Reflect> set) {
             if (operands instanceof ContainerSyntaxImpl.BinaryOperands) {
                 BinaryOperands binaryOperands = (BinaryOperands) operands;
