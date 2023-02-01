@@ -1,9 +1,11 @@
 package io.github.libxposed.helper;
 
+import android.os.Build;
 import android.os.Handler;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.RequiresOptIn;
 
 import java.io.InputStream;
@@ -16,6 +18,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -99,35 +102,51 @@ public interface HookBuilder {
         ContainerSyntax<Match> not();
     }
 
-    interface TypeMatcher<Self extends TypeMatcher<Self>> extends ReflectMatcher<Self> {
+    interface ClassMatcher extends ReflectMatcher<ClassMatcher> {
         @NonNull
-        Self setName(@NonNull StringMatch name);
+        ClassMatcher setName(@NonNull StringMatch name);
 
         @NonNull
-        Self setSuperClass(@NonNull ClassMatch superClassMatch);
+        ClassMatcher setSuperClass(@NonNull ClassMatch superClassMatch);
 
         @NonNull
-        Self setContainsInterfaces(@NonNull ContainerSyntax<ClassMatch> syntax);
+        ClassMatcher setContainsInterfaces(@NonNull ContainerSyntax<ClassMatch> syntax);
 
         @NonNull
-        Self setIsAbstract(boolean isAbstract);
+        ClassMatcher setIsAbstract(boolean isAbstract);
 
         @NonNull
-        Self setIsStatic(boolean isStatic);
+        ClassMatcher setIsStatic(boolean isStatic);
 
         @NonNull
-        Self setIsFinal(boolean isFinal);
+        ClassMatcher setIsFinal(boolean isFinal);
 
         @NonNull
-        Self setIsInterface(boolean isInterface);
+        ClassMatcher setIsInterface(boolean isInterface);
     }
 
-    interface ClassMatcher extends TypeMatcher<ClassMatcher> {
-    }
+    @RequiresApi(Build.VERSION_CODES.O)
+    interface ParameterMatcher extends ReflectMatcher<ParameterMatcher> {
+        @NonNull
+        ParameterMatcher setName(@NonNull StringMatch name);
 
-    interface ParameterMatcher extends TypeMatcher<ParameterMatcher> {
         @NonNull
         ParameterMatcher setIndex(int index);
+
+        @NonNull
+        ParameterMatcher setType(@NonNull ClassMatch type);
+
+        @NonNull
+        ParameterMatcher setIsFinal(boolean isFinal);
+
+        @NonNull
+        ParameterMatcher setIsSynthetic(boolean isSynthetic);
+
+        @NonNull
+        ParameterMatcher setIsVarargs(boolean isVarargs);
+
+        @NonNull
+        ParameterMatcher setIsImplicit(boolean isImplicit);
     }
 
     interface MemberMatcher<Self extends MemberMatcher<Self>> extends ReflectMatcher<Self> {
@@ -169,7 +188,11 @@ public interface HookBuilder {
         Self setParameterCount(int count);
 
         @NonNull
-        Self setParameterTypes(@NonNull ContainerSyntax<ParameterMatch> parameterTypes);
+        Self setParameterTypes(@NonNull ContainerSyntax<ClassMatch> parameterTypes);
+
+        @RequiresApi(Build.VERSION_CODES.O)
+        @NonNull
+        Self setParameters(@NonNull ContainerSyntax<ParameterMatch> parameterTypes);
 
         @DexAnalysis
         @NonNull
@@ -256,7 +279,7 @@ public interface HookBuilder {
         <Bind extends LazyBind> Self bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Reflect> consumer);
     }
 
-    interface TypeMatch<Self extends TypeMatch<Self, Matcher>, Matcher extends TypeMatcher<Matcher>> extends ReflectMatch<Self, Class<?>, Matcher> {
+    interface ClassMatch extends ReflectMatch<ClassMatch, Class<?>, ClassMatcher> {
         @NonNull
         ClassMatch getSuperClass();
 
@@ -276,12 +299,10 @@ public interface HookBuilder {
         ClassMatch getArrayType();
     }
 
-    interface ClassMatch extends TypeMatch<ClassMatch, ClassMatcher> {
+    @RequiresApi(Build.VERSION_CODES.O)
+    interface ParameterMatch extends ReflectMatch<ParameterMatch, Parameter, ParameterMatcher> {
         @NonNull
-        ParameterMatch asParameter(int index);
-    }
-
-    interface ParameterMatch extends TypeMatch<ParameterMatch, ParameterMatcher> {
+        ClassMatch getType();
     }
 
     interface MemberMatch<Self extends MemberMatch<Self, Reflect, Matcher>, Reflect extends Member, Matcher extends MemberMatcher<Matcher>> extends ReflectMatch<Self, Reflect, Matcher> {
@@ -291,7 +312,11 @@ public interface HookBuilder {
 
     interface ExecutableMatch<Self extends ExecutableMatch<Self, Reflect, Matcher>, Reflect extends Member, Matcher extends ExecutableMatcher<Matcher>> extends MemberMatch<Self, Reflect, Matcher> {
         @NonNull
-        ParameterLazySequence getParameterTypes();
+        ClassLazySequence getParameterTypes();
+
+        @RequiresApi(Build.VERSION_CODES.O)
+        @NonNull
+        ParameterLazySequence getParameters();
 
         @DexAnalysis
         @NonNull
@@ -359,7 +384,7 @@ public interface HookBuilder {
         <Bind extends LazyBind> Self bind(@NonNull Bind bind, @NonNull BiConsumer<Bind, Iterable<Reflect>> consumer);
     }
 
-    interface TypeLazySequence<Self extends TypeLazySequence<Self, Match, Matcher>, Match extends TypeMatch<Match, Matcher>, Matcher extends TypeMatcher<Matcher>> extends LazySequence<Self, Match, Class<?>, Matcher> {
+    interface ClassLazySequence extends LazySequence<ClassLazySequence, ClassMatch, Class<?>, ClassMatcher> {
         @NonNull
         MethodLazySequence methods(@NonNull Consumer<MethodMatcher> matcher);
 
@@ -379,10 +404,13 @@ public interface HookBuilder {
         FieldMatch firstField(@NonNull Consumer<FieldMatcher> matcher);
     }
 
-    interface ClassLazySequence extends TypeLazySequence<ClassLazySequence, ClassMatch, ClassMatcher> {
-    }
+    @RequiresApi(Build.VERSION_CODES.O)
+    interface ParameterLazySequence extends LazySequence<ParameterLazySequence, ParameterMatch, Parameter, ParameterMatcher> {
+        @NonNull
+        ClassLazySequence types(@NonNull Consumer<ClassMatcher> matcher);
 
-    interface ParameterLazySequence extends TypeLazySequence<ParameterLazySequence, ParameterMatch, ParameterMatcher> {
+        @NonNull
+        ClassMatch firstType(@NonNull Consumer<ClassMatcher> matcher);
     }
 
     interface MemberLazySequence<Self extends MemberLazySequence<Self, Match, Reflect, Matcher>, Match extends MemberMatch<Match, Reflect, Matcher>, Reflect extends Member, Matcher extends MemberMatcher<Matcher>> extends LazySequence<Self, Match, Reflect, Matcher> {
@@ -403,11 +431,19 @@ public interface HookBuilder {
 
 
     interface ExecutableLazySequence<Self extends ExecutableLazySequence<Self, Match, Reflect, Matcher>, Match extends ExecutableMatch<Match, Reflect, Matcher>, Reflect extends Member, Matcher extends ExecutableMatcher<Matcher>> extends MemberLazySequence<Self, Match, Reflect, Matcher> {
+        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         ParameterLazySequence parameters(@NonNull Consumer<ParameterMatcher> matcher);
 
+        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         ParameterMatch firstParameter(@NonNull Consumer<ParameterMatcher> matcher);
+
+        @NonNull
+        ClassLazySequence parameterTypes(@NonNull Consumer<ClassMatcher> matcher);
+
+        @NonNull
+        ClassMatch firstParameterType(@NonNull Consumer<ClassMatcher> matcher);
     }
 
     interface MethodLazySequence extends ExecutableLazySequence<MethodLazySequence, MethodMatch, Method, MethodMatcher> {
@@ -505,13 +541,4 @@ public interface HookBuilder {
 
     @NonNull
     FieldMatch exact(@NonNull Field field);
-
-    @NonNull
-    ParameterMatch exactParameter(@NonNull String signature, int index);
-
-    @NonNull
-    ParameterMatch exact(@NonNull Class<?> clazz, int index);
-
-    @NonNull
-    ContainerSyntax<ParameterMatch> exact(@NonNull Class<?>... matchers);
 }

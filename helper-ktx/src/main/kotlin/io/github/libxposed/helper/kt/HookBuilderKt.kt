@@ -2,17 +2,16 @@
 
 package io.github.libxposed.helper.kt
 
+import android.os.Build
 import android.os.Handler
+import androidx.annotation.RequiresApi
 import dalvik.system.BaseDexClassLoader
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.helper.HookBuilder
 import io.github.libxposed.helper.HookBuilder.*
 import java.io.InputStream
 import java.io.OutputStream
-import java.lang.reflect.Constructor
-import java.lang.reflect.Field
-import java.lang.reflect.Member
-import java.lang.reflect.Method
+import java.lang.reflect.*
 import java.util.concurrent.ExecutorService
 
 
@@ -102,8 +101,8 @@ sealed class ReflectMatcherKt<Matcher>(@PublishedApi internal val matcher: Match
         }
 }
 
-sealed class TypeMatcherKt<Matcher>(matcher: Matcher) :
-    ReflectMatcherKt<Matcher>(matcher) where Matcher : TypeMatcher<Matcher> {
+class ClassMatcherKt @PublishedApi internal constructor(matcher: ClassMatcher) :
+    ReflectMatcherKt<ClassMatcher>(matcher) {
     var name: StringMatchKt
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
@@ -155,17 +154,63 @@ sealed class TypeMatcherKt<Matcher>(matcher: Matcher) :
         }
 }
 
-class ClassMatcherKt @PublishedApi internal constructor(matcher: ClassMatcher) :
-    TypeMatcherKt<ClassMatcher>(matcher)
-
+@RequiresApi(Build.VERSION_CODES.O)
 class ParameterMatcherKt @PublishedApi internal constructor(matcher: ParameterMatcher) :
-    TypeMatcherKt<ParameterMatcher>(matcher) {
+    ReflectMatcherKt<ParameterMatcher>(matcher) {
     var index: Int
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = wo
         inline set(value) {
             matcher.setIndex(value)
+        }
+
+    var name: StringMatchKt
+        @Deprecated(
+            "Write only", level = DeprecationLevel.HIDDEN
+        ) inline get() = wo
+        inline set(value) {
+            matcher.setName(value.match)
+        }
+
+    var type: ClassMatchKt
+        @Deprecated(
+            "Write only", level = DeprecationLevel.HIDDEN
+        ) inline get() = wo
+        inline set(value) {
+            matcher.setType(value.match)
+        }
+
+    var isFinal: Boolean
+        @Deprecated(
+            "Write only", level = DeprecationLevel.HIDDEN
+        ) inline get() = wo
+        inline set(value) {
+            matcher.setIsFinal(value)
+        }
+
+    var isSynthetic: Boolean
+        @Deprecated(
+            "Write only", level = DeprecationLevel.HIDDEN
+        ) inline get() = wo
+        inline set(value) {
+            matcher.setIsSynthetic(value)
+        }
+
+    var isImplicit: Boolean
+        @Deprecated(
+            "Write only", level = DeprecationLevel.HIDDEN
+        ) inline get() = wo
+        inline set(value) {
+            matcher.setIsImplicit(value)
+        }
+
+    var isVarargs: Boolean
+        @Deprecated(
+            "Write only", level = DeprecationLevel.HIDDEN
+        ) inline get() = wo
+        inline set(value) {
+            matcher.setIsVarargs(value)
         }
 }
 
@@ -256,12 +301,21 @@ sealed class ExecutableMatcherKt<Matcher>(matcher: Matcher) :
         inline set(value) {
             matcher.setParameterCount(value)
         }
-    var parameterTypes: ContainerSyntaxKt<ParameterMatchKt, ParameterMatch>
+
+    var parameterTypes: ContainerSyntaxKt<ClassMatchKt, ClassMatch>
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = wo
         inline set(value) {
             matcher.setParameterTypes(value.syntax)
+        }
+
+    var parameters: ContainerSyntaxKt<ParameterMatchKt, ParameterMatch>
+        @Deprecated(
+            "Write only", level = DeprecationLevel.HIDDEN
+        ) inline get() = wo
+        @RequiresApi(Build.VERSION_CODES.O) inline set(value) {
+            matcher.setParameters(value.syntax)
         }
 
     @DexAnalysis
@@ -445,8 +499,8 @@ sealed class ReflectMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: Mat
     internal abstract fun newMatcher(match: Matcher): MatcherKt
 }
 
-sealed class TypeMatchKt<Self, Match, Matcher, MatcherKt>(match: Match) :
-    ReflectMatchKt<Self, Match, Class<*>, Matcher, MatcherKt>(match) where Self : TypeMatchKt<Self, Match, Matcher, MatcherKt>, Match : TypeMatch<Match, Matcher>, Matcher : TypeMatcher<Matcher>, MatcherKt : TypeMatcherKt<Matcher> {
+class ClassMatchKt @PublishedApi internal constructor(match: ClassMatch) :
+    ReflectMatchKt<ClassMatchKt, ClassMatch, Class<*>, ClassMatcher, ClassMatcherKt>(match) {
     val superClass: ClassMatchKt
         inline get() = ClassMatchKt(match.superClass)
     val interfaces: ClassLazySequenceKt
@@ -459,18 +513,19 @@ sealed class TypeMatchKt<Self, Match, Matcher, MatcherKt>(match: Match) :
         inline get() = FieldLazySequenceKt(match.declaredFields)
     val arrayType: ClassMatchKt
         inline get() = ClassMatchKt(match.arrayType)
-}
 
-class ClassMatchKt @PublishedApi internal constructor(match: ClassMatch) :
-    TypeMatchKt<ClassMatchKt, ClassMatch, ClassMatcher, ClassMatcherKt>(match) {
     override fun newSelf(match: ClassMatch) = ClassMatchKt(match)
 
-    operator fun get(index: Int) = ParameterMatchKt(match.asParameter(index))
     override fun newMatcher(match: ClassMatcher) = ClassMatcherKt(match)
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 class ParameterMatchKt @PublishedApi internal constructor(match: ParameterMatch) :
-    TypeMatchKt<ParameterMatchKt, ParameterMatch, ParameterMatcher, ParameterMatcherKt>(match) {
+    ReflectMatchKt<ParameterMatchKt, ParameterMatch, Parameter, ParameterMatcher, ParameterMatcherKt>(
+        match
+    ) {
+    val type: ClassMatchKt
+        inline get() = ClassMatchKt(match.type)
 
     override fun newSelf(match: ParameterMatch) = ParameterMatchKt(match)
     override fun newMatcher(match: ParameterMatcher) = ParameterMatcherKt(match)
@@ -484,8 +539,11 @@ sealed class MemberMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: Matc
 
 sealed class ExecutableMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: Match) :
     MemberMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match) where Self : ExecutableMatchKt<Self, Match, Reflect, Matcher, MatcherKt>, Match : ExecutableMatch<Match, Reflect, Matcher>, Reflect : Member, Matcher : ExecutableMatcher<Matcher>, MatcherKt : ExecutableMatcherKt<Matcher> {
-    val parameterTypes: ParameterLazySequenceKt
-        inline get() = ParameterLazySequenceKt(match.parameterTypes)
+    val parameterTypes: ClassLazySequenceKt
+        inline get() = ClassLazySequenceKt(match.parameterTypes)
+
+    val parameters: ParameterLazySequenceKt
+        @RequiresApi(Build.VERSION_CODES.O) inline get() = ParameterLazySequenceKt(match.parameters)
 
     @DexAnalysis
     val assignedFields: FieldLazySequenceKt
@@ -599,8 +657,10 @@ sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, S
     internal abstract fun newSelf(impl: Seq): Self
 }
 
-sealed class TypeLazySequenceKt<Base, MatchKt, MatcherKt, Match, Matcher, Seq>(seq: Seq) :
-    LazySequenceKt<Base, MatchKt, Class<*>, MatcherKt, Match, Matcher, Seq>(seq) where Base : TypeLazySequenceKt<Base, MatchKt, MatcherKt, Match, Matcher, Seq>, MatchKt : TypeMatchKt<MatchKt, Match, Matcher, MatcherKt>, MatcherKt : TypeMatcherKt<Matcher>, Match : TypeMatch<Match, Matcher>, Matcher : TypeMatcher<Matcher>, Seq : TypeLazySequence<Seq, Match, Matcher> {
+class ClassLazySequenceKt @PublishedApi internal constructor(seq: ClassLazySequence) :
+    LazySequenceKt<ClassLazySequenceKt, ClassMatchKt, Class<*>, ClassMatcherKt, ClassMatch, ClassMatcher, ClassLazySequence>(
+        seq
+    ) {
     inline fun methods(crossinline init: MethodMatcherKt.() -> Unit) =
         MethodLazySequenceKt(seq.methods {
             MethodMatcherKt(it).init()
@@ -630,6 +690,12 @@ sealed class TypeLazySequenceKt<Base, MatchKt, MatcherKt, Match, Matcher, Seq>(s
         ConstructorMatchKt(seq.firstConstructor {
             ConstructorMatcherKt(it).init()
         })
+
+    override fun newMatch(impl: ClassMatch) = ClassMatchKt(impl)
+
+    override fun newMatcher(impl: ClassMatcher) = ClassMatcherKt(impl)
+
+    override fun newSelf(impl: ClassLazySequence) = ClassLazySequenceKt(impl)
 }
 
 sealed class MemberLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(seq: Seq) :
@@ -648,33 +714,42 @@ sealed class MemberLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matc
 
 sealed class ExecutableLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(seq: Seq) :
     MemberLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>(seq) where Self : ExecutableLazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>, MatchKt : ExecutableMatchKt<MatchKt, Match, Reflect, Matcher, MatcherKt>, Reflect : Member, MatcherKt : ExecutableMatcherKt<Matcher>, Match : ExecutableMatch<Match, Reflect, Matcher>, Matcher : ExecutableMatcher<Matcher>, Seq : ExecutableLazySequence<Seq, Match, Reflect, Matcher> {
+    @RequiresApi(Build.VERSION_CODES.O)
     inline fun parameters(crossinline init: ParameterMatcherKt.() -> Unit) =
         ParameterLazySequenceKt(seq.parameters {
             ParameterMatcherKt(it).init()
         })
 
+    @RequiresApi(Build.VERSION_CODES.O)
     inline fun firstParameter(crossinline init: ParameterMatcherKt.() -> Unit) =
         ParameterMatchKt(seq.firstParameter {
             ParameterMatcherKt(it).init()
         })
+
+    inline fun parameterTypes(crossinline init: ClassMatcherKt.() -> Unit) =
+        ClassLazySequenceKt(seq.parameterTypes {
+            ClassMatcherKt(it).init()
+        })
+
+    inline fun firstParameterType(crossinline init: ClassMatcherKt.() -> Unit) =
+        ClassMatchKt(seq.firstParameterType {
+            ClassMatcherKt(it).init()
+        })
 }
 
-
-class ClassLazySequenceKt @PublishedApi internal constructor(impl: ClassLazySequence) :
-    TypeLazySequenceKt<ClassLazySequenceKt, ClassMatchKt, ClassMatcherKt, ClassMatch, ClassMatcher, ClassLazySequence>(
-        impl
-    ) {
-    override fun newMatch(impl: ClassMatch) = ClassMatchKt(impl)
-
-    override fun newMatcher(impl: ClassMatcher) = ClassMatcherKt(impl)
-
-    override fun newSelf(impl: ClassLazySequence) = ClassLazySequenceKt(impl)
-}
-
+@RequiresApi(Build.VERSION_CODES.O)
 class ParameterLazySequenceKt @PublishedApi internal constructor(impl: ParameterLazySequence) :
-    TypeLazySequenceKt<ParameterLazySequenceKt, ParameterMatchKt, ParameterMatcherKt, ParameterMatch, ParameterMatcher, ParameterLazySequence>(
+    LazySequenceKt<ParameterLazySequenceKt, ParameterMatchKt, Parameter, ParameterMatcherKt, ParameterMatch, ParameterMatcher, ParameterLazySequence>(
         impl
     ) {
+    inline fun types(crossinline init: ClassMatcherKt.() -> Unit) = ClassLazySequenceKt(seq.types {
+        ClassMatcherKt(it).init()
+    })
+
+    inline fun firstType(crossinline init: ClassMatcherKt.() -> Unit) = ClassMatchKt(seq.firstType {
+        ClassMatcherKt(it).init()
+    })
+
     override fun newMatch(impl: ParameterMatch) = ParameterMatchKt(impl)
 
     override fun newMatcher(impl: ParameterMatcher) = ParameterMatcherKt(impl)
@@ -840,13 +915,10 @@ class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {
     val Class<*>.exact: ClassMatchKt
         inline get() = ClassMatchKt(builder.exact(this))
 
-    fun Class<*>.exact(index: Int) = ParameterMatchKt(builder.exact(this, index))
     val Method.exact: MethodMatchKt
         inline get() = MethodMatchKt(builder.exact(this))
     val Constructor<*>.exact: ConstructorMatchKt
         inline get() = ConstructorMatchKt(builder.exact(this))
-    val Array<Class<*>>.exact: ContainerSyntaxKt<ParameterMatchKt, ParameterMatch>
-        inline get() = ContainerSyntaxKt(builder.exact(*this))
     val Field.exact: FieldMatchKt
         inline get() = FieldMatchKt(builder.exact(this))
     val String.prefix: StringMatchKt
@@ -861,8 +933,6 @@ class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {
         inline get() = ConstructorMatchKt(builder.exactConstructor(this))
     val String.exactField: FieldMatchKt
         inline get() = FieldMatchKt(builder.exactField(this))
-
-    fun String.exactParameter(index: Int) = ParameterMatchKt(builder.exactParameter(this, index))
 }
 
 inline fun XposedInterface.buildHooks(
