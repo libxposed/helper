@@ -246,6 +246,9 @@ final class HookBuilderImpl implements HookBuilder {
             if (matchFirst && key != null) {
                 final var f = lazySequence.first().setKey(key);
             }
+            if (!pending) {
+                setNonPending();
+            }
             return this.lazySequence = lazySequence;
         }
 
@@ -311,6 +314,8 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         protected abstract SeqImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher);
+
+        protected abstract void setNonPending();
 
         @NonNull
         protected final <T extends ReflectMatchImpl<T, U, RR, ?, ?>, U extends ReflectMatch<U, RR, ?>, RR> T addDependency(@Nullable T field, @NonNull U input) {
@@ -398,12 +403,25 @@ final class HookBuilderImpl implements HookBuilder {
             super(matchFirst);
         }
 
+        @CallSuper
+        @Override
+        protected void setNonPending() {
+            if (superClass != null) superClass.matcher.setNonPending();
+            if (containsInterfaces != null) containsInterfaces.setNonPending();
+        }
+
         @Override
         protected boolean doMatch(@NonNull Class<?> theClass) {
             if (!super.doMatch(theClass)) return false;
             if (superClass != null) {
                 final var superClass = theClass.getSuperclass();
                 return superClass != null && this.superClass.match == superClass;
+            }
+            if (containsInterfaces != null) {
+                final var ifArray = theClass.getInterfaces();
+                final var ifs = new HashSet<Class<?>>(ifArray.length);
+                Collections.addAll(ifs, ifArray);
+                return containsInterfaces.test(ifs);
             }
             return true;
         }
@@ -459,8 +477,6 @@ final class HookBuilderImpl implements HookBuilder {
             setModifier(isInterface, Modifier.INTERFACE);
             return (Base) this;
         }
-
-
     }
 
     private final class ClassMatcherImpl extends TypeMatcherImpl<ClassMatcherImpl, ClassMatcher, ClassLazySequenceImpl> implements ClassMatcher {
@@ -474,21 +490,10 @@ final class HookBuilderImpl implements HookBuilder {
             if (key != null) keyedClassMatchers.put(key, this);
             return new ClassLazySequenceImpl(rootMatcher);
         }
-
-        @Override
-        protected boolean doMatch(@NonNull Class<?> theClass) {
-            if (!super.doMatch(theClass)) return false;
-            if (containsInterfaces != null) {
-                final var ifArray = theClass.getInterfaces();
-                final var ifs = new HashSet<Class<?>>(ifArray.length);
-                Collections.addAll(ifs, ifArray);
-                return containsInterfaces.test(ifs);
-            }
-            return true;
-        }
     }
 
     private final class ParameterMatcherImpl extends TypeMatcherImpl<ParameterMatcherImpl, ParameterMatcher, ParameterLazySequenceImpl> implements ParameterMatcher {
+        // TODO: use it
         private int index = -1;
 
         private ParameterMatcherImpl(boolean matchFirst) {
@@ -522,6 +527,12 @@ final class HookBuilderImpl implements HookBuilder {
 
         protected MemberMatcherImpl(boolean matchFirst) {
             super(matchFirst);
+        }
+
+        @CallSuper
+        @Override
+        protected void setNonPending() {
+            if (declaringClass != null) declaringClass.matcher.setNonPending();
         }
 
         @Override
@@ -575,6 +586,12 @@ final class HookBuilderImpl implements HookBuilder {
 
         private FieldMatcherImpl(boolean matchFirst) {
             super(matchFirst);
+        }
+
+        @Override
+        protected void setNonPending() {
+            super.setNonPending();
+            if (type != null) type.matcher.setNonPending();
         }
 
         @NonNull
@@ -663,6 +680,16 @@ final class HookBuilderImpl implements HookBuilder {
 
         protected ExecutableMatcherImpl(boolean matchFirst) {
             super(matchFirst);
+        }
+
+        @Override
+        protected void setNonPending() {
+            super.setNonPending();
+            if (parameterTypes != null) parameterTypes.setNonPending();
+            if (assignedFields != null) assignedFields.setNonPending();
+            if (accessedFields != null) accessedFields.setNonPending();
+            if (invokedMethods != null) invokedMethods.setNonPending();
+            if (invokedConstructors != null) invokedConstructors.setNonPending();
         }
 
         @Override
@@ -770,6 +797,12 @@ final class HookBuilderImpl implements HookBuilder {
 
         private MethodMatcherImpl(boolean matchFirst) {
             super(matchFirst);
+        }
+
+        @Override
+        protected void setNonPending() {
+            super.setNonPending();
+            if (returnType != null) returnType.matcher.setNonPending();
         }
 
         @Override
@@ -1040,6 +1073,10 @@ final class HookBuilderImpl implements HookBuilder {
                 removeObserver(unaryOperands.operand, observer, count);
             }
         }
+
+        void setNonPending() {
+            // TODO
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -1137,7 +1174,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final Base onMatch(@NonNull Consumer<Iterable<Reflect>> consumer) {
-            matcher.pending = false;
+            matcher.setNonPending();
             addMatchObserver(result -> callbackHandler.post(() -> consumer.accept(result)));
             return (Base) this;
         }
@@ -1239,7 +1276,7 @@ final class HookBuilderImpl implements HookBuilder {
             if (done) return;
             final var replacement = missReplacements.poll();
             if (replacement != null) {
-                replacement.matcher.pending = false;
+                replacement.matcher.setNonPending();
                 replacement.addObserver(new Observer<>() {
                     @Override
                     public void onMatch(@NonNull Iterable<Reflect> result) {
@@ -1715,14 +1752,14 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         public final Base setKey(@Nullable String key) {
             this.key = key;
-            matcher.pending = false;
+            matcher.setNonPending();
             return (Base) this;
         }
 
         @NonNull
         @Override
         public final Base onMatch(@NonNull Consumer<Reflect> consumer) {
-            matcher.pending = false;
+            matcher.setNonPending();
             addMatchObserver(result -> callbackHandler.post(() -> consumer.accept(result)));
             return (Base) this;
         }
@@ -1834,7 +1871,7 @@ final class HookBuilderImpl implements HookBuilder {
             if (done) return;
             final var replacement = missReplacements.poll();
             if (replacement != null) {
-                replacement.matcher.pending = false;
+                replacement.matcher.setNonPending();
                 replacement.addObserver(new Observer<>() {
                     @Override
                     public void onMatch(@NonNull Reflect result) {
