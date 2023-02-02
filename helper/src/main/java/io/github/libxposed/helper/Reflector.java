@@ -16,6 +16,9 @@ final class Reflector {
     private static final Map<Character, Class<?>> primitiveClassMap = Map.of('I', int.class, 'Z', boolean.class, 'F', float.class, 'J', long.class, 'S', short.class, 'B', byte.class, 'D', double.class, 'C', char.class, 'V', void.class);
 
     private final ClassLoader classLoader;
+
+    private static final WeakReference<?> EMPTY = new WeakReference<>(null);
+
     private final HashMap<String, WeakReference<Class<?>>> classCache = new HashMap<>();
 
     Reflector(ClassLoader classLoader) {
@@ -44,9 +47,18 @@ final class Reflector {
         try {
             synchronized (classCache) {
                 WeakReference<Class<?>> ref = classCache.get(className);
+                if (ref == EMPTY) {
+                    throw new ClassNotFoundException(className);
+                }
                 Class<?> clazz = ref != null ? ref.get() : null;
                 if (clazz == null) {
-                    clazz = Class.forName(className, false, classLoader);
+                    try {
+                        clazz = Class.forName(className, false, classLoader);
+                    } catch (ClassNotFoundException e) {
+                        //noinspection unchecked
+                        classCache.put(className, (WeakReference<Class<?>>) EMPTY);
+                        throw e;
+                    }
                     classCache.put(className, new WeakReference<>(clazz));
                 }
                 return clazz;
