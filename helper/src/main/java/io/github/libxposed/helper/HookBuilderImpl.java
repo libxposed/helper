@@ -10,7 +10,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.OutputStream;
@@ -21,9 +25,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -33,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
@@ -42,12 +45,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
 
 import dalvik.system.BaseDexClassLoader;
 import io.github.libxposed.api.XposedInterface;
+import io.github.libxposed.api.utils.DexParser;
 
 
 // Matcher <-> LazySequence --> List<Observer -> Result -> Observer -> Result ... >
@@ -85,6 +89,7 @@ final class HookBuilderImpl implements HookBuilder {
 
     private final @NonNull HashMap<LazyBind, AtomicInteger> binds = new HashMap<>();
 
+    // TODO: make this non null
     private SimpleExecutor executorService;
 
     private SimpleExecutor callbackHandler;
@@ -92,25 +97,35 @@ final class HookBuilderImpl implements HookBuilder {
     @Nullable
     private MatchCache matchCache = null;
 
-    private HashMap<String, ClassMatcherImpl> keyedClassMatchers = new HashMap<>();
+    @NonNull
+    private final HashMap<String, ClassMatcherImpl> keyedClassMatchers = new HashMap<>();
 
-    private HashMap<String, ParameterMatcherImpl> keyedParameterMatchers = new HashMap<>();
+    @NonNull
+    private final HashMap<String, ParameterMatcherImpl> keyedParameterMatchers = new HashMap<>();
 
-    private HashMap<String, FieldMatcherImpl> keyedFieldMatchers = new HashMap<>();
+    @NonNull
+    private final HashMap<String, FieldMatcherImpl> keyedFieldMatchers = new HashMap<>();
 
-    private HashMap<String, MethodMatcherImpl> keyedMethodMatchers = new HashMap<>();
+    @NonNull
+    private final HashMap<String, MethodMatcherImpl> keyedMethodMatchers = new HashMap<>();
 
-    private HashMap<String, ConstructorMatcherImpl> keyedConstructorMatchers = new HashMap<>();
+    @NonNull
+    private final HashMap<String, ConstructorMatcherImpl> keyedConstructorMatchers = new HashMap<>();
 
-    private HashMap<String, ClassMatchImpl> keyedClassMatches = new HashMap<>();
+    @NonNull
+    private final HashMap<String, ClassMatchImpl> keyedClassMatches = new HashMap<>();
 
-    private HashMap<String, ParameterMatchImpl> keyedParameterMatches = new HashMap<>();
+    @NonNull
+    private final HashMap<String, ParameterMatchImpl> keyedParameterMatches = new HashMap<>();
 
-    private HashMap<String, FieldMatchImpl> keyedFieldMatches = new HashMap<>();
+    @NonNull
+    private final HashMap<String, FieldMatchImpl> keyedFieldMatches = new HashMap<>();
 
-    private HashMap<String, MethodMatchImpl> keyedMethodMatches = new HashMap<>();
+    @NonNull
+    private final HashMap<String, MethodMatchImpl> keyedMethodMatches = new HashMap<>();
 
-    private HashMap<String, ConstructorMatchImpl> keyedConstructorMatches = new HashMap<>();
+    @NonNull
+    private final HashMap<String, ConstructorMatchImpl> keyedConstructorMatches = new HashMap<>();
 
     private static class MatchCache {
         HashMap<String, Object> cacheInfo = new HashMap<>();
@@ -2739,7 +2754,49 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private void analysisDex() {
+        var dexes = new ArrayList<DexParser>();
+        try (var apk = new ZipFile(sourcePath)) {
+            for (var i = 0; ; ++i) {
+                var dex = apk.getEntry("classes" + (i == 0 ? "" : i + 1) + ".dex");
+                if (dex == null) break;
+                var buf = ByteBuffer.allocateDirect((int) dex.getSize());
+                try (var in = apk.getInputStream(dex)) {
+                    if (in.read(buf.array()) != buf.capacity()) {
+                        throw new IOException("read dex failed");
+                    }
+                }
+                dexes.add(ctx.parseDex(buf, false));
+            }
+        } catch (Throwable e) {
+            if (exceptionHandler != null) exceptionHandler.test(e);
+            return;
+        }
+        var tasks = new ArrayList<Future<?>>();
+        for (var dex : dexes) {
+            tasks.add(executorService.submit(() -> dex.visitDefinedClasses(new DexParser.ClassVisitor() {
+                @Nullable
+                @Override
+                public DexParser.MemberVisitor visit(int clazz, int accessFlags, int superClass, @NonNull int[] interfaces, int sourceFile, @NonNull int[] staticFields, @NonNull int[] staticFieldsAccessFlags, @NonNull int[] instanceFields, @NonNull int[] instanceFieldsAccessFlags, @NonNull int[] directMethods, @NonNull int[] directMethodsAccessFlags, @NonNull int[] virtualMethods, @NonNull int[] virtualMethodsAccessFlags, @NonNull int[] annotations) {
+                    // TODO
+                    return null;
+                }
 
+                @Override
+                public boolean stop() {
+                    return false;
+                }
+            })));
+        }
+        joinAndClearTasks(tasks);
+        for (var dex : dexes) {
+            try {
+                dex.close();
+            } catch (IOException e) {
+                if (exceptionHandler != null) {
+                    exceptionHandler.test(e);
+                }
+            }
+        }
     }
 
     // return first element that is greater than or equal to key
