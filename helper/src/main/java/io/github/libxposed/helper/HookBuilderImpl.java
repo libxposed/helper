@@ -16,6 +16,7 @@ import java.io.ObjectInputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
@@ -139,6 +140,7 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private final static class ParameterImpl implements Parameter {
+        final private int modifiers;
         @NonNull
         final private Class<?> type;
 
@@ -147,10 +149,11 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         final private Member declaringExecutable;
 
-        ParameterImpl(@NonNull Class<?> type, int index, @NonNull Member declaringExecutable) {
+        ParameterImpl(int index, @NonNull Class<?> type, @NonNull Member declaringExecutable, int modifiers) {
             this.type = type;
             this.index = index;
             this.declaringExecutable = declaringExecutable;
+            this.modifiers = modifiers;
         }
 
         @NonNull
@@ -168,6 +171,10 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         public Member getDeclaringExecutable() {
             return declaringExecutable;
+        }
+
+        private int getModifiers() {
+            return modifiers;
         }
     }
 
@@ -429,7 +436,9 @@ final class HookBuilderImpl implements HookBuilder {
             final int modifiers;
             if (reflect instanceof Class<?>) modifiers = ((Class<?>) reflect).getModifiers();
             else if (reflect instanceof Member) modifiers = ((Member) reflect).getModifiers();
-            else return false;
+            else if (reflect instanceof ParameterImpl)
+                modifiers = ((ParameterImpl) reflect).getModifiers();
+            else modifiers = 0;
             if ((modifiers & includeModifiers) != includeModifiers) return false;
             return (modifiers & excludeModifiers) == 0;
         }
@@ -569,10 +578,7 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         protected boolean doMatch(@NonNull Parameter parameter) {
             if (!super.doMatch(parameter)) return false;
-            try {
-                if (index >= 0 && index != parameter.getIndex()) return false;
-            } catch (Throwable ignored) {
-            }
+            if (index >= 0 && index != parameter.getIndex()) return false;
             return type == null || type.match == parameter.getType();
         }
 
@@ -1754,14 +1760,21 @@ final class HookBuilderImpl implements HookBuilder {
                     m.setNonPending();
                     final var parameters = new ArrayList<Parameter>();
                     for (final var r : result) {
-                        final var parameterTypes = new ArrayList<Class<?>>();
-                        if (r instanceof Method) {
-                            parameterTypes.addAll(Arrays.asList(((Method) r).getParameterTypes()));
-                        } else if (r instanceof Constructor) {
-                            parameterTypes.addAll(Arrays.asList(((Constructor<?>) r).getParameterTypes()));
-                        }
-                        for (int i = 0; i < parameterTypes.size(); i++) {
-                            parameters.add(new ParameterImpl(parameterTypes.get(i), i, r));
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            final var p = ((Executable) r).getParameters();
+                            for (var i = 0; i < p.length; i++) {
+                                parameters.add(new ParameterImpl(i, p[i].getType(), r, p[i].getModifiers()));
+                            }
+                        } else {
+                            final var parameterTypes = new ArrayList<Class<?>>();
+                            if (r instanceof Method) {
+                                parameterTypes.addAll(Arrays.asList(((Method) r).getParameterTypes()));
+                            } else if (r instanceof Constructor) {
+                                parameterTypes.addAll(Arrays.asList(((Constructor<?>) r).getParameterTypes()));
+                            }
+                            for (int i = 0; i < parameterTypes.size(); i++) {
+                                parameters.add(new ParameterImpl(i, parameterTypes.get(i), r, 0));
+                            }
                         }
                     }
                     m.doMatch(parameters);
@@ -2375,14 +2388,21 @@ final class HookBuilderImpl implements HookBuilder {
                 @Override
                 public void onMatch(@NonNull Reflect result) {
                     final var parameters = new ArrayList<Parameter>();
-                    final var parameterTypes = new ArrayList<Class<?>>();
-                    if (result instanceof Method) {
-                        parameterTypes.addAll(Arrays.asList(((Method) result).getParameterTypes()));
-                    } else if (result instanceof Constructor) {
-                        parameterTypes.addAll(Arrays.asList(((Constructor<?>) result).getParameterTypes()));
-                    }
-                    for (int i = 0; i < parameterTypes.size(); i++) {
-                        parameters.add(new ParameterImpl(parameterTypes.get(i), i, result));
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        final var p = ((Executable) result).getParameters();
+                        for (int i = 0; i < p.length; i++) {
+                            parameters.add(new ParameterImpl(i, p[i].getType(), result, p[i].getModifiers()));
+                        }
+                    } else {
+                        final var parameterTypes = new ArrayList<Class<?>>();
+                        if (result instanceof Method) {
+                            parameterTypes.addAll(Arrays.asList(((Method) result).getParameterTypes()));
+                        } else if (result instanceof Constructor) {
+                            parameterTypes.addAll(Arrays.asList(((Constructor<?>) result).getParameterTypes()));
+                        }
+                        for (int i = 0; i < parameterTypes.size(); i++) {
+                            parameters.add(new ParameterImpl(i, parameterTypes.get(i), result, 0));
+                        }
                     }
                     m.match(parameters);
                 }

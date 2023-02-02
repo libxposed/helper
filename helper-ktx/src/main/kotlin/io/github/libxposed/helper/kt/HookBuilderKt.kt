@@ -963,7 +963,6 @@ class HookBuilderKt(@PublishedApi internal val builder: HookBuilder) {
         inline get() = StringMatchKt(builder.exact(this))
     val Class<*>.exact: ClassMatchKt
         inline get() = ClassMatchKt(builder.exact(this))
-
     val Method.exact: MethodMatchKt
         inline get() = MethodMatchKt(builder.exact(this))
     val Constructor<*>.exact: ConstructorMatchKt
