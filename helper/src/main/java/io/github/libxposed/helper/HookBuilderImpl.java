@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
@@ -40,7 +41,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import dalvik.system.BaseDexClassLoader;
@@ -82,9 +85,9 @@ final class HookBuilderImpl implements HookBuilder {
 
     private final @NonNull HashMap<LazyBind, AtomicInteger> binds = new HashMap<>();
 
-    private ExecutorService executorService;
+    private SimpleExecutor executorService;
 
-    private Handler callbackHandler;
+    private SimpleExecutor callbackHandler;
 
     @Nullable
     private MatchCache matchCache = null;
@@ -123,6 +126,29 @@ final class HookBuilderImpl implements HookBuilder {
         ConcurrentHashMap<String, String> methodCache = new ConcurrentHashMap<>();
         ConcurrentHashMap<String, String> constructorCache = new ConcurrentHashMap<>();
         ConcurrentHashMap<String, String> parameterCache = new ConcurrentHashMap<>();
+    }
+
+    private abstract static class SimpleExecutor {
+        abstract <T> Future<T> submit(Callable<T> task);
+
+        final Future<?> submit(Runnable task) {
+            return submit(() -> {
+                task.run();
+                return null;
+            });
+        }
+    }
+
+    private final static class PendingExecutor extends SimpleExecutor {
+        @NonNull
+        final List<FutureTask<?>> pendingTasks = new ArrayList<>();
+
+        @Override
+        <T> Future<T> submit(Callable<T> task) {
+            FutureTask<T> futureTask = new FutureTask<>(task);
+            pendingTasks.add(futureTask);
+            return futureTask;
+        }
     }
 
     private interface BaseObserver<T> {
@@ -195,14 +221,26 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public HookBuilder setExecutorService(@NonNull ExecutorService executorService) {
-        this.executorService = executorService;
+        this.executorService = new SimpleExecutor() {
+            @Override
+            <T> Future<T> submit(Callable<T> task) {
+                return executorService.submit(task);
+            }
+        };
         return this;
     }
 
     @NonNull
     @Override
     public HookBuilder setCallbackHandler(@NonNull Handler callbackHandler) {
-        this.callbackHandler = callbackHandler;
+        this.callbackHandler = new SimpleExecutor() {
+            @Override
+            public <T> Future<T> submit(Callable<T> task) {
+                final var t = new FutureTask<T>(task);
+                callbackHandler.post(t);
+                return t;
+            }
+        };
         return this;
     }
 
@@ -551,7 +589,6 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     private final class ParameterMatcherImpl extends ReflectMatcherImpl<ParameterMatcherImpl, ParameterMatcher, Parameter, ParameterLazySequenceImpl> implements ParameterMatcher {
         private int index = -1;
 
@@ -598,6 +635,7 @@ final class HookBuilderImpl implements HookBuilder {
             return this;
         }
 
+        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         @Override
         public ParameterMatcher setIsFinal(boolean isFinal) {
@@ -605,6 +643,7 @@ final class HookBuilderImpl implements HookBuilder {
             return this;
         }
 
+        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         @Override
         public ParameterMatcher setIsSynthetic(boolean isSynthetic) {
@@ -612,6 +651,7 @@ final class HookBuilderImpl implements HookBuilder {
             return this;
         }
 
+        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         @Override
         public ParameterMatcher setIsVarargs(boolean isVarargs) {
@@ -619,6 +659,7 @@ final class HookBuilderImpl implements HookBuilder {
             return this;
         }
 
+        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         @Override
         public ParameterMatcher setIsImplicit(boolean isImplicit) {
@@ -1312,14 +1353,14 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         public final Base onMatch(@NonNull Consumer<Iterable<Reflect>> consumer) {
             matcher.setNonPending();
-            addMatchObserver(result -> callbackHandler.post(() -> consumer.accept(result)));
+            addMatchObserver(result -> callbackHandler.submit(() -> consumer.accept(result)));
             return (Base) this;
         }
 
         @NonNull
         @Override
         public final Base onMiss(@NonNull Runnable runnable) {
-            addMissObserver(() -> callbackHandler.post(runnable));
+            addMissObserver(() -> callbackHandler.submit(runnable));
             return (Base) this;
         }
 
@@ -1367,9 +1408,9 @@ final class HookBuilderImpl implements HookBuilder {
                     if (c == null) return;
                     final var old = c.decrementAndGet();
                     if (old >= 0) {
-                        callbackHandler.post(() -> consumer.accept(bind, result));
+                        callbackHandler.submit(() -> consumer.accept(bind, result));
                         if (old == 0) {
-                            callbackHandler.post(bind::onMatch);
+                            callbackHandler.submit(bind::onMatch);
                         }
                     }
                 }
@@ -1377,7 +1418,7 @@ final class HookBuilderImpl implements HookBuilder {
                 @Override
                 public void onMiss() {
                     final var c = binds.get(bind);
-                    if (c != null && c.getAndSet(0) > 0) callbackHandler.post(bind::onMiss);
+                    if (c != null && c.getAndSet(0) > 0) callbackHandler.submit(bind::onMiss);
                 }
             });
             return (Base) this;
@@ -1593,7 +1634,6 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     private final class ParameterLazySequenceImpl extends LazySequenceImpl<ParameterLazySequence, ParameterMatch, Parameter, ParameterMatcher, ParameterMatchImpl, ParameterMatcherImpl> implements ParameterLazySequence {
         private ParameterLazySequenceImpl(ReflectMatcherImpl<?, ?, ?, ?> matcher) {
             super(matcher);
@@ -1976,14 +2016,14 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         public final Base onMatch(@NonNull Consumer<Reflect> consumer) {
             rootMatcher.setNonPending();
-            addMatchObserver(result -> callbackHandler.post(() -> consumer.accept(result)));
+            addMatchObserver(result -> callbackHandler.submit(() -> consumer.accept(result)));
             return (Base) this;
         }
 
         @NonNull
         @Override
         public Base onMiss(@NonNull Runnable handler) {
-            addMissObserver(() -> callbackHandler.post(handler));
+            addMissObserver(() -> callbackHandler.submit(handler));
             return (Base) this;
         }
 
@@ -2021,9 +2061,9 @@ final class HookBuilderImpl implements HookBuilder {
                     if (c == null) return;
                     final var old = c.decrementAndGet();
                     if (old >= 0) {
-                        callbackHandler.post(() -> consumer.accept(bind, result));
+                        callbackHandler.submit(() -> consumer.accept(bind, result));
                         if (old == 0) {
-                            callbackHandler.post(bind::onMatch);
+                            callbackHandler.submit(bind::onMatch);
                         }
                     }
                 }
@@ -2031,7 +2071,7 @@ final class HookBuilderImpl implements HookBuilder {
                 @Override
                 public void onMiss() {
                     final var c = binds.get(bind);
-                    if (c != null && c.getAndSet(0) > 0) callbackHandler.post(bind::onMiss);
+                    if (c != null && c.getAndSet(0) > 0) callbackHandler.submit(bind::onMiss);
                 }
             });
             return (Base) this;
@@ -2245,7 +2285,6 @@ final class HookBuilderImpl implements HookBuilder {
 
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     private final class ParameterMatchImpl extends ReflectMatchImpl<ParameterMatchImpl, ParameterMatch, Parameter, ParameterMatcher, ParameterMatcherImpl> implements ParameterMatch {
         int index = -1;
 
@@ -2681,7 +2720,13 @@ final class HookBuilderImpl implements HookBuilder {
     public @NonNull CountDownLatch build() {
         dexAnalysis = dexAnalysis || forceDexAnalysis;
         if (executorService == null) {
-            executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+            var e = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+            executorService = new SimpleExecutor() {
+                @Override
+                <T> Future<T> submit(Callable<T> task) {
+                    return e.submit(task);
+                }
+            };
         }
         if (dexAnalysis) {
             analysisDex();
@@ -2689,7 +2734,7 @@ final class HookBuilderImpl implements HookBuilder {
             analysisClassLoader();
         }
         CountDownLatch latch = new CountDownLatch(1);
-        callbackHandler.post(latch::countDown);
+        callbackHandler.submit(latch::countDown);
         return latch;
     }
 
@@ -2824,73 +2869,8 @@ final class HookBuilderImpl implements HookBuilder {
             matchCache = new MatchCache();
         }
         var bkExecutorService = executorService;
-        ArrayList<Runnable> pendingTasks = new ArrayList<>();
-        executorService = new ExecutorService() {
-            @Override
-            public void shutdown() {
-            }
-
-            @Override
-            public List<Runnable> shutdownNow() {
-                return null;
-            }
-
-            @Override
-            public boolean isShutdown() {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public boolean isTerminated() {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public boolean awaitTermination(long timeout, TimeUnit unit) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public <T> Future<T> submit(Callable<T> task) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public <T> Future<T> submit(Runnable task, T result) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public Future<?> submit(Runnable task) {
-                pendingTasks.add(task);
-                return null;
-            }
-
-            @Override
-            public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public <T> T invokeAny(Collection<? extends Callable<T>> tasks) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public void execute(Runnable command) {
-                throw new UnsupportedOperationException();
-            }
-        };
+        var pendingExecutor = new PendingExecutor();
+        executorService = pendingExecutor;
         for (var e : matchCache.classCache.entrySet()) {
             try {
                 var hit = keyedClassMatches.get(e.getKey());
@@ -3017,8 +2997,8 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         executorService = bkExecutorService;
-        var tasks = new ArrayList<Future<?>>(pendingTasks.size());
-        for (var task : pendingTasks) {
+        var tasks = new ArrayList<Future<?>>(pendingExecutor.pendingTasks.size());
+        for (var task : pendingExecutor.pendingTasks) {
             tasks.add(executorService.submit(task));
         }
         joinAndClearTasks(tasks);

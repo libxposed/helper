@@ -1,6 +1,6 @@
 @file:Suppress("unused")
 
-package io.github.libxposed.helper.kt
+package io.github.libxposed.helper.ktx
 
 import android.os.Build
 import android.os.Handler
@@ -547,6 +547,24 @@ sealed class MemberMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: Matc
     ReflectMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match) where Self : MemberMatchKt<Self, Match, Reflect, Matcher, MatcherKt>, Match : MemberMatch<Match, Reflect, Matcher>, Reflect : Member, Matcher : MemberMatcher<Matcher>, MatcherKt : MemberMatcherKt<Matcher> {
     val declaringClass: ClassMatchKt
         inline get() = ClassMatchKt(match.declaringClass)
+
+    @Suppress("UNCHECKED_CAST")
+    inline fun onMatch(crossinline handler: DummyHooker.(Reflect) -> Unit): Self {
+        match.onMatch {
+            DummyHooker.handler(it)
+        }
+        return this as Self
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    inline fun <Bind : LazyBind> bind(
+        bind: Bind, crossinline handler: Bind.(Reflect) -> Unit
+    ): Self {
+        match.bind(bind.bind) { _, r ->
+            bind.handler(r)
+        }
+        return this as Self
+    }
 }
 
 sealed class ExecutableMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: Match) :
@@ -572,24 +590,6 @@ sealed class ExecutableMatchKt<Self, Match, Reflect, Matcher, MatcherKt>(match: 
     @DexAnalysis
     val invokedConstructors: ConstructorLazySequenceKt
         inline get() = ConstructorLazySequenceKt(match.invokedConstructors)
-
-    @Suppress("UNCHECKED_CAST")
-    inline fun onMatch(crossinline handler: DummyHooker.(Reflect) -> Unit): Self {
-        match.onMatch {
-            DummyHooker.handler(it)
-        }
-        return this as Self
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    inline fun <Bind : LazyBind> bind(
-        bind: Bind, crossinline handler: Bind.(Reflect) -> Unit
-    ): Self {
-        match.bind(bind.bind) { _, r ->
-            bind.handler(r)
-        }
-        return this as Self
-    }
 }
 
 class MethodMatchKt @PublishedApi internal constructor(match: MethodMatch) :
