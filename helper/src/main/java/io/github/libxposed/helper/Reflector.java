@@ -1,6 +1,7 @@
 package io.github.libxposed.helper;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
@@ -311,5 +312,41 @@ final class Reflector {
             }
         }
         return declaringClass.getDeclaredConstructor(parameterTypes.toArray(new Class[0]));
+    }
+
+    @NonNull
+    Iterable<Class<?>> loadClasses(Iterable<String> classNames) throws ClassNotFoundException {
+        ArrayList<Class<?>> classes = new ArrayList<>();
+        for (String className : classNames) {
+            classes.add(loadClass(className));
+        }
+        return classes;
+    }
+
+    @NonNull
+    Iterable<Field> loadFields(Iterable<String> fieldStrings) throws ClassNotFoundException, NoSuchFieldException {
+        ArrayList<Field> fields = new ArrayList<>();
+        for (String fieldString : fieldStrings) {
+            fields.add(loadField(fieldString));
+        }
+        return fields;
+    }
+
+    @NonNull
+    Iterable<Method> loadMethods(Iterable<String> methodStrings) throws ClassNotFoundException, NoSuchMethodException {
+        ArrayList<Method> methods = new ArrayList<>();
+        for (String methodString : methodStrings) {
+            methods.add(loadMethod(methodString));
+        }
+        return methods;
+    }
+
+    @NonNull
+    Iterable<Constructor<?>> loadConstructors(Iterable<String> constructorStrings) throws ClassNotFoundException, NoSuchMethodException {
+        ArrayList<Constructor<?>> constructors = new ArrayList<>();
+        for (String constructorString : constructorStrings) {
+            constructors.add(loadConstructor(constructorString));
+        }
+        return constructors;
     }
 }

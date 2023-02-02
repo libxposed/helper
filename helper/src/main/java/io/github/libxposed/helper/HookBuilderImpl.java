@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.OutputStream;
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
@@ -2160,6 +2161,11 @@ final class HookBuilderImpl implements HookBuilder {
             if (done) return;
             this.match = match;
             done = true;
+            if (match instanceof AccessibleObject) {
+                ((AccessibleObject) match).setAccessible(true);
+            } else if (match instanceof ParameterImpl) {
+                ((AccessibleObject) ((ParameterImpl) match).declaringExecutable).setAccessible(true);
+            }
             executorService.submit(this::performOnMatch);
         }
 
@@ -2998,122 +3004,116 @@ final class HookBuilderImpl implements HookBuilder {
             matchCache = new MatchCache();
         }
         for (var e : matchCache.classCache.entrySet()) {
+            var hit = keyedClassMatches.get(e.getKey());
+            if (hit == null) continue;
             try {
-                var hit = keyedClassMatches.get(e.getKey());
-                if (hit == null) continue;
-                var c = Class.forName(e.getValue(), false, classLoader);
-                hit.match(c);
+                var cache = e.getValue();
+                if (cache.isEmpty()) hit.miss();
+                else hit.match(reflector.loadClass(cache));
             } catch (Throwable ex) {
-                if (exceptionHandler != null) {
-                    exceptionHandler.test(ex);
-                }
+                hit.miss();
             }
         }
         for (var e : matchCache.methodCache.entrySet()) {
+            var hit = keyedMethodMatches.get(e.getKey());
+            if (hit == null) continue;
             try {
-                var hit = keyedMethodMatches.get(e.getKey());
-                if (hit == null) continue;
-                // TODO
+                var cache = e.getValue();
+                if (cache.isEmpty()) hit.miss();
+                else hit.match(reflector.loadMethod(cache));
             } catch (Throwable ex) {
-                if (exceptionHandler != null) {
-                    exceptionHandler.test(ex);
-                }
+                hit.miss();
             }
         }
 
         for (var e : matchCache.fieldCache.entrySet()) {
+            var hit = keyedFieldMatches.get(e.getKey());
+            if (hit == null) continue;
             try {
-                var hit = keyedFieldMatches.get(e.getKey());
-                if (hit == null) continue;
-                // TODO
+                var cache = e.getValue();
+                if (cache.isEmpty()) hit.miss();
+                else hit.match(reflector.loadField(cache));
             } catch (Throwable ex) {
-                if (exceptionHandler != null) {
-                    exceptionHandler.test(ex);
-                }
+                hit.miss();
             }
         }
 
         for (var e : matchCache.constructorCache.entrySet()) {
+            var hit = keyedConstructorMatches.get(e.getKey());
+            if (hit == null) continue;
             try {
-                var hit = keyedConstructorMatches.get(e.getKey());
-                if (hit == null) continue;
-                // TODO
+                var cache = e.getValue();
+                if (cache.isEmpty()) hit.miss();
+                else hit.match(reflector.loadConstructor(cache));
             } catch (Throwable ex) {
-                if (exceptionHandler != null) {
-                    exceptionHandler.test(ex);
-                }
+                hit.miss();
             }
         }
 
         for (var e : matchCache.parameterCache.entrySet()) {
+            var hit = keyedParameterMatches.get(e.getKey());
+            if (hit == null) continue;
             try {
-                var hit = keyedParameterMatches.get(e.getKey());
-                if (hit == null) continue;
+                var cache = e.getValue();
+                if (cache.isEmpty()) hit.miss();
                 // TODO
             } catch (Throwable ex) {
-                if (exceptionHandler != null) {
-                    exceptionHandler.test(ex);
-                }
+                hit.miss();
             }
         }
 
         for (var e : matchCache.classListCache.entrySet()) {
+            var hit = keyedClassMatchers.get(e.getKey());
+            if (hit == null) continue;
             try {
-                var hit = keyedClassMatchers.get(e.getKey());
-                if (hit == null) continue;
                 var value = e.getValue();
-                var cs = new HashSet<Class<?>>(e.getValue().size());
-                for (var v : value) {
-                    cs.add(Class.forName(v, false, classLoader));
-                }
-                hit.match(cs);
+                if (value.isEmpty()) hit.miss();
+                hit.match(reflector.loadClasses(value));
             } catch (Throwable ex) {
-                if (exceptionHandler != null) {
-                    exceptionHandler.test(ex);
-                }
+                hit.miss();
             }
         }
 
         for (var e : matchCache.methodListCache.entrySet()) {
+            var hit = keyedMethodMatchers.get(e.getKey());
+            if (hit == null) continue;
             try {
-                var hit = keyedMethodMatchers.get(e.getKey());
-                if (hit == null) continue;
-                // TODO
+                var value = e.getValue();
+                if (value.isEmpty()) hit.miss();
+                hit.match(reflector.loadMethods(value));
             } catch (Throwable ex) {
-                if (exceptionHandler != null) {
-                    exceptionHandler.test(ex);
-                }
+                hit.miss();
             }
         }
 
         for (var e : matchCache.fieldListCache.entrySet()) {
+            var hit = keyedFieldMatchers.get(e.getKey());
+            if (hit == null) continue;
             try {
-                var hit = keyedFieldMatchers.get(e.getKey());
-                if (hit == null) continue;
-                // TODO
+                var value = e.getValue();
+                if (value.isEmpty()) hit.miss();
+                hit.match(reflector.loadFields(value));
             } catch (Throwable ex) {
-                if (exceptionHandler != null) {
-                    exceptionHandler.test(ex);
-                }
+                hit.miss();
             }
         }
 
         for (var e : matchCache.constructorListCache.entrySet()) {
+            var hit = keyedConstructorMatchers.get(e.getKey());
+            if (hit == null) continue;
             try {
-                var hit = keyedConstructorMatchers.get(e.getKey());
-                if (hit == null) continue;
-                // TODO
+                var value = e.getValue();
+                if (value.isEmpty()) hit.miss();
+                hit.match(reflector.loadConstructors(value));
             } catch (Throwable ex) {
-                if (exceptionHandler != null) {
-                    exceptionHandler.test(ex);
-                }
+                hit.miss();
             }
         }
 
         for (var e : matchCache.parameterListCache.entrySet()) {
+            var hit = keyedParameterMatchers.get(e.getKey());
+            if (hit == null) continue;
             try {
-                var hit = keyedParameterMatchers.get(e.getKey());
-                if (hit == null) continue;
                 // TODO
             } catch (Throwable ex) {
                 if (exceptionHandler != null) {
