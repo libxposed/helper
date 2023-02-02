@@ -2,6 +2,7 @@ package io.github.libxposed.helper;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.OptIn;
 import androidx.annotation.RequiresOptIn;
 
 import java.lang.annotation.ElementType;
@@ -16,7 +17,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import dalvik.system.BaseDexClassLoader;
-import io.github.libxposed.api.XposedContextWrapper;
+import io.github.libxposed.api.XposedInterface;
 
 @SuppressWarnings("unused")
 public interface HookBuilder {
@@ -54,10 +55,161 @@ public interface HookBuilder {
     }
 
     @NonNull
-    static MatchResult buildHook(@NonNull XposedContextWrapper ctx, @NonNull BaseDexClassLoader classLoader, @NonNull String sourcePath, Consumer<HookBuilder> consumer) {
-        var builder = new HookBuilderImpl(ctx, classLoader, sourcePath);
+    static MatchResult buildHooks(@NonNull XposedInterface ctx, @NonNull BaseDexClassLoader classLoader, @NonNull String sourcePath, Consumer<HookBuilder> consumer) {
+        var builder = new HookBuilder() {
+            @OptIn(markerClass = DexAnalysis.class)
+            @NonNull
+            @Override
+            public HookBuilder setForceDexAnalysis(boolean forceDexAnalysis) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public HookBuilder setExecutorService(@NonNull ExecutorService executorService) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public HookBuilder setLastMatchResult(@NonNull MatchResult preferenceName) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public HookBuilder setExceptionHandler(@NonNull Predicate<Throwable> handler) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public MethodLazySequence methods(@NonNull Consumer<MethodMatcher> matcher) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public MethodMatch firstMethod(@NonNull Consumer<MethodMatcher> matcher) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public ConstructorLazySequence constructors(@NonNull Consumer<ConstructorMatcher> matcher) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public ConstructorMatch firstConstructor(@NonNull Consumer<ConstructorMatcher> matcher) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public FieldLazySequence fields(@NonNull Consumer<FieldMatcher> matcher) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public FieldMatch firstField(@NonNull Consumer<FieldMatcher> matcher) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public ClassLazySequence classes(@NonNull Consumer<ClassMatcher> matcher) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public ClassMatch firstClass(@NonNull Consumer<ClassMatcher> matcher) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public StringMatch string(@NonNull Consumer<StringMatcher> matcher) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public StringMatch exact(@NonNull String string) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public StringMatch prefix(@NonNull String prefix) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public ClassMatch exactClass(@NonNull String name) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public ClassMatch exact(@NonNull Class<?> clazz) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public MethodMatch exactMethod(@NonNull String signature) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public MethodMatch exact(@NonNull Method method) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public ConstructorMatch exactConstructor(@NonNull String signature) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public ConstructorMatch exact(@NonNull Constructor<?> constructor) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public FieldMatch exactField(@NonNull String signature) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public FieldMatch exact(@NonNull Field field) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public ParameterMatch exactParameter(@NonNull String signature) {
+                return null;
+            }
+
+            @NonNull
+            @Override
+            public ParameterMatch exact(@NonNull Class<?>... params) {
+                return null;
+            }
+        };
         consumer.accept(builder);
-        return builder.build();
+        return null;
     }
 
     interface MatchResult {
