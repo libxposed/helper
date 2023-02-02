@@ -48,3 +48,7 @@ jobs:
         with:
           name: library
           path: ~/.m2
+      - name: Reproduce bug
+        run: |
+          ./gradlew :myapplication:assembleRelease
+          ./gradlew --stop
