@@ -3,6 +3,7 @@ package io.github.libxposed.helper;
 import android.annotation.SuppressLint;
 import android.os.Build;
 import android.os.Handler;
+import android.os.Looper;
 
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
@@ -99,10 +100,17 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     private final HashMap<LazyBind, AtomicInteger> binds = new HashMap<>();
 
-    // TODO: make this non null
-    private SimpleExecutor executorService;
+    @NonNull
+    private SimpleExecutor executorService = new PendingExecutor();
 
-    private SimpleExecutor callbackHandler;
+    @Nullable
+    private SimpleExecutor userExecutorService = null;
+
+    @NonNull
+    private SimpleExecutor callbackHandler = new PendingExecutor();
+
+    @Nullable
+    private SimpleExecutor userCallbackHandler = null;
 
     @Nullable
     private MatchCache matchCache = null;
@@ -258,7 +266,7 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public HookBuilder setExecutorService(@NonNull ExecutorService executorService) {
-        this.executorService = new SimpleExecutor() {
+        this.userExecutorService = new SimpleExecutor() {
             @Override
             <T> Future<T> submit(Callable<T> task) {
                 return executorService.submit(task);
@@ -270,7 +278,7 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public HookBuilder setCallbackHandler(@NonNull Handler callbackHandler) {
-        this.callbackHandler = new SimpleExecutor() {
+        this.userCallbackHandler = new SimpleExecutor() {
             @Override
             public <T> Future<T> submit(Callable<T> task) {
                 final var t = new FutureTask<T>(task);
@@ -2770,7 +2778,11 @@ final class HookBuilderImpl implements HookBuilder {
 
     public @NonNull CountDownLatch build() {
         dexAnalysis = dexAnalysis || forceDexAnalysis;
-        if (executorService == null) {
+        loadMatchCache();
+
+        var pendingTasks = ((PendingExecutor) executorService).pendingTasks;
+
+        if (userExecutorService == null) {
             var e = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
             executorService = new SimpleExecutor() {
                 @Override
@@ -2778,7 +2790,36 @@ final class HookBuilderImpl implements HookBuilder {
                     return e.submit(task);
                 }
             };
+        } else {
+            executorService = userExecutorService;
         }
+
+        var tasks = new ArrayList<Future<?>>(pendingTasks);
+        for (var task : pendingTasks) {
+            tasks.add(executorService.submit(task));
+        }
+        joinAndClearTasks(tasks);
+
+        pendingTasks = ((PendingExecutor) callbackHandler).pendingTasks;
+
+        if (userCallbackHandler == null) {
+            var handler = new Handler(Looper.getMainLooper());
+            callbackHandler = new SimpleExecutor() {
+                @Override
+                <T> Future<T> submit(Callable<T> task) {
+                    var t = new FutureTask<>(task);
+                    handler.post(t);
+                    return t;
+                }
+            };
+        } else {
+            callbackHandler = userCallbackHandler;
+        }
+        for (var task : pendingTasks) {
+            tasks.add(callbackHandler.submit(task));
+        }
+        joinAndClearTasks(tasks);
+
         if (dexAnalysis) {
             analysisDex();
         } else {
@@ -2961,9 +3002,6 @@ final class HookBuilderImpl implements HookBuilder {
             }
             matchCache = new MatchCache();
         }
-        var bkExecutorService = executorService;
-        var pendingExecutor = new PendingExecutor();
-        executorService = pendingExecutor;
         for (var e : matchCache.classCache.entrySet()) {
             try {
                 var hit = keyedClassMatches.get(e.getKey());
@@ -3088,13 +3126,6 @@ final class HookBuilderImpl implements HookBuilder {
                 }
             }
         }
-
-        executorService = bkExecutorService;
-        var tasks = new ArrayList<Future<?>>(pendingExecutor.pendingTasks.size());
-        for (var task : pendingExecutor.pendingTasks) {
-            tasks.add(executorService.submit(task));
-        }
-        joinAndClearTasks(tasks);
     }
 
     private void analysisClassLoader() {
