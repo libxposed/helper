@@ -10,10 +10,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
@@ -47,7 +44,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipFile;
-import java.util.zip.ZipInputStream;
 
 import dalvik.system.BaseDexClassLoader;
 import io.github.libxposed.api.XposedInterface;
@@ -58,18 +54,26 @@ import io.github.libxposed.api.utils.DexParser;
 @SuppressLint("SoonBlockedPrivateApi")
 @SuppressWarnings({"unused", "FieldCanBeLocal", "FieldMayBeFinal", "JavaReflectionMemberAccess"})
 final class HookBuilderImpl implements HookBuilder {
-    private final @NonNull XposedInterface ctx;
-    private final @NonNull BaseDexClassLoader classLoader;
+    @NonNull
+    private final XposedInterface ctx;
+    @NonNull
+    private final BaseDexClassLoader classLoader;
+    @NonNull
+    private final String sourcePath;
+    @NonNull
+    private final Reflector reflector;
 
-    private final @NonNull String sourcePath;
+    @Nullable
+    private Predicate<Throwable> exceptionHandler = null;
 
-    private @Nullable Predicate<Throwable> exceptionHandler = null;
+    @Nullable
+    private Predicate<Map<String, Object>> cacheChecker = null;
 
-    private @Nullable Predicate<Map<String, Object>> cacheChecker = null;
+    @Nullable
+    private InputStream cacheInputStream = null;
 
-    private @Nullable InputStream cacheInputStream = null;
-
-    private @Nullable OutputStream cacheOutputStream = null;
+    @Nullable
+    private OutputStream cacheOutputStream = null;
 
     private boolean dexAnalysis = false;
 
@@ -77,17 +81,23 @@ final class HookBuilderImpl implements HookBuilder {
 
     private boolean includeAnnotations = false;
 
-    private final @NonNull ConcurrentLinkedQueue<ClassMatcherImpl> rootClassMatchers = new ConcurrentLinkedQueue<>();
+    @NonNull
+    private final ConcurrentLinkedQueue<ClassMatcherImpl> rootClassMatchers = new ConcurrentLinkedQueue<>();
 
-    private final @NonNull ConcurrentLinkedQueue<FieldMatcherImpl> rootFieldMatchers = new ConcurrentLinkedQueue<>();
+    @NonNull
+    private final ConcurrentLinkedQueue<FieldMatcherImpl> rootFieldMatchers = new ConcurrentLinkedQueue<>();
 
-    private final @NonNull ConcurrentLinkedQueue<MethodMatcherImpl> rootMethodMatchers = new ConcurrentLinkedQueue<>();
+    @NonNull
+    private final ConcurrentLinkedQueue<MethodMatcherImpl> rootMethodMatchers = new ConcurrentLinkedQueue<>();
 
-    private final @NonNull ConcurrentLinkedQueue<ConstructorMatcherImpl> rootConstructorMatchers = new ConcurrentLinkedQueue<>();
+    @NonNull
+    private final ConcurrentLinkedQueue<ConstructorMatcherImpl> rootConstructorMatchers = new ConcurrentLinkedQueue<>();
 
-    private final @NonNull ConcurrentLinkedQueue<ParameterMatcherImpl> rootParameterMatchers = new ConcurrentLinkedQueue<>();
+    @NonNull
+    private final ConcurrentLinkedQueue<ParameterMatcherImpl> rootParameterMatchers = new ConcurrentLinkedQueue<>();
 
-    private final @NonNull HashMap<LazyBind, AtomicInteger> binds = new HashMap<>();
+    @NonNull
+    private final HashMap<LazyBind, AtomicInteger> binds = new HashMap<>();
 
     // TODO: make this non null
     private SimpleExecutor executorService;
@@ -128,18 +138,29 @@ final class HookBuilderImpl implements HookBuilder {
     private final HashMap<String, ConstructorMatchImpl> keyedConstructorMatches = new HashMap<>();
 
     private static class MatchCache {
+        @NonNull
         HashMap<String, Object> cacheInfo = new HashMap<>();
 
+        @NonNull
         ConcurrentHashMap<String, HashSet<String>> classListCache = new ConcurrentHashMap<>();
+        @NonNull
         ConcurrentHashMap<String, HashSet<String>> fieldListCache = new ConcurrentHashMap<>();
+        @NonNull
         ConcurrentHashMap<String, HashSet<String>> methodListCache = new ConcurrentHashMap<>();
+        @NonNull
         ConcurrentHashMap<String, HashSet<String>> constructorListCache = new ConcurrentHashMap<>();
+        @NonNull
         ConcurrentHashMap<String, HashSet<String>> parameterListCache = new ConcurrentHashMap<>();
 
+        @NonNull
         ConcurrentHashMap<String, String> classCache = new ConcurrentHashMap<>();
+        @NonNull
         ConcurrentHashMap<String, String> fieldCache = new ConcurrentHashMap<>();
+        @NonNull
         ConcurrentHashMap<String, String> methodCache = new ConcurrentHashMap<>();
+        @NonNull
         ConcurrentHashMap<String, String> constructorCache = new ConcurrentHashMap<>();
+        @NonNull
         ConcurrentHashMap<String, String> parameterCache = new ConcurrentHashMap<>();
     }
 
@@ -223,6 +244,7 @@ final class HookBuilderImpl implements HookBuilder {
         this.ctx = ctx;
         this.classLoader = classLoader;
         this.sourcePath = sourcePath;
+        reflector = new Reflector(classLoader);
     }
 
     @DexAnalysis
@@ -2669,13 +2691,12 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public ClassMatch exactClass(@NonNull String name) {
-        // TODO: support binary name
         final var m = new ClassMatcherImpl(true);
         Class<?> exact = null;
         try {
-            exact = Class.forName(name, false, classLoader);
+            exact = reflector.loadClass(name);
         } catch (ClassNotFoundException e) {
-            if (exceptionHandler != null) exceptionHandler.test(e);
+            exact = null;
         }
         return m.build(exact).first();
     }
@@ -2691,8 +2712,13 @@ final class HookBuilderImpl implements HookBuilder {
     @Override
     public MethodMatch exactMethod(@NonNull String signature) {
         final var m = new MethodMatcherImpl(true);
-        // TODO
-        return m.build().first();
+        @Nullable Method method;
+        try {
+            method = reflector.loadMethod(signature);
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
+            method = null;
+        }
+        return m.build(method).first();
     }
 
     @NonNull
@@ -2706,8 +2732,13 @@ final class HookBuilderImpl implements HookBuilder {
     @Override
     public ConstructorMatch exactConstructor(@NonNull String signature) {
         final var m = new ConstructorMatcherImpl(true);
-        // TODO
-        return m.build().first();
+        @Nullable Constructor<?> constructor;
+        try {
+            constructor = reflector.loadConstructor(signature);
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
+            constructor = null;
+        }
+        return m.build(constructor).first();
     }
 
     @NonNull
@@ -2721,8 +2752,13 @@ final class HookBuilderImpl implements HookBuilder {
     @Override
     public FieldMatch exactField(@NonNull String signature) {
         final var m = new FieldMatcherImpl(true);
-        // TODO
-        return m.build().first();
+        @Nullable Field field;
+        try {
+            field = reflector.loadField(signature);
+        } catch (ClassNotFoundException | NoSuchFieldException e) {
+            field = null;
+        }
+        return m.build(field).first();
     }
 
     @NonNull
