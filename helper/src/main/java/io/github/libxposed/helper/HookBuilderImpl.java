@@ -318,9 +318,6 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private abstract static class BaseMatcherImpl<Self extends BaseMatcherImpl<Self, Reflect>, Reflect> {
-        @Nullable
-        protected Reflect exact = null;
-
         protected final boolean matchFirst;
 
         protected BaseMatcherImpl(boolean matchFirst) {
@@ -377,15 +374,8 @@ final class HookBuilderImpl implements HookBuilder {
             }
         }
 
-        protected final synchronized SeqImpl build(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher, @Nullable Reflect exact) {
-            this.exact = exact;
-            final var hasExact = exact != null;
+        protected final synchronized SeqImpl build(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
             final var lazySequence = onBuild(rootMatcher);
-            if (hasExact) {
-                pending = true;
-                leafCount.compareAndSet(1, 0);
-                lazySequence.matches = Collections.singletonList(exact);
-            }
             // specially, if matchFirst is true, propagate the key to the first match
             if (matchFirst && key != null) {
                 final var f = lazySequence.first().setKey(key);
@@ -397,15 +387,17 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         protected final synchronized SeqImpl build(@Nullable Reflect exact) {
-            return build(this, exact);
+            pending = true;
+            leafCount.set(0);
+            var seq = build(this);
+            if (exact != null) {
+                seq.matches = Collections.singletonList(exact);
+            }
+            return seq;
         }
 
         protected final synchronized SeqImpl build() {
-            return build(this, null);
-        }
-
-        protected final synchronized SeqImpl build(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
-            return build(rootMatcher, null);
+            return build(this);
         }
 
         @NonNull
@@ -1087,6 +1079,9 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private final class StringMatcherImpl extends BaseMatcherImpl<StringMatcherImpl, String> {
+        @Nullable
+        private String exact = null;
+
         @Nullable
         private String prefix = null;
 
@@ -2700,7 +2695,7 @@ final class HookBuilderImpl implements HookBuilder {
     @Override
     public ClassMatch exactClass(@NonNull String name) {
         final var m = new ClassMatcherImpl(true);
-        Class<?> exact = null;
+        Class<?> exact;
         try {
             exact = reflector.loadClass(name);
         } catch (ClassNotFoundException e) {
