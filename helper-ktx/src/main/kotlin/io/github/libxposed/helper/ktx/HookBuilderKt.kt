@@ -28,6 +28,7 @@ internal annotation class Matcher
 internal val wo: Nothing
     get() = throw UnsupportedOperationException("Write-only property")
 
+@Matcher
 @Hooker
 object DummyHooker
 
@@ -42,6 +43,7 @@ annotation class DexAnalysis
 @Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY)
 annotation class AnnotationAnalysis
 
+@Matcher
 @Hooker
 abstract class LazyBind {
     @PublishedApi
@@ -77,6 +79,7 @@ class ContainerSyntaxKt<MatchKt, Match> @PublishedApi internal constructor(@Publ
     operator fun not() = ContainerSyntaxKt<MatchKt, Match>(syntax.not())
 }
 
+@Matcher
 sealed class ReflectMatcherKt<Matcher>(@PublishedApi internal val matcher: Matcher) where Matcher : ReflectMatcher<Matcher> {
     var key: String
         @Deprecated(
