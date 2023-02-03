@@ -34,6 +34,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -246,6 +247,22 @@ final class HookBuilderImpl implements HookBuilder {
 
         private int getModifiers() {
             return modifiers;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(index, type, declaringExecutable, modifiers);
+        }
+
+        @Override
+        public boolean equals(@Nullable Object obj) {
+            if (obj == null) return false;
+            else if (!(obj instanceof ParameterImpl)) return false;
+            ParameterImpl object = (ParameterImpl) obj;
+            return index == object.index &&
+                    Objects.equals(type, object.type) &&
+                    Objects.equals(declaringExecutable, object.declaringExecutable) &&
+                    modifiers == object.modifiers;
         }
     }
 
