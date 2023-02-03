@@ -379,6 +379,29 @@ sealed class ExecutableMatcherKt<Matcher>(matcher: Matcher) :
         inline set(value) {
             matcher.setIsVarargs(value)
         }
+
+    fun conjunction(vararg types: Class<*>?) =
+        ContainerSyntaxKt<ParameterMatchKt, ParameterMatch>(matcher.conjunction(*types))
+
+    fun conjunction(vararg types: ClassMatchKt?) =
+        ContainerSyntaxKt<ParameterMatchKt, ParameterMatch>(matcher.conjunction(*types.map { it?.match }
+            .toTypedArray()))
+
+    inline fun firstParameter(crossinline init: ParameterMatcherKt.() -> Unit) =
+        ParameterMatchKt(matcher.firstParameter {
+            ParameterMatcherKt(it).init()
+        })
+
+    inline fun parameters(crossinline init: ParameterMatcherKt.() -> Unit) =
+        ParameterLazySequenceKt(matcher.parameters {
+            ParameterMatcherKt(it).init()
+        })
+
+    operator fun Class<*>.get(index: Int) =
+        ContainerSyntaxKt<ParameterMatchKt, ParameterMatch>(matcher.observe(index, this))
+
+    operator fun ClassMatchKt.get(index: Int) =
+        ContainerSyntaxKt<ParameterMatchKt, ParameterMatch>(matcher.observe(index, this.match))
 }
 
 class MethodMatcherKt @PublishedApi internal constructor(matcher: MethodMatcher) :

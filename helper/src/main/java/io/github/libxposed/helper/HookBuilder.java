@@ -227,6 +227,24 @@ public interface HookBuilder {
 
         @NonNull
         Self setIsVarargs(boolean isVarargs);
+
+        @NonNull
+        ContainerSyntax<ParameterMatch> conjunction(@NonNull ClassMatch... types);
+
+        @NonNull
+        ContainerSyntax<ParameterMatch> conjunction(@NonNull Class<?>... types);
+
+        @NonNull
+        ContainerSyntax<ParameterMatch> observe(int index, @NonNull ClassMatch types);
+
+        @NonNull
+        ContainerSyntax<ParameterMatch> observe(int index, @NonNull Class<?> types);
+
+        @NonNull
+        ParameterMatch firstParameter(@NonNull Consumer<ParameterMatcher> consumer);
+
+        @NonNull
+        ParameterLazySequence parameters(@NonNull Consumer<ParameterMatcher> consumer);
     }
 
     interface MethodMatcher extends ExecutableMatcher<MethodMatcher> {

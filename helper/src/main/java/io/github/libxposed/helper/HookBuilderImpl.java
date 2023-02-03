@@ -34,7 +34,6 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -97,9 +96,6 @@ final class HookBuilderImpl implements HookBuilder {
     private final ConcurrentLinkedQueue<ConstructorMatcherImpl> rootConstructorMatchers = new ConcurrentLinkedQueue<>();
 
     @NonNull
-    private final ConcurrentLinkedQueue<ParameterMatcherImpl> rootParameterMatchers = new ConcurrentLinkedQueue<>();
-
-    @NonNull
     private final HashMap<LazyBind, AtomicInteger> binds = new HashMap<>();
 
     @NonNull
@@ -146,125 +142,6 @@ final class HookBuilderImpl implements HookBuilder {
 
     @NonNull
     private final HashMap<String, ConstructorMatchImpl> keyedConstructorMatches = new HashMap<>();
-
-    private static class MatchCache {
-        @NonNull
-        HashMap<String, Object> cacheInfo = new HashMap<>();
-
-        @NonNull
-        ConcurrentHashMap<String, HashSet<String>> classListCache = new ConcurrentHashMap<>();
-        @NonNull
-        ConcurrentHashMap<String, HashSet<String>> fieldListCache = new ConcurrentHashMap<>();
-        @NonNull
-        ConcurrentHashMap<String, HashSet<String>> methodListCache = new ConcurrentHashMap<>();
-        @NonNull
-        ConcurrentHashMap<String, HashSet<String>> constructorListCache = new ConcurrentHashMap<>();
-        @NonNull
-        ConcurrentHashMap<String, HashSet<String>> parameterListCache = new ConcurrentHashMap<>();
-
-        @NonNull
-        ConcurrentHashMap<String, String> classCache = new ConcurrentHashMap<>();
-        @NonNull
-        ConcurrentHashMap<String, String> fieldCache = new ConcurrentHashMap<>();
-        @NonNull
-        ConcurrentHashMap<String, String> methodCache = new ConcurrentHashMap<>();
-        @NonNull
-        ConcurrentHashMap<String, String> constructorCache = new ConcurrentHashMap<>();
-        @NonNull
-        ConcurrentHashMap<String, String> parameterCache = new ConcurrentHashMap<>();
-    }
-
-    private abstract static class SimpleExecutor {
-        abstract <T> Future<T> submit(Callable<T> task);
-
-        final Future<?> submit(Runnable task) {
-            return submit(() -> {
-                task.run();
-                return null;
-            });
-        }
-    }
-
-    private final static class PendingExecutor extends SimpleExecutor {
-        @NonNull
-        final List<FutureTask<?>> pendingTasks = new ArrayList<>();
-
-        @Override
-        <T> Future<T> submit(Callable<T> task) {
-            FutureTask<T> futureTask = new FutureTask<>(task);
-            pendingTasks.add(futureTask);
-            return futureTask;
-        }
-    }
-
-    private interface BaseObserver<T> {
-    }
-
-    private interface MatchObserver<T> extends BaseObserver<T> {
-        void onMatch(@NonNull T result);
-    }
-
-    private interface MissObserver<T> extends BaseObserver<T> {
-        void onMiss();
-    }
-
-    private interface Observer<T> extends MatchObserver<T>, MissObserver<T> {
-    }
-
-    private final static class ParameterImpl implements Parameter {
-        final private int modifiers;
-        @NonNull
-        final private Class<?> type;
-
-        final private int index;
-
-        @NonNull
-        final private Member declaringExecutable;
-
-        ParameterImpl(int index, @NonNull Class<?> type, @NonNull Member declaringExecutable, int modifiers) {
-            this.type = type;
-            this.index = index;
-            this.declaringExecutable = declaringExecutable;
-            this.modifiers = modifiers;
-        }
-
-        @NonNull
-        @Override
-        public Class<?> getType() {
-            return type;
-        }
-
-        @Override
-        public int getIndex() {
-            return 0;
-        }
-
-        @NonNull
-        @Override
-        public Member getDeclaringExecutable() {
-            return declaringExecutable;
-        }
-
-        private int getModifiers() {
-            return modifiers;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(index, type, declaringExecutable, modifiers);
-        }
-
-        @Override
-        public boolean equals(@Nullable Object obj) {
-            if (obj == null) return false;
-            else if (!(obj instanceof ParameterImpl)) return false;
-            ParameterImpl object = (ParameterImpl) obj;
-            return index == object.index &&
-                    Objects.equals(type, object.type) &&
-                    Objects.equals(declaringExecutable, object.declaringExecutable) &&
-                    modifiers == object.modifiers;
-        }
-    }
 
     HookBuilderImpl(@NonNull XposedInterface ctx, @NonNull BaseDexClassLoader classLoader, @NonNull String sourcePath) {
         this.ctx = ctx;
@@ -347,6 +224,9 @@ final class HookBuilderImpl implements HookBuilder {
     private abstract class ReflectMatcherImpl<Self extends ReflectMatcherImpl<Self, Base, Reflect, SeqImpl>, Base extends ReflectMatcher<Base>, Reflect, SeqImpl extends LazySequenceImpl<?, ?, Reflect, Base, ?, Self>> extends BaseMatcherImpl<Self, Reflect> implements ReflectMatcher<Base> {
         private final static int packageFlag = Modifier.PUBLIC | Modifier.PRIVATE | Modifier.PROTECTED;
 
+        @NonNull
+        protected final ReflectMatcherImpl<?, ?, ?, ?> rootMatcher;
+
         @Nullable
         protected String key = null;
 
@@ -382,8 +262,9 @@ final class HookBuilderImpl implements HookBuilder {
             }
         };
 
-        protected ReflectMatcherImpl(boolean matchFirst) {
+        protected ReflectMatcherImpl(@Nullable ReflectMatcherImpl<?, ?, ?, ?> rootMatcher, boolean matchFirst) {
             super(matchFirst);
+            this.rootMatcher = rootMatcher == null ? this : rootMatcher;
         }
 
         protected final synchronized void ensureNotFinalized() {
@@ -392,8 +273,8 @@ final class HookBuilderImpl implements HookBuilder {
             }
         }
 
-        protected final synchronized SeqImpl build(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
-            final var lazySequence = onBuild(rootMatcher);
+        protected final synchronized SeqImpl build() {
+            final var lazySequence = onBuild();
             // specially, if matchFirst is true, propagate the key to the first match
             if (matchFirst && key != null) {
                 final var f = lazySequence.first().setKey(key);
@@ -407,15 +288,11 @@ final class HookBuilderImpl implements HookBuilder {
         protected final synchronized SeqImpl build(@Nullable Reflect exact) {
             pending = true;
             leafCount.set(0);
-            var seq = build(this);
+            var seq = build();
             if (exact != null) {
                 seq.matches = Collections.singletonList(exact);
             }
             return seq;
-        }
-
-        protected final synchronized SeqImpl build() {
-            return build(this);
         }
 
         @NonNull
@@ -467,7 +344,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         @NonNull
-        protected abstract SeqImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher);
+        protected abstract SeqImpl onBuild();
 
         protected abstract void setNonPending();
 
@@ -475,7 +352,7 @@ final class HookBuilderImpl implements HookBuilder {
         protected final <T extends ReflectMatchImpl<T, U, RR, ?, ?>, U extends ReflectMatch<U, RR, ?>, RR> T addDependency(@Nullable T field, @NonNull U input) {
             final var in = (T) input;
             if (field != null) {
-                in.removeObserver((Observer<RR>) dependencyCallback);
+                in.removeObserver(dependencyCallback);
             } else {
                 leafCount.incrementAndGet();
             }
@@ -556,13 +433,13 @@ final class HookBuilderImpl implements HookBuilder {
         @Nullable
         private ContainerSyntaxImpl<ClassMatch, ?, Class<?>> containsInterfaces = null;
 
-        private ClassMatcherImpl(boolean matchFirst) {
-            super(matchFirst);
+        private ClassMatcherImpl(@Nullable ReflectMatcherImpl<?, ?, ?, ?> rootMatcher, boolean matchFirst) {
+            super(rootMatcher, matchFirst);
         }
 
         @NonNull
         @Override
-        protected ClassLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
+        protected ClassLazySequenceImpl onBuild() {
             if (key != null) keyedClassMatchers.put(key, this);
             if (rootMatcher != this) rootClassMatchers.add(this);
             return new ClassLazySequenceImpl(rootMatcher);
@@ -650,15 +527,15 @@ final class HookBuilderImpl implements HookBuilder {
         @Nullable
         private ClassMatchImpl type = null;
 
-        private ParameterMatcherImpl(boolean matchFirst) {
-            super(matchFirst);
+        private ParameterMatcherImpl(@Nullable ReflectMatcherImpl<?, ?, ?, ?> rootMatcher, boolean matchFirst) {
+            super(rootMatcher, matchFirst);
         }
 
         @NonNull
         @Override
-        protected ParameterLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
+        protected ParameterLazySequenceImpl onBuild() {
             if (key != null) keyedParameterMatchers.put(key, this);
-            if (rootMatcher != this) rootParameterMatchers.add(this);
+//            if (rootMatcher != this) rootParameterMatchers.add(this);
             return new ParameterLazySequenceImpl(rootMatcher);
         }
 
@@ -732,8 +609,8 @@ final class HookBuilderImpl implements HookBuilder {
 
         protected boolean includeInterface = false;
 
-        protected MemberMatcherImpl(boolean matchFirst) {
-            super(matchFirst);
+        protected MemberMatcherImpl(@Nullable ReflectMatcherImpl<?, ?, ?, ?> rootMatcher, boolean matchFirst) {
+            super(rootMatcher, matchFirst);
         }
 
         @CallSuper
@@ -791,8 +668,8 @@ final class HookBuilderImpl implements HookBuilder {
         @Nullable
         private ClassMatchImpl type = null;
 
-        private FieldMatcherImpl(boolean matchFirst) {
-            super(matchFirst);
+        private FieldMatcherImpl(@Nullable ReflectMatcherImpl<?, ?, ?, ?> rootMatcher, boolean matchFirst) {
+            super(rootMatcher, matchFirst);
         }
 
         @Override
@@ -803,7 +680,7 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        protected FieldLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
+        protected FieldLazySequenceImpl onBuild() {
             if (key != null) keyedFieldMatchers.put(key, this);
             if (rootMatcher != this) rootFieldMatchers.add(this);
             return new FieldLazySequenceImpl(rootMatcher);
@@ -889,8 +766,8 @@ final class HookBuilderImpl implements HookBuilder {
         @Nullable
         protected byte[] opcodes = null;
 
-        protected ExecutableMatcherImpl(boolean matchFirst) {
-            super(matchFirst);
+        protected ExecutableMatcherImpl(@Nullable ReflectMatcherImpl<?, ?, ?, ?> rootMatcher, boolean matchFirst) {
+            super(rootMatcher, matchFirst);
         }
 
         @Override
@@ -999,6 +876,84 @@ final class HookBuilderImpl implements HookBuilder {
             setModifier(isVarargs, 0x00000080);
             return (Base) this;
         }
+
+        @NonNull
+        @Override
+        public ContainerSyntax<ParameterMatch> conjunction(@NonNull ClassMatch... types) {
+            var b = new LazyBind() {
+                ParameterLazySequenceImpl s = new ParameterLazySequenceImpl(rootMatcher);
+                ArrayList<Parameter> p = new ArrayList<>(types.length);
+
+                @Override
+                public void onMatch() {
+                    s.match(p);
+                }
+
+                @Override
+                public void onMiss() {
+                    s.miss();
+                }
+            };
+            for (int i = 0; i < types.length; i++) {
+                var type = types[i];
+                if (type == null) continue;
+                final var pi = i;
+                type.bind(b, (bb, c) -> {
+                    var p = new TypeOnlyParameter(pi, c);
+                });
+            }
+            return b.s.conjunction();
+        }
+
+        @NonNull
+        @Override
+        public ContainerSyntax<ParameterMatch> conjunction(@NonNull Class<?>... types) {
+            ParameterLazySequenceImpl s = new ParameterLazySequenceImpl(rootMatcher);
+            ArrayList<Parameter> p = new ArrayList<>(types.length);
+            for (int i = 0; i < types.length; i++) {
+                var type = types[i];
+                if (type == null) continue;
+                p.add(new TypeOnlyParameter(i, type));
+            }
+            s.match(p);
+            return s.conjunction();
+        }
+
+        @NonNull
+        @Override
+        public ContainerSyntax<ParameterMatch> observe(int index, @NonNull ClassMatch types) {
+            final var m = new ParameterMatchImpl(rootMatcher);
+            m.index = index;
+            types.onMatch(c -> m.match(new TypeOnlyParameter(index, c)));
+            return m.observe();
+        }
+
+        @NonNull
+        @Override
+        public ContainerSyntax<ParameterMatch> observe(int index, @NonNull Class<?> types) {
+            final var m = new ParameterMatchImpl(rootMatcher);
+            m.index = index;
+            m.match(new TypeOnlyParameter(index, types));
+            return m.observe();
+        }
+
+        @NonNull
+        @Override
+        public ParameterMatch firstParameter(@NonNull Consumer<ParameterMatcher> consumer) {
+            ensureNotFinalized();
+            var m = new ParameterMatcherImpl(rootMatcher, true);
+            consumer.accept(m);
+            return m.build().first();
+        }
+
+        @NonNull
+        @Override
+        public ParameterLazySequence parameters(@NonNull Consumer<ParameterMatcher> consumer) {
+            ensureNotFinalized();
+            var m = new ParameterMatcherImpl(rootMatcher, false);
+            consumer.accept(m);
+            return m.build();
+        }
     }
 
     private final class MethodMatcherImpl extends ExecutableMatcherImpl<MethodMatcherImpl, MethodMatcher, Method, MethodLazySequenceImpl> implements MethodMatcher {
@@ -1006,8 +961,8 @@ final class HookBuilderImpl implements HookBuilder {
 
         private @Nullable ClassMatchImpl returnType = null;
 
-        private MethodMatcherImpl(boolean matchFirst) {
-            super(matchFirst);
+        private MethodMatcherImpl(@Nullable ReflectMatcherImpl<?, ?, ?, ?> rootMatcher, boolean matchFirst) {
+            super(rootMatcher, matchFirst);
         }
 
         @Override
@@ -1025,7 +980,7 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        protected MethodLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
+        protected MethodLazySequenceImpl onBuild() {
             if (key != null) keyedMethodMatchers.put(key, this);
             if (rootMatcher != this) rootMethodMatchers.add(this);
             return new MethodLazySequenceImpl(rootMatcher);
@@ -1084,13 +1039,13 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private final class ConstructorMatcherImpl extends ExecutableMatcherImpl<ConstructorMatcherImpl, ConstructorMatcher, Constructor<?>, ConstructorLazySequenceImpl> implements ConstructorMatcher {
-        private ConstructorMatcherImpl(boolean matchFirst) {
-            super(matchFirst);
+        private ConstructorMatcherImpl(@Nullable ReflectMatcherImpl<?, ?, ?, ?> rootMatcher, boolean matchFirst) {
+            super(rootMatcher, matchFirst);
         }
 
         @NonNull
         @Override
-        protected ConstructorLazySequenceImpl onBuild(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
+        protected ConstructorLazySequenceImpl onBuild() {
             if (key != null) keyedConstructorMatchers.put(key, this);
             return new ConstructorLazySequenceImpl(rootMatcher);
         }
@@ -1272,7 +1227,7 @@ final class HookBuilderImpl implements HookBuilder {
 
         private void removeObserver(@NonNull Operand operand, @NonNull Observer<?> observer, @Nullable AtomicInteger count) {
             if (operand.value instanceof ReflectMatchImpl) {
-                ((ReflectMatchImpl<?, ?, Reflect, ?, ?>) operand.value).removeObserver((Observer<Reflect>) observer);
+                ((ReflectMatchImpl<?, ?, Reflect, ?, ?>) operand.value).removeObserver(observer);
                 if (count != null) count.decrementAndGet();
             } else if (operand.value instanceof LazySequenceImpl) {
                 ((LazySequenceImpl<?, ?, Reflect, ?, ?, ?>) operand.value).removeObserver((Observer<Iterable<Reflect>>) observer);
@@ -1297,7 +1252,7 @@ final class HookBuilderImpl implements HookBuilder {
             if (operand.value instanceof ReflectMatchImpl) {
                 ((ReflectMatchImpl<?, ?, Reflect, ?, ?>) operand.value).rootMatcher.setNonPending();
             } else if (operand.value instanceof LazySequenceImpl) {
-                ((LazySequenceImpl<?, ?, Reflect, ?, ?, ?>) operand.value).matcher.setNonPending();
+                ((LazySequenceImpl<?, ?, Reflect, ?, ?, ?>) operand.value).rootMatcher.setNonPending();
             } else {
                 ((ContainerSyntaxImpl<?, ?, Reflect>) operand.value).setNonPending();
             }
@@ -1318,7 +1273,7 @@ final class HookBuilderImpl implements HookBuilder {
     @SuppressWarnings("unchecked")
     private abstract class LazySequenceImpl<Base extends LazySequence<Base, Match, Reflect, Matcher>, Match extends ReflectMatch<Match, Reflect, Matcher>, Reflect, Matcher extends ReflectMatcher<Matcher>, MatchImpl extends ReflectMatchImpl<MatchImpl, Match, Reflect, Matcher, MatcherImpl>, MatcherImpl extends ReflectMatcherImpl<MatcherImpl, Matcher, Reflect, ?>> implements LazySequence<Base, Match, Reflect, Matcher> {
         @NonNull
-        protected final ReflectMatcherImpl<?, ?, ?, ?> matcher;
+        protected final ReflectMatcherImpl<?, ?, ?, ?> rootMatcher;
 
         @Nullable
         protected volatile Iterable<Reflect> matches = null;
@@ -1335,14 +1290,14 @@ final class HookBuilderImpl implements HookBuilder {
 
         @GuardedBy("this")
         @NonNull
-        private final Map<BaseObserver<Iterable<Reflect>>, Object> observers = new HashMap<>();
+        private final Map<BaseObserver, Object> observers = new HashMap<>();
 
         @GuardedBy("this")
         @NonNull
         private final Queue<LazySequenceImpl<Base, Match, Reflect, Matcher, MatchImpl, MatcherImpl>> missReplacements = new LinkedList<>();
 
-        protected LazySequenceImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?> matcher) {
-            this.matcher = matcher;
+        protected LazySequenceImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?> rootMatcher) {
+            this.rootMatcher = rootMatcher;
         }
 
         @NonNull
@@ -1385,7 +1340,7 @@ final class HookBuilderImpl implements HookBuilder {
                     m.miss();
                 }
             });
-            return (Match) m.build(this.matcher).first();
+            return (Match) m.build().first();
         }
 
         @NonNull
@@ -1404,13 +1359,13 @@ final class HookBuilderImpl implements HookBuilder {
                     m.miss();
                 }
             });
-            return (Base) m.build(this.matcher);
+            return (Base) m.build();
         }
 
         @NonNull
         @Override
         public final Base onMatch(@NonNull Consumer<Iterable<Reflect>> consumer) {
-            matcher.setNonPending();
+            rootMatcher.setNonPending();
             addMatchObserver(result -> callbackHandler.submit(() -> consumer.accept(result)));
             return (Base) this;
         }
@@ -1446,7 +1401,7 @@ final class HookBuilderImpl implements HookBuilder {
         public final Base matchIfMiss(@NonNull Consumer<Matcher> consumer) {
             final var m = newMatcher(false);
             consumer.accept((Matcher) m);
-            missReplacements.add((LazySequenceImpl<Base, Match, Reflect, Matcher, MatchImpl, MatcherImpl>) m.build(this.matcher));
+            missReplacements.add((LazySequenceImpl<Base, Match, Reflect, Matcher, MatchImpl, MatcherImpl>) m.build());
             return (Base) this;
         }
 
@@ -1496,7 +1451,7 @@ final class HookBuilderImpl implements HookBuilder {
         private synchronized void performOnMiss() {
             for (final var observer : observers.keySet()) {
                 if (observer instanceof MissObserver) {
-                    ((MissObserver<Iterable<Reflect>>) observer).onMiss();
+                    ((MissObserver) observer).onMiss();
                 }
             }
         }
@@ -1512,7 +1467,7 @@ final class HookBuilderImpl implements HookBuilder {
             if (done) return;
             final var replacement = missReplacements.poll();
             if (replacement != null) {
-                replacement.matcher.setNonPending();
+                replacement.rootMatcher.setNonPending();
                 replacement.addObserver(new Observer<>() {
                     @Override
                     public void onMatch(@NonNull Iterable<Reflect> result) {
@@ -1549,7 +1504,7 @@ final class HookBuilderImpl implements HookBuilder {
             if (m != null) observer.onMatch(m);
         }
 
-        protected final synchronized void addMissObserver(@NonNull MissObserver<Iterable<Reflect>> observer) {
+        protected final synchronized void addMissObserver(@NonNull MissObserver observer) {
             observers.put(observer, VALUE);
             final var m = matches;
             if (done && m == null) observer.onMiss();
@@ -1561,20 +1516,20 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private class ClassLazySequenceImpl extends LazySequenceImpl<ClassLazySequence, ClassMatch, Class<?>, ClassMatcher, ClassMatchImpl, ClassMatcherImpl> implements ClassLazySequence {
-        protected ClassLazySequenceImpl(ReflectMatcherImpl<?, ?, ?, ?> matcher) {
+        protected ClassLazySequenceImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?> matcher) {
             super(matcher);
         }
 
         @NonNull
         @Override
         protected ClassMatchImpl newMatch() {
-            return new ClassMatchImpl(matcher);
+            return new ClassMatchImpl(rootMatcher);
         }
 
         @NonNull
         @Override
         protected ClassMatcherImpl newMatcher(boolean matchFirst) {
-            return new ClassMatcherImpl(matchFirst);
+            return new ClassMatcherImpl(rootMatcher, matchFirst);
         }
 
         private void addMethodsObserver(@NonNull MethodMatcherImpl m) {
@@ -1640,73 +1595,73 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final MethodLazySequence methods(@NonNull Consumer<MethodMatcher> matcher) {
-            final var m = new MethodMatcherImpl(false);
+            final var m = new MethodMatcherImpl(rootMatcher, false);
             matcher.accept(m);
             addMethodsObserver(m);
-            return m.build(this.matcher);
+            return m.build();
         }
 
         @NonNull
         @Override
         public final MethodMatch firstMethod(@NonNull Consumer<MethodMatcher> matcher) {
-            final var m = new MethodMatcherImpl(true);
+            final var m = new MethodMatcherImpl(rootMatcher, true);
             matcher.accept(m);
             addMethodsObserver(m);
-            return m.build(this.matcher).first();
+            return m.build().first();
         }
 
         @NonNull
         @Override
         public final ConstructorLazySequence constructors(@NonNull Consumer<ConstructorMatcher> matcher) {
-            final var m = new ConstructorMatcherImpl(false);
+            final var m = new ConstructorMatcherImpl(rootMatcher, false);
             matcher.accept(m);
             addConstructorsObserver(m);
-            return m.build(this.matcher);
+            return m.build();
         }
 
         @NonNull
         @Override
         public final ConstructorMatch firstConstructor(@NonNull Consumer<ConstructorMatcher> matcher) {
-            final var m = new ConstructorMatcherImpl(true);
+            final var m = new ConstructorMatcherImpl(rootMatcher, true);
             matcher.accept(m);
             addConstructorsObserver(m);
-            return m.build(this.matcher).first();
+            return m.build().first();
         }
 
         @NonNull
         @Override
         public final FieldLazySequence fields(@NonNull Consumer<FieldMatcher> matcher) {
-            final var m = new FieldMatcherImpl(false);
+            final var m = new FieldMatcherImpl(rootMatcher, false);
             matcher.accept(m);
             addFieldsObserver(m);
-            return m.build(this.matcher);
+            return m.build();
         }
 
         @NonNull
         @Override
         public final FieldMatch firstField(@NonNull Consumer<FieldMatcher> matcher) {
-            final var m = new FieldMatcherImpl(true);
+            final var m = new FieldMatcherImpl(rootMatcher, true);
             matcher.accept(m);
             addFieldsObserver(m);
-            return m.build(this.matcher).first();
+            return m.build().first();
         }
     }
 
     private final class ParameterLazySequenceImpl extends LazySequenceImpl<ParameterLazySequence, ParameterMatch, Parameter, ParameterMatcher, ParameterMatchImpl, ParameterMatcherImpl> implements ParameterLazySequence {
-        private ParameterLazySequenceImpl(ReflectMatcherImpl<?, ?, ?, ?> matcher) {
+        private ParameterLazySequenceImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?> matcher) {
             super(matcher);
         }
 
         @NonNull
         @Override
         protected ParameterMatchImpl newMatch() {
-            return new ParameterMatchImpl(matcher);
+            return new ParameterMatchImpl(rootMatcher);
         }
 
         @NonNull
         @Override
         protected ParameterMatcherImpl newMatcher(boolean matchFirst) {
-            return new ParameterMatcherImpl(matchFirst);
+            return new ParameterMatcherImpl(rootMatcher, matchFirst);
         }
 
         private void addTypesObserver(@NonNull ClassMatcherImpl m) {
@@ -1732,24 +1687,24 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public ClassLazySequence types(@NonNull Consumer<ClassMatcher> matcher) {
-            final var m = new ClassMatcherImpl(false);
+            final var m = new ClassMatcherImpl(rootMatcher, false);
             matcher.accept(m);
             addTypesObserver(m);
-            return m.build(this.matcher);
+            return m.build();
         }
 
         @NonNull
         @Override
         public ClassMatch firstType(@NonNull Consumer<ClassMatcher> matcher) {
-            final var m = new ClassMatcherImpl(true);
+            final var m = new ClassMatcherImpl(rootMatcher, true);
             matcher.accept(m);
             addTypesObserver(m);
-            return m.build(this.matcher).first();
+            return m.build().first();
         }
     }
 
     private abstract class MemberLazySequenceImpl<Base extends MemberLazySequence<Base, Match, Reflect, Matcher>, Match extends MemberMatch<Match, Reflect, Matcher>, Reflect extends Member, Matcher extends MemberMatcher<Matcher>, MatchImpl extends MemberMatchImpl<MatchImpl, Match, Reflect, Matcher, MatcherImpl>, MatcherImpl extends MemberMatcherImpl<MatcherImpl, Matcher, Reflect, ?>> extends LazySequenceImpl<Base, Match, Reflect, Matcher, MatchImpl, MatcherImpl> implements MemberLazySequence<Base, Match, Reflect, Matcher> {
-        protected MemberLazySequenceImpl(ReflectMatcherImpl<?, ?, ?, ?> matcher) {
+        protected MemberLazySequenceImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?> matcher) {
             super(matcher);
         }
 
@@ -1776,24 +1731,24 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         public final ClassLazySequence declaringClasses(@NonNull Consumer<ClassMatcher> matcher) {
-            final var m = new ClassMatcherImpl(false);
+            final var m = new ClassMatcherImpl(rootMatcher, false);
             matcher.accept(m);
             addDeclaringClassesObserver(m);
-            return m.build(this.matcher);
+            return m.build();
         }
 
         @NonNull
         @Override
         public final ClassMatch firstDeclaringClass(@NonNull Consumer<ClassMatcher> matcher) {
-            final var m = new ClassMatcherImpl(true);
+            final var m = new ClassMatcherImpl(rootMatcher, true);
             matcher.accept(m);
             addDeclaringClassesObserver(m);
-            return m.build(this.matcher).first();
+            return m.build().first();
         }
     }
 
     private final class FieldLazySequenceImpl extends MemberLazySequenceImpl<FieldLazySequence, FieldMatch, Field, FieldMatcher, FieldMatchImpl, FieldMatcherImpl> implements FieldLazySequence {
-        private FieldLazySequenceImpl(ReflectMatcherImpl<?, ?, ?, ?> matcher) {
+        private FieldLazySequenceImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?> matcher) {
             super(matcher);
         }
 
@@ -1820,36 +1775,39 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         protected FieldMatchImpl newMatch() {
-            return new FieldMatchImpl(matcher);
+            return new FieldMatchImpl(rootMatcher);
         }
 
         @NonNull
         @Override
         protected FieldMatcherImpl newMatcher(boolean matchFirst) {
-            return new FieldMatcherImpl(matchFirst);
+            return new FieldMatcherImpl(rootMatcher, matchFirst);
         }
 
         @NonNull
         @Override
         public ClassLazySequence types(@NonNull Consumer<ClassMatcher> matcher) {
-            final var m = new ClassMatcherImpl(false);
+            final var m = new ClassMatcherImpl(rootMatcher, false);
             matcher.accept(m);
             addTypesObserver(m);
-            return m.build(this.matcher);
+            return m.build();
         }
 
         @NonNull
         @Override
         public ClassMatch firstType(@NonNull Consumer<ClassMatcher> matcher) {
-            final var m = new ClassMatcherImpl(true);
+            final var m = new ClassMatcherImpl(rootMatcher, true);
             matcher.accept(m);
             addTypesObserver(m);
-            return m.build(this.matcher).first();
+            return m.build().first();
         }
     }
 
     private abstract class ExecutableLazySequenceImpl<Base extends ExecutableLazySequence<Base, Match, Reflect, Matcher>, Match extends ExecutableMatch<Match, Reflect, Matcher>, Reflect extends Member, Matcher extends ExecutableMatcher<Matcher>, MatchImpl extends ExecutableMatchImpl<MatchImpl, Match, Reflect, Matcher, MatcherImpl>, MatcherImpl extends ExecutableMatcherImpl<MatcherImpl, Matcher, Reflect, ?>> extends MemberLazySequenceImpl<Base, Match, Reflect, Matcher, MatchImpl, MatcherImpl> implements ExecutableLazySequence<Base, Match, Reflect, Matcher> {
-        @RequiresApi(Build.VERSION_CODES.O)
+        private ExecutableLazySequenceImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?> matcher) {
+            super(matcher);
+        }
+
         private void addParametersObserver(ParameterMatcherImpl m) {
             m.pending = true;
             addObserver(new Observer<>() {
@@ -1909,33 +1867,27 @@ final class HookBuilderImpl implements HookBuilder {
             });
         }
 
-        private ExecutableLazySequenceImpl(ReflectMatcherImpl<?, ?, ?, ?> matcher) {
-            super(matcher);
-        }
-
-        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         @Override
         public final ParameterLazySequence parameters(@NonNull Consumer<ParameterMatcher> matcher) {
-            final var m = new ParameterMatcherImpl(false);
+            final var m = new ParameterMatcherImpl(rootMatcher, false);
             matcher.accept(m);
             addParametersObserver(m);
-            return m.build(this.matcher);
+            return m.build();
         }
 
-        @RequiresApi(Build.VERSION_CODES.O)
         @NonNull
         @Override
         public final ParameterMatch firstParameter(@NonNull Consumer<ParameterMatcher> matcher) {
-            final var m = new ParameterMatcherImpl(true);
+            final var m = new ParameterMatcherImpl(rootMatcher, true);
             matcher.accept(m);
             addParametersObserver(m);
-            return m.build(this.matcher).first();
+            return m.build().first();
         }
     }
 
     private final class MethodLazySequenceImpl extends ExecutableLazySequenceImpl<MethodLazySequence, MethodMatch, Method, MethodMatcher, MethodMatchImpl, MethodMatcherImpl> implements MethodLazySequence {
-        private MethodLazySequenceImpl(ReflectMatcherImpl<?, ?, ?, ?> matcher) {
+        private MethodLazySequenceImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?> matcher) {
             super(matcher);
         }
 
@@ -1962,49 +1914,49 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         protected MethodMatchImpl newMatch() {
-            return new MethodMatchImpl(matcher);
+            return new MethodMatchImpl(rootMatcher);
         }
 
         @NonNull
         @Override
         protected MethodMatcherImpl newMatcher(boolean matchFirst) {
-            return new MethodMatcherImpl(matchFirst);
+            return new MethodMatcherImpl(rootMatcher, matchFirst);
         }
 
         @NonNull
         @Override
         public ClassLazySequence returnTypes(@NonNull Consumer<ClassMatcher> matcher) {
-            final var m = new ClassMatcherImpl(false);
+            final var m = new ClassMatcherImpl(rootMatcher, false);
             matcher.accept(m);
             addReturnTypesObserver(m);
-            return m.build(this.matcher);
+            return m.build();
         }
 
         @NonNull
         @Override
         public ClassMatch firstReturnType(@NonNull Consumer<ClassMatcher> matcher) {
-            final var m = new ClassMatcherImpl(true);
+            final var m = new ClassMatcherImpl(rootMatcher, true);
             matcher.accept(m);
             addReturnTypesObserver(m);
-            return m.build(this.matcher).first();
+            return m.build().first();
         }
     }
 
     private final class ConstructorLazySequenceImpl extends ExecutableLazySequenceImpl<ConstructorLazySequence, ConstructorMatch, Constructor<?>, ConstructorMatcher, ConstructorMatchImpl, ConstructorMatcherImpl> implements ConstructorLazySequence {
-        private ConstructorLazySequenceImpl(ReflectMatcherImpl<?, ?, ?, ?> matcher) {
+        private ConstructorLazySequenceImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?> matcher) {
             super(matcher);
         }
 
         @NonNull
         @Override
         protected ConstructorMatchImpl newMatch() {
-            return new ConstructorMatchImpl(matcher);
+            return new ConstructorMatchImpl(rootMatcher);
         }
 
         @NonNull
         @Override
         protected ConstructorMatcherImpl newMatcher(boolean matchFirst) {
-            return new ConstructorMatcherImpl(matchFirst);
+            return new ConstructorMatcherImpl(rootMatcher, matchFirst);
         }
     }
 
@@ -2046,7 +1998,7 @@ final class HookBuilderImpl implements HookBuilder {
 
         @GuardedBy("this")
         @NonNull
-        private final Map<BaseObserver<Reflect>, Object> observers = new HashMap<>();
+        private final Map<BaseObserver, Object> observers = new HashMap<>();
 
         @GuardedBy("this")
         @NonNull
@@ -2148,20 +2100,20 @@ final class HookBuilderImpl implements HookBuilder {
             if (m != null) observer.onMatch(m);
         }
 
-        protected final synchronized void addMissObserver(MissObserver<Reflect> observer) {
+        protected final synchronized void addMissObserver(MissObserver observer) {
             observers.put(observer, VALUE);
             final var m = match;
             if (done && m == null) observer.onMiss();
         }
 
-        protected final synchronized void removeObserver(BaseObserver<Reflect> observer) {
+        protected final synchronized void removeObserver(BaseObserver observer) {
             observers.remove(observer);
         }
 
         private synchronized void performOnMatch() {
             var m = match;
             if (m != null) {
-                for (BaseObserver<Reflect> observer : observers.keySet()) {
+                for (BaseObserver observer : observers.keySet()) {
                     if (observer instanceof MatchObserver)
                         ((MatchObserver<Reflect>) observer).onMatch(m);
                 }
@@ -2169,8 +2121,8 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         private synchronized void performOnMiss() {
-            for (BaseObserver<Reflect> observer : observers.keySet()) {
-                if (observer instanceof MissObserver) ((MissObserver<Reflect>) observer).onMiss();
+            for (BaseObserver observer : observers.keySet()) {
+                if (observer instanceof MissObserver) ((MissObserver) observer).onMiss();
             }
         }
 
@@ -2181,7 +2133,7 @@ final class HookBuilderImpl implements HookBuilder {
             if (match instanceof AccessibleObject) {
                 ((AccessibleObject) match).setAccessible(true);
             } else if (match instanceof ParameterImpl) {
-                ((AccessibleObject) ((ParameterImpl) match).declaringExecutable).setAccessible(true);
+                ((AccessibleObject) ((ParameterImpl) match).getDeclaringExecutable()).setAccessible(true);
             }
             executorService.submit(this::performOnMatch);
         }
@@ -2222,7 +2174,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         protected ClassMatcherImpl newFirstMatcher() {
-            return new ClassMatcherImpl(true);
+            return new ClassMatcherImpl(rootMatcher, true);
         }
 
         @NonNull
@@ -2358,7 +2310,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         protected ParameterMatcherImpl newFirstMatcher() {
-            return new ParameterMatcherImpl(true);
+            return new ParameterMatcherImpl(rootMatcher, true);
         }
 
         @Override
@@ -2422,7 +2374,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         protected FieldMatcherImpl newFirstMatcher() {
-            return new FieldMatcherImpl(true);
+            return new FieldMatcherImpl(rootMatcher, true);
         }
 
         @Override
@@ -2481,7 +2433,6 @@ final class HookBuilderImpl implements HookBuilder {
             return m;
         }
 
-        @RequiresApi(api = Build.VERSION_CODES.O)
         @NonNull
         @Override
         public ParameterLazySequence getParameters() {
@@ -2558,7 +2509,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         protected MethodMatcherImpl newFirstMatcher() {
-            return new MethodMatcherImpl(true);
+            return new MethodMatcherImpl(rootMatcher, true);
         }
 
         @Override
@@ -2598,7 +2549,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         @Override
         protected ConstructorMatcherImpl newFirstMatcher() {
-            return new ConstructorMatcherImpl(true);
+            return new ConstructorMatcherImpl(rootMatcher, true);
         }
 
         @Override
@@ -2629,7 +2580,7 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public MethodLazySequence methods(@NonNull Consumer<MethodMatcher> matcher) {
-        final var m = new MethodMatcherImpl(false);
+        final var m = new MethodMatcherImpl(null, false);
         matcher.accept(m);
         return m.build();
     }
@@ -2637,7 +2588,7 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public MethodMatch firstMethod(@NonNull Consumer<MethodMatcher> matcher) {
-        final var m = new MethodMatcherImpl(true);
+        final var m = new MethodMatcherImpl(null, true);
         matcher.accept(m);
         return m.build().first();
     }
@@ -2645,7 +2596,7 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public ConstructorLazySequence constructors(@NonNull Consumer<ConstructorMatcher> matcher) {
-        final var m = new ConstructorMatcherImpl(false);
+        final var m = new ConstructorMatcherImpl(null, false);
         matcher.accept(m);
         return m.build();
     }
@@ -2653,7 +2604,7 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public ConstructorMatch firstConstructor(@NonNull Consumer<ConstructorMatcher> matcher) {
-        final var m = new ConstructorMatcherImpl(true);
+        final var m = new ConstructorMatcherImpl(null, true);
         matcher.accept(m);
         return m.build().first();
     }
@@ -2661,7 +2612,7 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public FieldLazySequence fields(@NonNull Consumer<FieldMatcher> matcher) {
-        final var m = new FieldMatcherImpl(false);
+        final var m = new FieldMatcherImpl(null, false);
         matcher.accept(m);
         return m.build();
     }
@@ -2669,7 +2620,7 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public FieldMatch firstField(@NonNull Consumer<FieldMatcher> matcher) {
-        final var m = new FieldMatcherImpl(true);
+        final var m = new FieldMatcherImpl(null, true);
         matcher.accept(m);
         return m.build().first();
     }
@@ -2677,7 +2628,7 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public ClassLazySequence classes(@NonNull Consumer<ClassMatcher> matcher) {
-        final var m = new ClassMatcherImpl(false);
+        final var m = new ClassMatcherImpl(null, false);
         matcher.accept(m);
         return m.build();
     }
@@ -2685,7 +2636,7 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public ClassMatch firstClass(@NonNull Consumer<ClassMatcher> matcher) {
-        final var m = new ClassMatcherImpl(true);
+        final var m = new ClassMatcherImpl(null, true);
         matcher.accept(m);
         return m.build().first();
     }
@@ -2717,7 +2668,7 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public ClassMatch exactClass(@NonNull String name) {
-        final var m = new ClassMatcherImpl(true);
+        final var m = new ClassMatcherImpl(null, true);
         Class<?> exact;
         try {
             exact = reflector.loadClass(name);
@@ -2730,14 +2681,14 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public ClassMatch exact(@NonNull Class<?> clazz) {
-        final var m = new ClassMatcherImpl(true);
+        final var m = new ClassMatcherImpl(null, true);
         return m.build(clazz).first();
     }
 
     @NonNull
     @Override
     public MethodMatch exactMethod(@NonNull String signature) {
-        final var m = new MethodMatcherImpl(true);
+        final var m = new MethodMatcherImpl(null, true);
         @Nullable Method method;
         try {
             method = reflector.loadMethod(signature);
@@ -2750,14 +2701,14 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public MethodMatch exact(@NonNull Method method) {
-        final var m = new MethodMatcherImpl(true);
+        final var m = new MethodMatcherImpl(null, true);
         return m.build(method).first();
     }
 
     @NonNull
     @Override
     public ConstructorMatch exactConstructor(@NonNull String signature) {
-        final var m = new ConstructorMatcherImpl(true);
+        final var m = new ConstructorMatcherImpl(null, true);
         @Nullable Constructor<?> constructor;
         try {
             constructor = reflector.loadConstructor(signature);
@@ -2770,14 +2721,14 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public ConstructorMatch exact(@NonNull Constructor<?> constructor) {
-        final var m = new ConstructorMatcherImpl(true);
+        final var m = new ConstructorMatcherImpl(null, true);
         return m.build(constructor).first();
     }
 
     @NonNull
     @Override
     public FieldMatch exactField(@NonNull String signature) {
-        final var m = new FieldMatcherImpl(true);
+        final var m = new FieldMatcherImpl(null, true);
         @Nullable Field field;
         try {
             field = reflector.loadField(signature);
@@ -2790,7 +2741,7 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public FieldMatch exact(@NonNull Field field) {
-        final var m = new FieldMatcherImpl(true);
+        final var m = new FieldMatcherImpl(null, true);
         return m.build(field).first();
     }
 
@@ -3297,23 +3248,6 @@ final class HookBuilderImpl implements HookBuilder {
                         candidates = c;
                     }
                     constructorMatcher.doMatch(candidates);
-                });
-
-                tasks.add(task);
-            }
-            joinAndClearTasks(tasks);
-
-            for (final var parameterMatcher : rootParameterMatchers) {
-                if (parameterMatcher.leafCount.get() != 1) continue;
-                if (parameterMatcher.pending) continue;
-                hasMatched[0] = rootParameterMatchers.remove(parameterMatcher) || hasMatched[0];
-
-                final var task = executorService.submit(() -> {
-                    var candidates = parameterMatcher.candidates;
-                    if (candidates == null) {
-                        candidates = new ArrayList<>();
-                    }
-                    parameterMatcher.doMatch(candidates);
                 });
 
                 tasks.add(task);
