@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.lang.reflect.Member;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -149,7 +150,7 @@ final class MatchCache {
     @NonNull
     ConcurrentHashMap<String, HashSet<String>> constructorListCache = new ConcurrentHashMap<>();
     @NonNull
-    ConcurrentHashMap<String, HashSet<String>> parameterListCache = new ConcurrentHashMap<>();
+    ConcurrentHashMap<String, HashSet<AbstractMap.SimpleEntry<Integer, String>>> parameterListCache = new ConcurrentHashMap<>();
 
     @NonNull
     ConcurrentHashMap<String, String> classCache = new ConcurrentHashMap<>();
@@ -160,7 +161,7 @@ final class MatchCache {
     @NonNull
     ConcurrentHashMap<String, String> constructorCache = new ConcurrentHashMap<>();
     @NonNull
-    ConcurrentHashMap<String, String> parameterCache = new ConcurrentHashMap<>();
+    ConcurrentHashMap<String, AbstractMap.SimpleEntry<Integer, String>> parameterCache = new ConcurrentHashMap<>();
 }
 
 

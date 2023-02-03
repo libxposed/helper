@@ -25,6 +25,7 @@ import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -2941,13 +2942,13 @@ final class HookBuilderImpl implements HookBuilder {
                     matchCache.methodListCache = (ConcurrentHashMap<String, HashSet<String>>) in.readObject();
                     matchCache.fieldListCache = (ConcurrentHashMap<String, HashSet<String>>) in.readObject();
                     matchCache.constructorListCache = (ConcurrentHashMap<String, HashSet<String>>) in.readObject();
-                    matchCache.parameterListCache = (ConcurrentHashMap<String, HashSet<String>>) in.readObject();
+                    matchCache.parameterListCache = (ConcurrentHashMap<String, HashSet<AbstractMap.SimpleEntry<Integer, String>>>) in.readObject();
 
                     matchCache.classCache = (ConcurrentHashMap<String, String>) in.readObject();
                     matchCache.methodCache = (ConcurrentHashMap<String, String>) in.readObject();
                     matchCache.fieldCache = (ConcurrentHashMap<String, String>) in.readObject();
                     matchCache.constructorCache = (ConcurrentHashMap<String, String>) in.readObject();
-                    matchCache.parameterCache = (ConcurrentHashMap<String, String>) in.readObject();
+                    matchCache.parameterCache = (ConcurrentHashMap<String, AbstractMap.SimpleEntry<Integer, String>>) in.readObject();
                 }
             }
             if (cacheChecker != null) {
@@ -3023,8 +3024,17 @@ final class HookBuilderImpl implements HookBuilder {
             if (hit == null) continue;
             try {
                 var cache = e.getValue();
-                if (cache.isEmpty()) hit.miss();
-                // TODO
+                var methodName = cache.getValue();
+                var idx = cache.getKey();
+                if (methodName.isEmpty()) hit.miss();
+                var m = reflector.loadMethod(methodName);
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    var p = m.getParameters()[idx];
+                    hit.match(new ParameterImpl(idx, p.getType(), m, p.getModifiers()));
+                } else {
+                    var p = m.getParameterTypes()[idx];
+                    hit.match(new ParameterImpl(idx, p, m, 0));
+                }
             } catch (Throwable ex) {
                 hit.miss();
             }
@@ -3082,7 +3092,23 @@ final class HookBuilderImpl implements HookBuilder {
             var hit = keyedParameterMatchers.get(e.getKey());
             if (hit == null) continue;
             try {
-                // TODO
+                var value = e.getValue();
+                if (value.isEmpty()) hit.miss();
+                var parameters = new ArrayList<Parameter>();
+                for (var v : value) {
+                    var methodName = v.getValue();
+                    var idx = v.getKey();
+                    if (methodName.isEmpty()) continue;
+                    var m = reflector.loadMethod(methodName);
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        var p = m.getParameters()[idx];
+                        parameters.add(new ParameterImpl(idx, p.getType(), m, p.getModifiers()));
+                    } else {
+                        var p = m.getParameterTypes()[idx];
+                        parameters.add(new ParameterImpl(idx, p, m, 0));
+                    }
+                }
+                hit.match(parameters);
             } catch (Throwable ex) {
                 if (exceptionHandler != null) {
                     exceptionHandler.test(ex);
