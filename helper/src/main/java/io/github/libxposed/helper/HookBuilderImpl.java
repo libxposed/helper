@@ -2801,7 +2801,7 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private void analysisDex() {
-        var dexes = new ArrayList<DexParser>();
+        var parsers = new ArrayList<DexParser>();
         try (var apk = new ZipFile(sourcePath)) {
             for (var i = 0; ; ++i) {
                 var dex = apk.getEntry("classes" + (i == 0 ? "" : i + 1) + ".dex");
@@ -2812,14 +2812,14 @@ final class HookBuilderImpl implements HookBuilder {
                         throw new IOException("read dex failed");
                     }
                 }
-                dexes.add(ctx.parseDex(buf, false));
+                parsers.add(ctx.parseDex(buf, false));
             }
         } catch (Throwable e) {
             if (exceptionHandler != null) exceptionHandler.test(e);
             return;
         }
         var tasks = new ArrayList<Future<?>>();
-        for (var dex : dexes) {
+        for (var dex : parsers) {
             tasks.add(executorService.submit(() -> dex.visitDefinedClasses(new DexParser.ClassVisitor() {
                 @Nullable
                 @Override
@@ -2835,9 +2835,9 @@ final class HookBuilderImpl implements HookBuilder {
             })));
         }
         joinAndClearTasks(tasks);
-        for (var dex : dexes) {
+        for (var parser : parsers) {
             try {
-                dex.close();
+                parser.close();
             } catch (IOException e) {
                 if (exceptionHandler != null) {
                     exceptionHandler.test(e);
@@ -2846,39 +2846,8 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
-    // return first element that is greater than or equal to key
-    private static <T extends Comparable<T>> int binarySearchLowerBound(final List<T> list, T key) {
-        int low = 0, high = list.size() - 1;
-        while (low <= high) {
-            int mid = (low + high) >>> 1;
-            int cmp = list.get(mid).compareTo(key);
-            if (cmp < 0) low = mid + 1;
-            else if (cmp > 0) high = mid - 1;
-            else return mid;
-        }
-        return low;
-    }
-
-    private static <T extends Comparable<T>> ArrayList<T> merge(final List<T> a, final List<T> b) {
-        ArrayList<T> res = new ArrayList<>(a.size() + b.size());
-        int i = 0, j = 0;
-        while (i < a.size() && j < b.size()) {
-            int cmp = a.get(i).compareTo(b.get(j));
-            if (cmp < 0) res.add(a.get(i++));
-            else if (cmp > 0) res.add(b.get(j++));
-            else {
-                res.add(a.get(i++));
-                j++;
-            }
-        }
-        res.addAll(0, a);
-        while (i < a.size()) res.add(a.get(i++));
-        while (j < b.size()) res.add(b.get(j++));
-        return res;
-    }
-
-    private List<String> getAllClassNamesFromClassLoader() throws NoSuchFieldException, IllegalAccessException {
-        List<String> res = new ArrayList<>();
+    private TreeSetView<String> getAllClassNamesFromClassLoader() throws NoSuchFieldException, IllegalAccessException {
+        TreeSetView<String> res = TreeSetView.ofSorted(new String[0]);
         @SuppressWarnings("JavaReflectionMemberAccess") @SuppressLint("DiscouragedPrivateApi") var pathListField = BaseDexClassLoader.class.getDeclaredField("pathList");
         pathListField.setAccessible(true);
         final var pathList = pathListField.get(classLoader);
@@ -2906,7 +2875,7 @@ final class HookBuilderImpl implements HookBuilder {
             }
             // entries are sorted
             // perform O(N) merge so that we can have a sorted result and remove duplicates
-            res = merge(res, Collections.list(entries));
+            res = res.merge(TreeSetView.ofSorted(Collections.list(entries)));
         }
         return res;
     }
@@ -3118,7 +3087,7 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private void analysisClassLoader() {
-        final List<String> classNames;
+        final TreeSetView<String> classNames;
         try {
             classNames = getAllClassNamesFromClassLoader();
         } catch (Throwable e) {
@@ -3140,25 +3109,21 @@ final class HookBuilderImpl implements HookBuilder {
                 final var task = executorService.submit(() -> {
                     var candidates = classMatcher.candidates;
                     if (candidates == null) {
-                        int low = 0, high = classNames.size() - 1;
+                        TreeSetView<String> subset = classNames;
                         if (classMatcher.name != null) {
                             final var nameMatcher = classMatcher.name.matcher;
-                            if (nameMatcher.prefix != null) {
-                                low = binarySearchLowerBound(classNames, nameMatcher.prefix);
-                                high = binarySearchLowerBound(classNames, nameMatcher.prefix + Character.MAX_VALUE);
-                            }
                             if (nameMatcher.exact != null) {
-                                low = binarySearchLowerBound(classNames, nameMatcher.exact);
-                                if (low < classNames.size() && classNames.get(low).equals(nameMatcher.exact)) {
-                                    high = low + 1;
+                                if (classNames.contains(nameMatcher.exact)) {
+                                    subset = TreeSetView.ofSorted(new String[]{nameMatcher.exact});
                                 } else {
-                                    low = high + 1;
+                                    subset = TreeSetView.ofSorted(new String[0]);
                                 }
+                            } else if (nameMatcher.prefix != null) {
+                                subset = classNames.subSet(nameMatcher.prefix, nameMatcher.prefix + Character.MAX_VALUE);
                             }
                         }
-                        final ArrayList<Class<?>> c = new ArrayList<>(high - low);
-                        for (int i = low; i < high && i < classNames.size(); i++) {
-                            final var className = classNames.get(i);
+                        final ArrayList<Class<?>> c = new ArrayList<>(subset.size());
+                        for (final var className : subset) {
                             // then check the rest conditions that need to load the class
                             final Class<?> theClass;
                             try {
