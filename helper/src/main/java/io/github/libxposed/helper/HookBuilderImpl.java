@@ -1179,32 +1179,22 @@ final class HookBuilderImpl implements HookBuilder {
         private boolean operandTest(@NonNull Operand operand, @NonNull HashSet<Reflect> set, char operator) {
             if (operand.value instanceof ReflectMatchImpl) {
                 return set.contains(((ReflectMatchImpl<?, ?, Reflect, ?, ?>) operand.value).match);
-            } else if (operand.value instanceof StringMatchImpl) {
-                var m = ((StringMatchImpl) operand.value);
-                for (final var match : set) {
-                    if (m.doMatch(match.toString())) return true;
-                }
-                return false;
             } else if (operand.value instanceof LazySequence) {
                 final var matches = ((LazySequenceImpl<?, ?, Reflect, ?, ?, ?>) operand.value).matches;
                 if (matches == null) return false;
                 if (operator == '^') {
-                    for (final var match : matches) {
-                        if (!set.contains(match)) return false;
-                    }
+                    for (final var match : matches) if (!set.contains(match)) return false;
                     return true;
                 } else if (operator == 'v') {
-                    for (final var match : matches) {
-                        if (set.contains(match)) return true;
-                    }
+                    for (final var match : matches) if (set.contains(match)) return true;
                 }
                 return false;
-            } else {
+            } else if (operand.value instanceof ReflectSyntaxImpl) {
                 return ((ReflectSyntaxImpl<?, ?, Reflect>) operand.value).test(set);
             }
+            return false;
         }
 
-        // TODO: instead of hash set, we should use a sorted set so that we can perform binary search
         private boolean test(@NonNull HashSet<Reflect> set) {
             if (operands instanceof BaseSyntaxImpl.BinaryOperands) {
                 BinaryOperands binaryOperands = (BinaryOperands) operands;
@@ -1298,7 +1288,6 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private final class StringSyntaxImpl extends BaseSyntaxImpl<StringMatch, StringMatchImpl, String> implements Syntax<StringMatch> {
-
         private StringSyntaxImpl(@NonNull Syntax<StringMatch> operand, char operator) {
             super(operand, operator);
         }
@@ -1318,6 +1307,43 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         Syntax<StringMatch> newSelf(@Nullable Syntax<StringMatch> other, char operator) {
             return other == null ? new StringSyntaxImpl(this, operator) : new StringSyntaxImpl(this, other, operator);
+        }
+
+        private boolean operandTest(Operand operand, TreeSetView<String> set) {
+            if (operand.value instanceof StringMatchImpl) {
+                var matcher = ((StringMatchImpl) operand.value).matcher;
+                if (matcher.exact != null) {
+                    return set.contains(matcher.exact);
+                } else if (matcher.prefix != null) {
+                    return !set.subSet(matcher.prefix, matcher.prefix + Character.MAX_VALUE).isEmpty();
+                }
+            } else if (operand.value instanceof StringSyntaxImpl) {
+                return ((StringSyntaxImpl) operand.value).test(set);
+            }
+            return false;
+        }
+
+        private boolean test(TreeSetView<String> set) {
+            if (operands instanceof BaseSyntaxImpl.BinaryOperands) {
+                BinaryOperands binaryOperands = (BinaryOperands) operands;
+                char operator = binaryOperands.operator;
+                boolean leftMatch = operandTest(binaryOperands.left, set);
+                if ((!leftMatch && operator == '&')) {
+                    return false;
+                } else if (leftMatch && operator == '|') {
+                    return true;
+                }
+                return operandTest(binaryOperands.right, set);
+            } else if (operands instanceof BaseSyntaxImpl.UnaryOperands) {
+                UnaryOperands unaryOperands = (UnaryOperands) operands;
+                boolean match = operandTest(unaryOperands.operand, set);
+                if (unaryOperands.operator == '!' || unaryOperands.operator == '-') {
+                    return !match;
+                } else if (unaryOperands.operator == '+') {
+                    return match;
+                }
+            }
+            return false;
         }
     }
 
