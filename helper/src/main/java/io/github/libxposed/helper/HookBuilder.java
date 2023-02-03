@@ -102,15 +102,15 @@ public interface HookBuilder {
         Self setIsPackage(boolean isPackage);
     }
 
-    interface ContainerSyntax<Match extends BaseMatch<Match, ?>> {
+    interface Syntax<Match extends BaseMatch<Match, ?>> {
         @NonNull
-        ContainerSyntax<Match> and(@NonNull ContainerSyntax<Match> predicate);
+        Syntax<Match> and(@NonNull Syntax<Match> predicate);
 
         @NonNull
-        ContainerSyntax<Match> or(@NonNull ContainerSyntax<Match> predicate);
+        Syntax<Match> or(@NonNull Syntax<Match> predicate);
 
         @NonNull
-        ContainerSyntax<Match> not();
+        Syntax<Match> not();
     }
 
     interface ClassMatcher extends ReflectMatcher<ClassMatcher> {
@@ -121,7 +121,7 @@ public interface HookBuilder {
         ClassMatcher setSuperClass(@NonNull ClassMatch superClassMatch);
 
         @NonNull
-        ClassMatcher setContainsInterfaces(@NonNull ContainerSyntax<ClassMatch> syntax);
+        ClassMatcher setContainsInterfaces(@NonNull Syntax<ClassMatch> syntax);
 
         @NonNull
         ClassMatcher setIsAbstract(boolean isAbstract);
@@ -199,27 +199,27 @@ public interface HookBuilder {
         Self setParameterCount(int count);
 
         @NonNull
-        Self setParameters(@NonNull ContainerSyntax<ParameterMatch> parameters);
+        Self setParameters(@NonNull Syntax<ParameterMatch> parameters);
 
         @DexAnalysis
         @NonNull
-        Self setReferredStrings(@NonNull ContainerSyntax<StringMatch> referredStrings);
+        Self setReferredStrings(@NonNull Syntax<StringMatch> referredStrings);
 
         @DexAnalysis
         @NonNull
-        Self setAssignedFields(@NonNull ContainerSyntax<FieldMatch> assignedFields);
+        Self setAssignedFields(@NonNull Syntax<FieldMatch> assignedFields);
 
         @DexAnalysis
         @NonNull
-        Self setAccessedFields(@NonNull ContainerSyntax<FieldMatch> accessedFields);
+        Self setAccessedFields(@NonNull Syntax<FieldMatch> accessedFields);
 
         @DexAnalysis
         @NonNull
-        Self setInvokedMethods(@NonNull ContainerSyntax<MethodMatch> invokedMethods);
+        Self setInvokedMethods(@NonNull Syntax<MethodMatch> invokedMethods);
 
         @DexAnalysis
         @NonNull
-        Self setInvokedConstructors(@NonNull ContainerSyntax<ConstructorMatch> invokedConstructors);
+        Self setInvokedConstructors(@NonNull Syntax<ConstructorMatch> invokedConstructors);
 
         @DexAnalysis
         @NonNull
@@ -229,16 +229,16 @@ public interface HookBuilder {
         Self setIsVarargs(boolean isVarargs);
 
         @NonNull
-        ContainerSyntax<ParameterMatch> conjunction(@NonNull ClassMatch... types);
+        Syntax<ParameterMatch> conjunction(@NonNull ClassMatch... types);
 
         @NonNull
-        ContainerSyntax<ParameterMatch> conjunction(@NonNull Class<?>... types);
+        Syntax<ParameterMatch> conjunction(@NonNull Class<?>... types);
 
         @NonNull
-        ContainerSyntax<ParameterMatch> observe(int index, @NonNull ClassMatch types);
+        Syntax<ParameterMatch> observe(int index, @NonNull ClassMatch types);
 
         @NonNull
-        ContainerSyntax<ParameterMatch> observe(int index, @NonNull Class<?> types);
+        Syntax<ParameterMatch> observe(int index, @NonNull Class<?> types);
 
         @NonNull
         ParameterMatch firstParameter(@NonNull Consumer<ParameterMatcher> consumer);
@@ -275,10 +275,10 @@ public interface HookBuilder {
 
     interface BaseMatch<Self extends BaseMatch<Self, Reflect>, Reflect> {
         @NonNull
-        ContainerSyntax<Self> observe();
+        Syntax<Self> observe();
 
         @NonNull
-        ContainerSyntax<Self> reverse();
+        Syntax<Self> reverse();
     }
 
     interface ReflectMatch<Self extends ReflectMatch<Self, Reflect, Matcher>, Reflect, Matcher extends ReflectMatcher<Matcher>> extends BaseMatch<Self, Reflect> {
@@ -392,10 +392,10 @@ public interface HookBuilder {
         Self onMiss(@NonNull Runnable runnable);
 
         @NonNull
-        ContainerSyntax<Match> conjunction();
+        Syntax<Match> conjunction();
 
         @NonNull
-        ContainerSyntax<Match> disjunction();
+        Syntax<Match> disjunction();
 
         @NonNull
         Self substituteIfMiss(@NonNull Supplier<Self> substitute);

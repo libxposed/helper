@@ -362,7 +362,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         @NonNull
-        protected final <T extends ReflectContainerSyntaxImpl<M, ?, RR>, U extends ContainerSyntax<M>, M extends ReflectMatch<M, RR, ?>, RR> T addDependencies(@Nullable T field, @NonNull U input) {
+        protected final <T extends ReflectSyntaxImpl<M, ?, RR>, U extends Syntax<M>, M extends ReflectMatch<M, RR, ?>, RR> T addDependencies(@Nullable T field, @NonNull U input) {
             final var in = (T) input;
             if (field != null) {
                 field.removeObserver(dependencyCallback, leafCount);
@@ -432,7 +432,7 @@ final class HookBuilderImpl implements HookBuilder {
         private StringMatchImpl name = null;
 
         @Nullable
-        private ReflectContainerSyntaxImpl<ClassMatch, ?, Class<?>> containsInterfaces = null;
+        private ReflectSyntaxImpl<ClassMatch, ?, Class<?>> containsInterfaces = null;
 
         private ClassMatcherImpl(@Nullable ReflectMatcherImpl<?, ?, ?, ?> rootMatcher, boolean matchFirst) {
             super(rootMatcher, matchFirst);
@@ -487,7 +487,7 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        public ClassMatcher setContainsInterfaces(@NonNull ContainerSyntax<ClassMatch> consumer) {
+        public ClassMatcher setContainsInterfaces(@NonNull Syntax<ClassMatch> consumer) {
             ensureNotFinalized();
             this.containsInterfaces = addDependencies(this.containsInterfaces, consumer);
             return this;
@@ -744,25 +744,25 @@ final class HookBuilderImpl implements HookBuilder {
         protected int parameterCount = -1;
 
         @Nullable
-        protected ReflectContainerSyntaxImpl<ClassMatch, ?, Class<?>> parameterTypes = null;
+        protected ReflectSyntaxImpl<ClassMatch, ?, Class<?>> parameterTypes = null;
 
         @Nullable
-        protected ReflectContainerSyntaxImpl<ParameterMatch, ?, Parameter> parameters = null;
+        protected ReflectSyntaxImpl<ParameterMatch, ?, Parameter> parameters = null;
 
         @Nullable
-        protected StringContainerSyntaxImpl referredStrings = null;
+        protected StringSyntaxImpl referredStrings = null;
 
         @Nullable
-        protected ReflectContainerSyntaxImpl<FieldMatch, ?, Field> assignedFields = null;
+        protected ReflectSyntaxImpl<FieldMatch, ?, Field> assignedFields = null;
 
         @Nullable
-        protected ReflectContainerSyntaxImpl<FieldMatch, ?, Field> accessedFields = null;
+        protected ReflectSyntaxImpl<FieldMatch, ?, Field> accessedFields = null;
 
         @Nullable
-        protected ReflectContainerSyntaxImpl<MethodMatch, ?, Method> invokedMethods = null;
+        protected ReflectSyntaxImpl<MethodMatch, ?, Method> invokedMethods = null;
 
         @Nullable
-        protected ReflectContainerSyntaxImpl<ConstructorMatch, ?, Constructor<?>> invokedConstructors = null;
+        protected ReflectSyntaxImpl<ConstructorMatch, ?, Constructor<?>> invokedConstructors = null;
 
         @Nullable
         protected byte[] opcodes = null;
@@ -805,7 +805,7 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        public final Base setParameters(@NonNull ContainerSyntax<ParameterMatch> parameterTypes) {
+        public final Base setParameters(@NonNull Syntax<ParameterMatch> parameterTypes) {
             ensureNotFinalized();
             this.parameters = addDependencies(this.parameters, parameterTypes);
             return (Base) this;
@@ -814,17 +814,17 @@ final class HookBuilderImpl implements HookBuilder {
         @DexAnalysis
         @NonNull
         @Override
-        public final Base setReferredStrings(@NonNull ContainerSyntax<StringMatch> referredStrings) {
+        public final Base setReferredStrings(@NonNull Syntax<StringMatch> referredStrings) {
             ensureNotFinalized();
             dexAnalysis = true;
-            this.referredStrings = (StringContainerSyntaxImpl) referredStrings;
+            this.referredStrings = (StringSyntaxImpl) referredStrings;
             return (Base) this;
         }
 
         @DexAnalysis
         @NonNull
         @Override
-        public final Base setAssignedFields(@NonNull ContainerSyntax<FieldMatch> assignedFields) {
+        public final Base setAssignedFields(@NonNull Syntax<FieldMatch> assignedFields) {
             ensureNotFinalized();
             dexAnalysis = true;
             this.assignedFields = addDependencies(this.assignedFields, assignedFields);
@@ -834,7 +834,7 @@ final class HookBuilderImpl implements HookBuilder {
         @DexAnalysis
         @NonNull
         @Override
-        public final Base setAccessedFields(@NonNull ContainerSyntax<FieldMatch> accessedFields) {
+        public final Base setAccessedFields(@NonNull Syntax<FieldMatch> accessedFields) {
             ensureNotFinalized();
             dexAnalysis = true;
             this.accessedFields = addDependencies(this.accessedFields, accessedFields);
@@ -844,7 +844,7 @@ final class HookBuilderImpl implements HookBuilder {
         @DexAnalysis
         @NonNull
         @Override
-        public final Base setInvokedMethods(@NonNull ContainerSyntax<MethodMatch> invokedMethods) {
+        public final Base setInvokedMethods(@NonNull Syntax<MethodMatch> invokedMethods) {
             ensureNotFinalized();
             dexAnalysis = true;
             this.invokedMethods = addDependencies(this.invokedMethods, invokedMethods);
@@ -854,7 +854,7 @@ final class HookBuilderImpl implements HookBuilder {
         @DexAnalysis
         @NonNull
         @Override
-        public final Base setInvokedConstructors(@NonNull ContainerSyntax<ConstructorMatch> invokedConstructors) {
+        public final Base setInvokedConstructors(@NonNull Syntax<ConstructorMatch> invokedConstructors) {
             ensureNotFinalized();
             dexAnalysis = true;
             this.invokedConstructors = addDependencies(this.invokedConstructors, invokedConstructors);
@@ -880,7 +880,7 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        public ContainerSyntax<ParameterMatch> conjunction(@NonNull ClassMatch... types) {
+        public Syntax<ParameterMatch> conjunction(@NonNull ClassMatch... types) {
             var b = new LazyBind() {
                 ParameterLazySequenceImpl s = new ParameterLazySequenceImpl(rootMatcher);
                 ArrayList<Parameter> p = new ArrayList<>(types.length);
@@ -908,7 +908,7 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        public ContainerSyntax<ParameterMatch> conjunction(@NonNull Class<?>... types) {
+        public Syntax<ParameterMatch> conjunction(@NonNull Class<?>... types) {
             ParameterLazySequenceImpl s = new ParameterLazySequenceImpl(rootMatcher);
             ArrayList<Parameter> p = new ArrayList<>(types.length);
             for (int i = 0; i < types.length; i++) {
@@ -922,7 +922,7 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        public ContainerSyntax<ParameterMatch> observe(int index, @NonNull ClassMatch types) {
+        public Syntax<ParameterMatch> observe(int index, @NonNull ClassMatch types) {
             final var m = new ParameterMatchImpl(rootMatcher);
             m.index = index;
             types.onMatch(c -> m.match(new TypeOnlyParameter(index, c)));
@@ -931,7 +931,7 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        public ContainerSyntax<ParameterMatch> observe(int index, @NonNull Class<?> types) {
+        public Syntax<ParameterMatch> observe(int index, @NonNull Class<?> types) {
             final var m = new ParameterMatchImpl(rootMatcher);
             m.index = index;
             m.match(new TypeOnlyParameter(index, types));
@@ -1068,7 +1068,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
-    private abstract class BaseContainerSyntaxImpl<Match extends BaseMatch<Match, Reflect>, MatchImpl extends BaseMatchImpl<MatchImpl, Match, Reflect>, Reflect> implements ContainerSyntax<Match> {
+    private abstract class BaseSyntaxImpl<Match extends BaseMatch<Match, Reflect>, MatchImpl extends BaseMatchImpl<MatchImpl, Match, Reflect>, Reflect> implements Syntax<Match> {
         protected final class Operand {
             private @NonNull Object value;
 
@@ -1076,7 +1076,7 @@ final class HookBuilderImpl implements HookBuilder {
                 this.value = match;
             }
 
-            private Operand(@NonNull ContainerSyntax<Match> syntax) {
+            private Operand(@NonNull Syntax<Match> syntax) {
                 this.value = syntax;
             }
 
@@ -1115,65 +1115,65 @@ final class HookBuilderImpl implements HookBuilder {
 
         protected final @NonNull Operands operands;
 
-        private BaseContainerSyntaxImpl(@NonNull ContainerSyntax<Match> operand, char operator) {
+        private BaseSyntaxImpl(@NonNull Syntax<Match> operand, char operator) {
             this.operands = new UnaryOperands(new Operand(operand), operator);
         }
 
-        private <M extends ReflectMatch<M, Reflect, ?>, MI extends ReflectMatchImpl<MI, M, Reflect, ?, ?>> BaseContainerSyntaxImpl(@NonNull LazySequenceImpl<?, M, Reflect, ?, MI, ?> operand, char operator) {
+        private <M extends ReflectMatch<M, Reflect, ?>, MI extends ReflectMatchImpl<MI, M, Reflect, ?, ?>> BaseSyntaxImpl(@NonNull LazySequenceImpl<?, M, Reflect, ?, MI, ?> operand, char operator) {
             this.operands = new UnaryOperands(new Operand(operand), operator);
         }
 
-        private BaseContainerSyntaxImpl(@NonNull MatchImpl operand, char operator) {
+        private BaseSyntaxImpl(@NonNull MatchImpl operand, char operator) {
             this.operands = new UnaryOperands(new Operand(operand), operator);
         }
 
-        private BaseContainerSyntaxImpl(@NonNull ContainerSyntax<Match> left, @NonNull ContainerSyntax<Match> right, char operator) {
+        private BaseSyntaxImpl(@NonNull Syntax<Match> left, @NonNull Syntax<Match> right, char operator) {
             this.operands = new BinaryOperands(new Operand(left), new Operand(right), operator);
         }
 
-        abstract ContainerSyntax<Match> newSelf(@Nullable ContainerSyntax<Match> other, char operator);
+        abstract Syntax<Match> newSelf(@Nullable Syntax<Match> other, char operator);
 
         @NonNull
         @Override
-        public ContainerSyntax<Match> and(@NonNull ContainerSyntax<Match> other) {
+        public Syntax<Match> and(@NonNull Syntax<Match> other) {
             return newSelf(other, '&');
         }
 
         @NonNull
         @Override
-        public ContainerSyntax<Match> or(@NonNull ContainerSyntax<Match> other) {
+        public Syntax<Match> or(@NonNull Syntax<Match> other) {
             return newSelf(other, '|');
         }
 
         @NonNull
         @Override
-        public ContainerSyntax<Match> not() {
+        public Syntax<Match> not() {
             return newSelf(null, '!');
         }
     }
 
 
     @SuppressWarnings("unchecked")
-    private final class ReflectContainerSyntaxImpl<Match extends ReflectMatch<Match, Reflect, ?>, MatchImpl extends ReflectMatchImpl<MatchImpl, Match, Reflect, ?, ?>, Reflect> extends BaseContainerSyntaxImpl<Match, MatchImpl, Reflect> implements ContainerSyntax<Match> {
-        private ReflectContainerSyntaxImpl(@NonNull ContainerSyntax<Match> operand, char operator) {
+    private final class ReflectSyntaxImpl<Match extends ReflectMatch<Match, Reflect, ?>, MatchImpl extends ReflectMatchImpl<MatchImpl, Match, Reflect, ?, ?>, Reflect> extends BaseSyntaxImpl<Match, MatchImpl, Reflect> implements Syntax<Match> {
+        private ReflectSyntaxImpl(@NonNull Syntax<Match> operand, char operator) {
             super(operand, operator);
         }
 
-        private <M extends ReflectMatch<M, Reflect, ?>, MI extends ReflectMatchImpl<MI, M, Reflect, ?, ?>> ReflectContainerSyntaxImpl(@NonNull LazySequenceImpl<?, M, Reflect, ?, MI, ?> operand, char operator) {
+        private <M extends ReflectMatch<M, Reflect, ?>, MI extends ReflectMatchImpl<MI, M, Reflect, ?, ?>> ReflectSyntaxImpl(@NonNull LazySequenceImpl<?, M, Reflect, ?, MI, ?> operand, char operator) {
             super(operand, operator);
         }
 
-        private ReflectContainerSyntaxImpl(@NonNull MatchImpl operand, char operator) {
+        private ReflectSyntaxImpl(@NonNull MatchImpl operand, char operator) {
             super(operand, operator);
         }
 
-        private ReflectContainerSyntaxImpl(@NonNull ContainerSyntax<Match> left, @NonNull ContainerSyntax<Match> right, char operator) {
+        private ReflectSyntaxImpl(@NonNull Syntax<Match> left, @NonNull Syntax<Match> right, char operator) {
             super(left, right, operator);
         }
 
         @Override
-        ContainerSyntax<Match> newSelf(@Nullable ContainerSyntax<Match> other, char operator) {
-            return other == null ? new ReflectContainerSyntaxImpl<>(this, operator) : new ReflectContainerSyntaxImpl<>(this, other, operator);
+        Syntax<Match> newSelf(@Nullable Syntax<Match> other, char operator) {
+            return other == null ? new ReflectSyntaxImpl<>(this, operator) : new ReflectSyntaxImpl<>(this, other, operator);
         }
 
         private boolean operandTest(@NonNull Operand operand, @NonNull HashSet<Reflect> set, char operator) {
@@ -1200,13 +1200,13 @@ final class HookBuilderImpl implements HookBuilder {
                 }
                 return false;
             } else {
-                return ((ReflectContainerSyntaxImpl<?, ?, Reflect>) operand.value).test(set);
+                return ((ReflectSyntaxImpl<?, ?, Reflect>) operand.value).test(set);
             }
         }
 
         // TODO: instead of hash set, we should use a sorted set so that we can perform binary search
         private boolean test(@NonNull HashSet<Reflect> set) {
-            if (operands instanceof BaseContainerSyntaxImpl.BinaryOperands) {
+            if (operands instanceof BaseSyntaxImpl.BinaryOperands) {
                 BinaryOperands binaryOperands = (BinaryOperands) operands;
                 final var operator = binaryOperands.operator;
                 boolean leftMatch = operandTest(binaryOperands.left, set, operator);
@@ -1216,7 +1216,7 @@ final class HookBuilderImpl implements HookBuilder {
                     return true;
                 }
                 return operandTest(binaryOperands.left, set, operator);
-            } else if (operands instanceof BaseContainerSyntaxImpl.UnaryOperands) {
+            } else if (operands instanceof BaseSyntaxImpl.UnaryOperands) {
                 UnaryOperands unaryOperands = (UnaryOperands) operands;
                 final var operator = unaryOperands.operator;
                 boolean match = operandTest(unaryOperands.operand, set, operator);
@@ -1237,16 +1237,16 @@ final class HookBuilderImpl implements HookBuilder {
                 ((LazySequenceImpl<?, ?, Reflect, ?, ?, ?>) operand.value).addObserver((Observer<Iterable<Reflect>>) observer);
                 if (count != null) count.incrementAndGet();
             } else {
-                ((ReflectContainerSyntaxImpl<?, ?, Reflect>) operand.value).addObserver(observer, count);
+                ((ReflectSyntaxImpl<?, ?, Reflect>) operand.value).addObserver(observer, count);
             }
         }
 
         void addObserver(@NonNull Observer<?> observer, @Nullable AtomicInteger count) {
-            if (operands instanceof BaseContainerSyntaxImpl.BinaryOperands) {
+            if (operands instanceof BaseSyntaxImpl.BinaryOperands) {
                 BinaryOperands binaryOperands = (BinaryOperands) operands;
                 addObserver(binaryOperands.left, observer, count);
                 addObserver(binaryOperands.right, observer, count);
-            } else if (operands instanceof BaseContainerSyntaxImpl.UnaryOperands) {
+            } else if (operands instanceof BaseSyntaxImpl.UnaryOperands) {
                 UnaryOperands unaryOperands = (UnaryOperands) operands;
                 addObserver(unaryOperands.operand, observer, count);
             }
@@ -1260,16 +1260,16 @@ final class HookBuilderImpl implements HookBuilder {
                 ((LazySequenceImpl<?, ?, Reflect, ?, ?, ?>) operand.value).removeObserver((Observer<Iterable<Reflect>>) observer);
                 if (count != null) count.decrementAndGet();
             } else {
-                ((ReflectContainerSyntaxImpl<?, ?, Reflect>) operand.value).removeObserver(observer, count);
+                ((ReflectSyntaxImpl<?, ?, Reflect>) operand.value).removeObserver(observer, count);
             }
         }
 
         void removeObserver(@NonNull Observer<?> observer, @Nullable AtomicInteger count) {
-            if (operands instanceof BaseContainerSyntaxImpl.BinaryOperands) {
+            if (operands instanceof BaseSyntaxImpl.BinaryOperands) {
                 BinaryOperands binaryOperands = (BinaryOperands) operands;
                 removeObserver(binaryOperands.left, observer, count);
                 removeObserver(binaryOperands.right, observer, count);
-            } else if (operands instanceof BaseContainerSyntaxImpl.UnaryOperands) {
+            } else if (operands instanceof BaseSyntaxImpl.UnaryOperands) {
                 UnaryOperands unaryOperands = (UnaryOperands) operands;
                 removeObserver(unaryOperands.operand, observer, count);
             }
@@ -1281,43 +1281,43 @@ final class HookBuilderImpl implements HookBuilder {
             } else if (operand.value instanceof LazySequenceImpl) {
                 ((LazySequenceImpl<?, ?, Reflect, ?, ?, ?>) operand.value).rootMatcher.setNonPending();
             } else {
-                ((ReflectContainerSyntaxImpl<?, ?, Reflect>) operand.value).setNonPending();
+                ((ReflectSyntaxImpl<?, ?, Reflect>) operand.value).setNonPending();
             }
         }
 
         void setNonPending() {
-            if (operands instanceof BaseContainerSyntaxImpl.BinaryOperands) {
+            if (operands instanceof BaseSyntaxImpl.BinaryOperands) {
                 BinaryOperands binaryOperands = (BinaryOperands) operands;
                 setNonPending(binaryOperands.left);
                 setNonPending(binaryOperands.right);
-            } else if (operands instanceof BaseContainerSyntaxImpl.UnaryOperands) {
+            } else if (operands instanceof BaseSyntaxImpl.UnaryOperands) {
                 UnaryOperands unaryOperands = (UnaryOperands) operands;
                 setNonPending(unaryOperands.operand);
             }
         }
     }
 
-    private final class StringContainerSyntaxImpl extends BaseContainerSyntaxImpl<StringMatch, StringMatchImpl, String> implements ContainerSyntax<StringMatch> {
+    private final class StringSyntaxImpl extends BaseSyntaxImpl<StringMatch, StringMatchImpl, String> implements Syntax<StringMatch> {
 
-        private StringContainerSyntaxImpl(@NonNull ContainerSyntax<StringMatch> operand, char operator) {
+        private StringSyntaxImpl(@NonNull Syntax<StringMatch> operand, char operator) {
             super(operand, operator);
         }
 
-        private <M extends ReflectMatch<M, String, ?>, MI extends ReflectMatchImpl<MI, M, String, ?, ?>> StringContainerSyntaxImpl(@NonNull LazySequenceImpl<?, M, String, ?, MI, ?> operand, char operator) {
+        private <M extends ReflectMatch<M, String, ?>, MI extends ReflectMatchImpl<MI, M, String, ?, ?>> StringSyntaxImpl(@NonNull LazySequenceImpl<?, M, String, ?, MI, ?> operand, char operator) {
             super(operand, operator);
         }
 
-        private StringContainerSyntaxImpl(@NonNull StringMatchImpl operand, char operator) {
+        private StringSyntaxImpl(@NonNull StringMatchImpl operand, char operator) {
             super(operand, operator);
         }
 
-        private StringContainerSyntaxImpl(@NonNull ContainerSyntax<StringMatch> left, @NonNull ContainerSyntax<StringMatch> right, char operator) {
+        private StringSyntaxImpl(@NonNull Syntax<StringMatch> left, @NonNull Syntax<StringMatch> right, char operator) {
             super(left, right, operator);
         }
 
         @Override
-        ContainerSyntax<StringMatch> newSelf(@Nullable ContainerSyntax<StringMatch> other, char operator) {
-            return other == null ? new StringContainerSyntaxImpl(this, operator) : new StringContainerSyntaxImpl(this, other, operator);
+        Syntax<StringMatch> newSelf(@Nullable Syntax<StringMatch> other, char operator) {
+            return other == null ? new StringSyntaxImpl(this, operator) : new StringSyntaxImpl(this, other, operator);
         }
     }
 
@@ -1430,14 +1430,14 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        public final ContainerSyntax<Match> conjunction() {
-            return new ReflectContainerSyntaxImpl<>(this, '^');
+        public final Syntax<Match> conjunction() {
+            return new ReflectSyntaxImpl<>(this, '^');
         }
 
         @NonNull
         @Override
-        public final ContainerSyntax<Match> disjunction() {
-            return new ReflectContainerSyntaxImpl<>(this, 'v');
+        public final Syntax<Match> disjunction() {
+            return new ReflectSyntaxImpl<>(this, 'v');
         }
 
         @NonNull
@@ -2202,14 +2202,14 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        public final ContainerSyntax<Base> observe() {
-            return new ReflectContainerSyntaxImpl<>((Self) this, '+');
+        public final Syntax<Base> observe() {
+            return new ReflectSyntaxImpl<>((Self) this, '+');
         }
 
         @NonNull
         @Override
-        public final ContainerSyntax<Base> reverse() {
-            return new ReflectContainerSyntaxImpl<>((Self) this, '-');
+        public final Syntax<Base> reverse() {
+            return new ReflectSyntaxImpl<>((Self) this, '-');
         }
     }
 
@@ -2624,14 +2624,14 @@ final class HookBuilderImpl implements HookBuilder {
 
         @NonNull
         @Override
-        public ContainerSyntax<StringMatch> observe() {
-            return new StringContainerSyntaxImpl(this, '+');
+        public Syntax<StringMatch> observe() {
+            return new StringSyntaxImpl(this, '+');
         }
 
         @NonNull
         @Override
-        public ContainerSyntax<StringMatch> reverse() {
-            return new StringContainerSyntaxImpl(this, '-');
+        public Syntax<StringMatch> reverse() {
+            return new StringSyntaxImpl(this, '-');
         }
     }
 

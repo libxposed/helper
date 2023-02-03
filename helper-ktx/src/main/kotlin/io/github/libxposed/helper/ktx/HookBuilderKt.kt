@@ -69,14 +69,14 @@ class ParameterKt @PublishedApi internal constructor(@PublishedApi internal val 
         inline get() = parameter.index
 }
 
-class ContainerSyntaxKt<MatchKt, Match> @PublishedApi internal constructor(@PublishedApi internal val syntax: ContainerSyntax<Match>) where MatchKt : BaseMatchKt<MatchKt, Match, *>, Match : BaseMatch<Match, *> {
-    infix fun and(element: ContainerSyntaxKt<MatchKt, Match>) =
-        ContainerSyntaxKt<MatchKt, Match>(syntax.and(element.syntax))
+class SyntaxKt<MatchKt, Match> @PublishedApi internal constructor(@PublishedApi internal val syntax: Syntax<Match>) where MatchKt : BaseMatchKt<MatchKt, Match, *>, Match : BaseMatch<Match, *> {
+    infix fun and(element: SyntaxKt<MatchKt, Match>) =
+        SyntaxKt<MatchKt, Match>(syntax.and(element.syntax))
 
-    infix fun or(element: ContainerSyntaxKt<MatchKt, Match>) =
-        ContainerSyntaxKt<MatchKt, Match>(syntax.or(element.syntax))
+    infix fun or(element: SyntaxKt<MatchKt, Match>) =
+        SyntaxKt<MatchKt, Match>(syntax.or(element.syntax))
 
-    operator fun not() = ContainerSyntaxKt<MatchKt, Match>(syntax.not())
+    operator fun not() = SyntaxKt<MatchKt, Match>(syntax.not())
 }
 
 @Matcher
@@ -134,7 +134,7 @@ class ClassMatcherKt @PublishedApi internal constructor(matcher: ClassMatcher) :
         inline set(value) {
             matcher.setSuperClass(value.match)
         }
-    var containsInterfaces: ContainerSyntaxKt<ClassMatchKt, ClassMatch>
+    var containsInterfaces: SyntaxKt<ClassMatchKt, ClassMatch>
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = wo
@@ -310,7 +310,7 @@ sealed class ExecutableMatcherKt<Matcher>(matcher: Matcher) :
             matcher.setParameterCount(value)
         }
 
-    var parameters: ContainerSyntaxKt<ParameterMatchKt, ParameterMatch>
+    var parameters: SyntaxKt<ParameterMatchKt, ParameterMatch>
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = wo
@@ -319,7 +319,7 @@ sealed class ExecutableMatcherKt<Matcher>(matcher: Matcher) :
         }
 
     @DexAnalysis
-    var referredStrings: ContainerSyntaxKt<StringMatchKt, StringMatch>
+    var referredStrings: SyntaxKt<StringMatchKt, StringMatch>
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = wo
@@ -328,7 +328,7 @@ sealed class ExecutableMatcherKt<Matcher>(matcher: Matcher) :
         }
 
     @DexAnalysis
-    var assignedFields: ContainerSyntaxKt<FieldMatchKt, FieldMatch>
+    var assignedFields: SyntaxKt<FieldMatchKt, FieldMatch>
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = wo
@@ -337,7 +337,7 @@ sealed class ExecutableMatcherKt<Matcher>(matcher: Matcher) :
         }
 
     @DexAnalysis
-    var accessedFields: ContainerSyntaxKt<FieldMatchKt, FieldMatch>
+    var accessedFields: SyntaxKt<FieldMatchKt, FieldMatch>
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = wo
@@ -346,7 +346,7 @@ sealed class ExecutableMatcherKt<Matcher>(matcher: Matcher) :
         }
 
     @DexAnalysis
-    var invokedMethods: ContainerSyntaxKt<MethodMatchKt, MethodMatch>
+    var invokedMethods: SyntaxKt<MethodMatchKt, MethodMatch>
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = wo
@@ -355,7 +355,7 @@ sealed class ExecutableMatcherKt<Matcher>(matcher: Matcher) :
         }
 
     @DexAnalysis
-    var invokedConstructor: ContainerSyntaxKt<ConstructorMatchKt, ConstructorMatch>
+    var invokedConstructor: SyntaxKt<ConstructorMatchKt, ConstructorMatch>
         @Deprecated(
             "Write only", level = DeprecationLevel.HIDDEN
         ) inline get() = wo
@@ -381,10 +381,10 @@ sealed class ExecutableMatcherKt<Matcher>(matcher: Matcher) :
         }
 
     fun conjunction(vararg types: Class<*>?) =
-        ContainerSyntaxKt<ParameterMatchKt, ParameterMatch>(matcher.conjunction(*types))
+        SyntaxKt<ParameterMatchKt, ParameterMatch>(matcher.conjunction(*types))
 
     fun conjunction(vararg types: ClassMatchKt?) =
-        ContainerSyntaxKt<ParameterMatchKt, ParameterMatch>(matcher.conjunction(*types.map { it?.match }
+        SyntaxKt<ParameterMatchKt, ParameterMatch>(matcher.conjunction(*types.map { it?.match }
             .toTypedArray()))
 
     inline fun firstParameter(crossinline init: ParameterMatcherKt.() -> Unit) =
@@ -398,10 +398,10 @@ sealed class ExecutableMatcherKt<Matcher>(matcher: Matcher) :
         })
 
     operator fun Class<*>.get(index: Int) =
-        ContainerSyntaxKt<ParameterMatchKt, ParameterMatch>(matcher.observe(index, this))
+        SyntaxKt<ParameterMatchKt, ParameterMatch>(matcher.observe(index, this))
 
     operator fun ClassMatchKt.get(index: Int) =
-        ContainerSyntaxKt<ParameterMatchKt, ParameterMatch>(matcher.observe(index, this.match))
+        SyntaxKt<ParameterMatchKt, ParameterMatch>(matcher.observe(index, this.match))
 }
 
 class MethodMatcherKt @PublishedApi internal constructor(matcher: MethodMatcher) :
@@ -464,9 +464,9 @@ class ConstructorMatcherKt @PublishedApi internal constructor(matcher: Construct
 sealed class BaseMatchKt<Self, Match, Reflect>(
     @PublishedApi internal val match: Match
 ) where Self : BaseMatchKt<Self, Match, Reflect>, Match : BaseMatch<Match, Reflect> {
-    operator fun unaryPlus() = ContainerSyntaxKt<Self, Match>(match.observe())
+    operator fun unaryPlus() = SyntaxKt<Self, Match>(match.observe())
 
-    operator fun unaryMinus() = ContainerSyntaxKt<Self, Match>(match.reverse())
+    operator fun unaryMinus() = SyntaxKt<Self, Match>(match.reverse())
 }
 
 @Suppress("UNCHECKED_CAST")
@@ -653,9 +653,9 @@ sealed class LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, S
     @PublishedApi internal val seq: Seq
 ) where Self : LazySequenceKt<Self, MatchKt, Reflect, MatcherKt, Match, Matcher, Seq>, MatchKt : ReflectMatchKt<MatchKt, Match, Reflect, Matcher, MatcherKt>, Reflect : Any, MatcherKt : ReflectMatcherKt<Matcher>, Match : ReflectMatch<Match, Reflect, Matcher>, Matcher : ReflectMatcher<Matcher>, Seq : LazySequence<Seq, Match, Reflect, Matcher> {
     fun first() = newMatch(seq.first())
-    fun unaryPlus() = ContainerSyntaxKt<MatchKt, Match>(seq.conjunction())
+    fun unaryPlus() = SyntaxKt<MatchKt, Match>(seq.conjunction())
 
-    fun unaryMinus() = ContainerSyntaxKt<MatchKt, Match>(seq.disjunction())
+    fun unaryMinus() = SyntaxKt<MatchKt, Match>(seq.disjunction())
 
     inline fun all(crossinline init: MatcherKt.() -> Unit) = newSelf(seq.all {
         newMatcher(it).init()
