@@ -19,8 +19,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import dalvik.system.BaseDexClassLoader;
 import io.github.libxposed.api.XposedInterface;
@@ -29,7 +29,7 @@ import io.github.libxposed.api.XposedInterface;
 public interface HookBuilder {
 
     @NonNull
-    static CountDownLatch buildHooks(@NonNull XposedInterface ctx, @NonNull BaseDexClassLoader classLoader, @NonNull String sourcePath, Consumer<HookBuilder> consumer) {
+    static Future<?> buildHooks(@NonNull XposedInterface ctx, @NonNull BaseDexClassLoader classLoader, @NonNull String sourcePath, Consumer<HookBuilder> consumer) {
         var builder = new HookBuilderImpl(ctx, classLoader, sourcePath);
         consumer.accept(builder);
         return builder.build();

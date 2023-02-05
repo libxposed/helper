@@ -1,5 +1,7 @@
 package io.github.libxposed.helper;
 
+import android.os.Handler;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -13,14 +15,19 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 interface BaseObserver<T> {
     void update(T result);
@@ -121,13 +128,55 @@ final class ParameterImpl implements HookBuilder.Parameter {
 }
 
 abstract class SimpleExecutor {
-    abstract <T> Future<T> submit(Callable<T> task);
+    private final static Object VALUE = new Object();
+    private Map<Future<?>, Object> allTasks = new ConcurrentHashMap<>();
+
+
+    static SimpleExecutor of(@NonNull ExecutorService executor) {
+        return new SimpleExecutor() {
+            @Override
+            <T> Future<T> onSubmit(Callable<T> task) {
+                return executor.submit(task);
+            }
+        };
+    }
+
+    static SimpleExecutor of(@NonNull Handler handler) {
+        return new SimpleExecutor() {
+            @Override
+            <T> Future<T> onSubmit(Callable<T> task) {
+                var t = new FutureTask<T>(task);
+                handler.post(t);
+                return t;
+            }
+        };
+    }
+
+    abstract <T> Future<T> onSubmit(Callable<T> task);
+
+    <T> Future<T> submit(Callable<T> task) {
+        return onSubmit(() -> {
+            Future<T> future = onSubmit(task);
+            allTasks.put(future, VALUE);
+            var res = future.get();
+            allTasks.remove(future);
+            return res;
+        });
+    }
 
     final Future<?> submit(Runnable task) {
         return submit(() -> {
             task.run();
             return null;
         });
+    }
+
+    final void joinAll() throws ExecutionException, InterruptedException {
+        while (!allTasks.isEmpty()) for (var task : allTasks.keySet()) task.get();
+    }
+
+    final void joinAll(long timeout, TimeUnit unit) throws ExecutionException, InterruptedException, TimeoutException {
+        while (!allTasks.isEmpty()) for (var task : allTasks.keySet()) task.get(timeout, unit);
     }
 }
 
@@ -136,7 +185,7 @@ final class PendingExecutor extends SimpleExecutor {
     final List<FutureTask<?>> pendingTasks = new ArrayList<>();
 
     @Override
-    <T> Future<T> submit(Callable<T> task) {
+    <T> Future<T> onSubmit(Callable<T> task) {
         FutureTask<T> futureTask = new FutureTask<>(task);
         pendingTasks.add(futureTask);
         return futureTask;

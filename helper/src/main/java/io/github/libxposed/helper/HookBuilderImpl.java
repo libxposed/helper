@@ -3,7 +3,7 @@ package io.github.libxposed.helper;
 import android.annotation.SuppressLint;
 import android.os.Build;
 import android.os.Handler;
-import android.os.Looper;
+import android.os.HandlerThread;
 
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
@@ -38,15 +38,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipFile;
@@ -113,13 +112,13 @@ final class HookBuilderImpl implements HookBuilder {
     private boolean forceDexAnalysis = false;
     private boolean includeAnnotations = false;
     @NonNull
-    private SimpleExecutor executorService = new PendingExecutor();
+    private SimpleExecutor matchExecutor = new PendingExecutor();
     @Nullable
-    private SimpleExecutor userExecutorService = null;
+    private ExecutorService executorService = null;
     @NonNull
-    private SimpleExecutor callbackHandler = new PendingExecutor();
+    private SimpleExecutor callbackExecutor = new PendingExecutor();
     @Nullable
-    private SimpleExecutor userCallbackHandler = null;
+    private Handler callbackHandler = null;
     @Nullable
     private MatchCache matchCache = null;
 
@@ -152,26 +151,14 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public HookBuilder setExecutorService(@NonNull ExecutorService executorService) {
-        this.userExecutorService = new SimpleExecutor() {
-            @Override
-            <T> Future<T> submit(Callable<T> task) {
-                return executorService.submit(task);
-            }
-        };
+        this.executorService = executorService;
         return this;
     }
 
     @NonNull
     @Override
     public HookBuilder setCallbackHandler(@NonNull Handler callbackHandler) {
-        this.userCallbackHandler = new SimpleExecutor() {
-            @Override
-            public <T> Future<T> submit(Callable<T> task) {
-                final var t = new FutureTask<T>(task);
-                callbackHandler.post(t);
-                return t;
-            }
-        };
+        this.callbackHandler = callbackHandler;
         return this;
     }
 
@@ -371,47 +358,33 @@ final class HookBuilderImpl implements HookBuilder {
         return m.build(field).first();
     }
 
-    public @NonNull CountDownLatch build() {
+    public @NonNull Future<?> build() {
         dexAnalysis = dexAnalysis || forceDexAnalysis;
         loadMatchCache();
 
-        var pendingTasks = ((PendingExecutor) executorService).pendingTasks;
+        var pendingTasks = ((PendingExecutor) matchExecutor).pendingTasks;
 
-        if (userExecutorService == null) {
-            var e = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-            executorService = new SimpleExecutor() {
-                @Override
-                <T> Future<T> submit(Callable<T> task) {
-                    return e.submit(task);
-                }
-            };
-        } else {
-            executorService = userExecutorService;
+        if (executorService == null) {
+            executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
         }
+        matchExecutor = SimpleExecutor.of(executorService);
 
         var tasks = new ArrayList<Future<?>>(pendingTasks);
         for (var task : pendingTasks) {
-            tasks.add(executorService.submit(task));
+            tasks.add(matchExecutor.submit(task));
         }
         joinAndClearTasks(tasks);
 
-        pendingTasks = ((PendingExecutor) callbackHandler).pendingTasks;
+        pendingTasks = ((PendingExecutor) callbackExecutor).pendingTasks;
 
-        if (userCallbackHandler == null) {
-            var handler = new Handler(Looper.getMainLooper());
-            callbackHandler = new SimpleExecutor() {
-                @Override
-                <T> Future<T> submit(Callable<T> task) {
-                    var t = new FutureTask<>(task);
-                    handler.post(t);
-                    return t;
-                }
-            };
-        } else {
-            callbackHandler = userCallbackHandler;
+        HandlerThread handlerThread = callbackHandler == null ? new HandlerThread("CallbackThread") : null;
+        if (handlerThread != null) {
+            handlerThread.start();
+            callbackHandler = new Handler(handlerThread.getLooper());
         }
+        callbackExecutor = SimpleExecutor.of(callbackHandler);
         for (var task : pendingTasks) {
-            tasks.add(callbackHandler.submit(task));
+            tasks.add(callbackExecutor.submit(task));
         }
         joinAndClearTasks(tasks);
 
@@ -420,9 +393,44 @@ final class HookBuilderImpl implements HookBuilder {
         } else {
             analysisClassLoader();
         }
-        CountDownLatch latch = new CountDownLatch(1);
-        callbackHandler.submit(latch::countDown);
-        return latch;
+        return new Future<>() {
+            private volatile boolean done = false;
+
+            @Override
+            public boolean cancel(boolean mayInterruptIfRunning) {
+                return false;
+            }
+
+            @Override
+            public boolean isCancelled() {
+                return false;
+            }
+
+            @Override
+            public boolean isDone() {
+                return done;
+            }
+
+            @Override
+            public Object get() throws ExecutionException, InterruptedException {
+                matchExecutor.joinAll();
+                callbackExecutor.joinAll();
+                if (handlerThread != null) handlerThread.quitSafely();
+                done = true;
+                return null;
+            }
+
+            @Override
+            public Object get(long timeout, TimeUnit unit) throws ExecutionException, InterruptedException, TimeoutException {
+                var nanos = unit.toNanos(timeout);
+                var now = System.nanoTime();
+                matchExecutor.joinAll(timeout, unit);
+                callbackExecutor.joinAll(unit.convert(System.nanoTime() - now, TimeUnit.NANOSECONDS), unit);
+                if (handlerThread != null) handlerThread.quitSafely();
+                done = true;
+                return null;
+            }
+        };
     }
 
     private void analysisDex() {
@@ -444,7 +452,7 @@ final class HookBuilderImpl implements HookBuilder {
         }
         var tasks = new ArrayList<Future<?>>();
         for (var dex : parsers) {
-            tasks.add(executorService.submit(() -> dex.visitDefinedClasses(new DexParser.ClassVisitor() {
+            tasks.add(matchExecutor.submit(() -> dex.visitDefinedClasses(new DexParser.ClassVisitor() {
                 @Nullable
                 @Override
                 public DexParser.MemberVisitor visit(int clazz, int accessFlags, int superClass, @NonNull int[] interfaces, int sourceFile, @NonNull int[] staticFields, @NonNull int[] staticFieldsAccessFlags, @NonNull int[] instanceFields, @NonNull int[] instanceFieldsAccessFlags, @NonNull int[] directMethods, @NonNull int[] directMethodsAccessFlags, @NonNull int[] virtualMethods, @NonNull int[] virtualMethodsAccessFlags, @NonNull int[] annotations) {
@@ -746,7 +754,7 @@ final class HookBuilderImpl implements HookBuilder {
                 if (classMatcher.leafCount.get() != 1) continue;
                 if (classMatcher.pending) continue;
                 hasMatched[0] = rootClassMatchers.remove(classMatcher) || hasMatched[0];
-                final var task = executorService.submit(() -> {
+                final var task = matchExecutor.submit(() -> {
                     TreeSetView<String> subset = classNames;
                     if (classMatcher.name != null) {
                         final var nameMatcher = classMatcher.name.matcher;
@@ -784,7 +792,7 @@ final class HookBuilderImpl implements HookBuilder {
                 if (fieldMatcher.leafCount.get() != 1) continue;
                 if (fieldMatcher.pending) continue;
                 hasMatched[0] = rootFieldMatchers.remove(fieldMatcher) || hasMatched[0];
-                tasks.add(executorService.submit(() -> memberClassLists(fieldMatcher, Class::getDeclaredFields)));
+                tasks.add(matchExecutor.submit(() -> memberClassLists(fieldMatcher, Class::getDeclaredFields)));
             }
             joinAndClearTasks(tasks);
 
@@ -793,7 +801,7 @@ final class HookBuilderImpl implements HookBuilder {
                 if (methodMatcher.leafCount.get() != 1) continue;
                 if (methodMatcher.pending) continue;
                 hasMatched[0] = rootMethodMatchers.remove(methodMatcher) || hasMatched[0];
-                tasks.add(executorService.submit(() -> memberClassLists(methodMatcher, Class::getDeclaredMethods)));
+                tasks.add(matchExecutor.submit(() -> memberClassLists(methodMatcher, Class::getDeclaredMethods)));
             }
             joinAndClearTasks(tasks);
 
@@ -802,7 +810,7 @@ final class HookBuilderImpl implements HookBuilder {
                 if (constructorMatcher.leafCount.get() != 1) continue;
                 if (constructorMatcher.pending) continue;
                 hasMatched[0] = rootConstructorMatchers.remove(constructorMatcher) || hasMatched[0];
-                tasks.add(executorService.submit(() -> memberClassLists(constructorMatcher, Class::getDeclaredConstructors)));
+                tasks.add(matchExecutor.submit(() -> memberClassLists(constructorMatcher, Class::getDeclaredConstructors)));
             }
             joinAndClearTasks(tasks);
         } while (hasMatched[0]);
@@ -1988,7 +1996,7 @@ final class HookBuilderImpl implements HookBuilder {
             rootMatcher.setNonPending();
             addObserver(result -> {
                 if (result.iterator().hasNext())
-                    callbackHandler.submit(() -> consumer.accept(result));
+                    callbackExecutor.submit(() -> consumer.accept(result));
             });
             return (Base) this;
         }
@@ -1997,7 +2005,7 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         public final Base onMiss(@NonNull Runnable runnable) {
             addObserver((ListObserver<Reflect>) result -> {
-                if (result.isEmpty()) callbackHandler.submit(runnable);
+                if (result.isEmpty()) callbackExecutor.submit(runnable);
             });
             return (Base) this;
         }
@@ -2044,9 +2052,9 @@ final class HookBuilderImpl implements HookBuilder {
                 if (c == null) return;
                 final var old = c.decrementAndGet();
                 if (old >= 0) {
-                    callbackHandler.submit(() -> consumer.accept(bind, result));
+                    callbackExecutor.submit(() -> consumer.accept(bind, result));
                     if (old == 0) {
-                        callbackHandler.submit(bind::onMatch);
+                        callbackExecutor.submit(bind::onMatch);
                     }
                 }
             });
@@ -2061,14 +2069,14 @@ final class HookBuilderImpl implements HookBuilder {
                 }
             };
             if (matches.iterator().hasNext()) {
-                executorService.submit(runnable);
+                matchExecutor.submit(runnable);
             } else {
                 final var replacement = missReplacements.poll();
                 if (replacement != null) {
                     replacement.rootMatcher.setNonPending();
                     replacement.addObserver((ListObserver<Reflect>) this::match);
                 } else {
-                    executorService.submit(runnable);
+                    matchExecutor.submit(runnable);
                 }
             }
         }
@@ -2503,7 +2511,7 @@ final class HookBuilderImpl implements HookBuilder {
         public final Base onMatch(@NonNull Consumer<Reflect> consumer) {
             rootMatcher.setNonPending();
             addObserver(result -> {
-                if (result != null) callbackHandler.submit(() -> consumer.accept(result));
+                if (result != null) callbackExecutor.submit(() -> consumer.accept(result));
             });
             return (Base) this;
         }
@@ -2512,7 +2520,7 @@ final class HookBuilderImpl implements HookBuilder {
         @Override
         public Base onMiss(@NonNull Runnable handler) {
             addObserver(result -> {
-                if (result == null) callbackHandler.submit(handler);
+                if (result == null) callbackExecutor.submit(handler);
             });
             return (Base) this;
         }
@@ -2548,13 +2556,13 @@ final class HookBuilderImpl implements HookBuilder {
                 final var c = binds.get(bind);
                 if (c == null) return;
                 if (result == null) {
-                    if (c.getAndSet(0) > 0) callbackHandler.submit(bind::onMiss);
+                    if (c.getAndSet(0) > 0) callbackExecutor.submit(bind::onMiss);
                 } else {
                     final var old = c.decrementAndGet();
                     if (old >= 0) {
-                        callbackHandler.submit(() -> consumer.accept(bind, result));
+                        callbackExecutor.submit(() -> consumer.accept(bind, result));
                         if (old == 0) {
-                            callbackHandler.submit(bind::onMatch);
+                            callbackExecutor.submit(bind::onMatch);
                         }
                     }
                 }
@@ -2585,14 +2593,14 @@ final class HookBuilderImpl implements HookBuilder {
                 } else if (match instanceof ParameterImpl) {
                     ((AccessibleObject) ((ParameterImpl) match).getDeclaringExecutable()).setAccessible(true);
                 }
-                executorService.submit(runnable);
+                matchExecutor.submit(runnable);
             } else {
                 final var replacement = missReplacements.poll();
                 if (replacement != null) {
                     replacement.rootMatcher.setNonPending();
                     replacement.addObserver((ItemObserver<Reflect>) this::match);
                 } else {
-                    executorService.submit(runnable);
+                    matchExecutor.submit(runnable);
                 }
             }
         }
@@ -2709,12 +2717,8 @@ final class HookBuilderImpl implements HookBuilder {
 
         @Override
         protected void onKey(@Nullable String newKey, @Nullable String oldKey) {
-            if (oldKey != null) {
-                keyedParameterMatches.remove(oldKey);
-            }
-            if (newKey != null) {
-                keyedParameterMatches.put(newKey, this);
-            }
+            if (oldKey != null) keyedParameterMatches.remove(oldKey);
+            if (newKey != null) keyedParameterMatches.put(newKey, this);
         }
 
         @NonNull
@@ -2794,11 +2798,11 @@ final class HookBuilderImpl implements HookBuilder {
         public ParameterLazySequence getParameters() {
             final var m = new ParameterLazySequenceImpl(rootMatcher);
             addObserver((ItemObserver<Reflect>) result -> {
-                final var parameters = new ArrayList<Parameter>();
                 if (result == null) {
-                    m.match(parameters);
+                    m.match(Collections.emptyList());
                     return;
                 }
+                final var parameters = new ArrayList<Parameter>();
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     final var p = ((Executable) result).getParameters();
                     for (int i = 0; i < p.length; i++) {
