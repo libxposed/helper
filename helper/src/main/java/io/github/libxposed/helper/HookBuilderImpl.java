@@ -422,7 +422,10 @@ final class HookBuilderImpl implements HookBuilder {
                     for (var task : pendingTasks) {
                         try {
                             task.run();
-                        } catch (Throwable ignored) {
+                        } catch (Throwable e) {
+                            if (exceptionHandler != null) {
+                                exceptionHandler.test(e);
+                            }
                         }
                     }
                 } else {
@@ -450,7 +453,10 @@ final class HookBuilderImpl implements HookBuilder {
                         }
                         try {
                             task.run();
-                        } catch (Throwable ignored) {
+                        } catch (Throwable e) {
+                            if (exceptionHandler != null) {
+                                exceptionHandler.test(e);
+                            }
                         }
                     }
                 } else {
