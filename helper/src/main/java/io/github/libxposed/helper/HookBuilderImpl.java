@@ -3,7 +3,7 @@ package io.github.libxposed.helper;
 import android.annotation.SuppressLint;
 import android.os.Build;
 import android.os.Handler;
-import android.os.HandlerThread;
+import android.os.Looper;
 
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
@@ -377,12 +377,11 @@ final class HookBuilderImpl implements HookBuilder {
 
         pendingTasks = ((PendingExecutor) callbackExecutor).pendingTasks;
 
-        HandlerThread handlerThread = callbackHandler == null ? new HandlerThread("CallbackThread") : null;
-        if (handlerThread != null) {
-            handlerThread.start();
-            callbackHandler = new Handler(handlerThread.getLooper());
+        if (callbackHandler == null) {
+            callbackExecutor = new PendingExecutor();
+        } else {
+            callbackExecutor = SimpleExecutor.of(callbackHandler);
         }
-        callbackExecutor = SimpleExecutor.of(callbackHandler);
         for (var task : pendingTasks) {
             tasks.add(callbackExecutor.submit(task));
         }
@@ -414,8 +413,20 @@ final class HookBuilderImpl implements HookBuilder {
             @Override
             public Object get() throws ExecutionException, InterruptedException {
                 matchExecutor.joinAll();
-                callbackExecutor.joinAll();
-                if (handlerThread != null) handlerThread.quitSafely();
+                if (callbackHandler != null && callbackHandler.getLooper() == Looper.myLooper()) {
+                    throw new InterruptedException("dead lock");
+                }
+                if (callbackExecutor instanceof PendingExecutor) {
+                    var pendingTasks = ((PendingExecutor) callbackExecutor).pendingTasks;
+                    for (var task : pendingTasks) {
+                        try {
+                            task.run();
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                } else {
+                    callbackExecutor.joinAll();
+                }
                 done = true;
                 return null;
             }
@@ -425,8 +436,24 @@ final class HookBuilderImpl implements HookBuilder {
                 var nanos = unit.toNanos(timeout);
                 var now = System.nanoTime();
                 matchExecutor.joinAll(timeout, unit);
-                callbackExecutor.joinAll(unit.convert(System.nanoTime() - now, TimeUnit.NANOSECONDS), unit);
-                if (handlerThread != null) handlerThread.quitSafely();
+                if (callbackHandler != null && callbackHandler.getLooper() == Looper.myLooper()) {
+                    throw new InterruptedException("dead lock");
+                }
+                if (callbackExecutor instanceof PendingExecutor) {
+                    var pendingTasks = ((PendingExecutor) callbackExecutor).pendingTasks;
+                    for (var task : pendingTasks) {
+                        nanos -= System.nanoTime() - now;
+                        if (nanos <= 0) {
+                            throw new TimeoutException();
+                        }
+                        try {
+                            task.run();
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                } else {
+                    callbackExecutor.joinAll(nanos - (System.nanoTime() - now), TimeUnit.NANOSECONDS);
+                }
                 done = true;
                 return null;
             }
