@@ -22,18 +22,21 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 
-interface BaseObserver {
+interface BaseObserver<T> {
+    void update(T result);
 }
 
-interface MatchObserver<T> extends BaseObserver {
-    void onMatch(@NonNull T result);
+interface ItemObserver<T> extends BaseObserver<T> {
+    void update(@Nullable T result);
 }
 
-interface MissObserver extends BaseObserver {
-    void onMiss();
+interface ListObserver<T> extends BaseObserver<Collection<T>> {
+    void update(@NonNull Collection<T> result);
 }
 
-interface Observer<T> extends MatchObserver<T>, MissObserver {
+interface Transformer<T, U> {
+    @NonNull
+    U transform(@NonNull T input);
 }
 
 final class TypeOnlyParameter implements HookBuilder.Parameter {

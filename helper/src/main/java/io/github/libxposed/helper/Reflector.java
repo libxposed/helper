@@ -7,6 +7,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -311,7 +312,7 @@ final class Reflector {
     }
 
     @NonNull
-    Iterable<Class<?>> loadClasses(Iterable<String> classNames) throws ClassNotFoundException {
+    Collection<Class<?>> loadClasses(Collection<String> classNames) throws ClassNotFoundException {
         ArrayList<Class<?>> classes = new ArrayList<>();
         for (String className : classNames) {
             classes.add(loadClass(className));
@@ -320,7 +321,7 @@ final class Reflector {
     }
 
     @NonNull
-    Iterable<Field> loadFields(Iterable<String> fieldStrings) throws ClassNotFoundException, NoSuchFieldException {
+    Collection<Field> loadFields(Collection<String> fieldStrings) throws ClassNotFoundException, NoSuchFieldException {
         ArrayList<Field> fields = new ArrayList<>();
         for (String fieldString : fieldStrings) {
             fields.add(loadField(fieldString));
@@ -329,7 +330,7 @@ final class Reflector {
     }
 
     @NonNull
-    Iterable<Method> loadMethods(Iterable<String> methodStrings) throws ClassNotFoundException, NoSuchMethodException {
+    Collection<Method> loadMethods(Collection<String> methodStrings) throws ClassNotFoundException, NoSuchMethodException {
         ArrayList<Method> methods = new ArrayList<>();
         for (String methodString : methodStrings) {
             methods.add(loadMethod(methodString));
@@ -338,7 +339,7 @@ final class Reflector {
     }
 
     @NonNull
-    Iterable<Constructor<?>> loadConstructors(Iterable<String> constructorStrings) throws ClassNotFoundException, NoSuchMethodException {
+    Collection<Constructor<?>> loadConstructors(Collection<String> constructorStrings) throws ClassNotFoundException, NoSuchMethodException {
         ArrayList<Constructor<?>> constructors = new ArrayList<>();
         for (String constructorString : constructorStrings) {
             constructors.add(loadConstructor(constructorString));

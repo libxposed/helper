@@ -146,13 +146,6 @@ public interface HookBuilder {
         boolean test(@NonNull T t);
     }
 
-    @FunctionalInterface
-    interface MatchConsumer<T, U> {
-        @NonNull
-        U accept(@NonNull T t);
-    }
-
-
     @RequiresOptIn(level = RequiresOptIn.Level.ERROR)
     @Retention(RetentionPolicy.CLASS)
     @Target({ElementType.METHOD})
