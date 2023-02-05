@@ -44,6 +44,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -412,6 +413,16 @@ final class HookBuilderImpl implements HookBuilder {
                 return done;
             }
 
+            private void runTasks(@NonNull FutureTask<?> task) {
+                try {
+                    task.run();
+                } catch (Throwable e) {
+                    if (exceptionHandler != null) {
+                        exceptionHandler.test(e);
+                    }
+                }
+            }
+
             @Override
             public Object get() throws ExecutionException, InterruptedException {
                 if (callbackHandler != null && callbackHandler.getLooper() == Looper.myLooper()) {
@@ -420,13 +431,7 @@ final class HookBuilderImpl implements HookBuilder {
                 if (callbackExecutor instanceof PendingExecutor) {
                     var pendingTasks = ((PendingExecutor) callbackExecutor).pendingTasks;
                     for (var task : pendingTasks) {
-                        try {
-                            task.run();
-                        } catch (Throwable e) {
-                            if (exceptionHandler != null) {
-                                exceptionHandler.test(e);
-                            }
-                        }
+                        runTasks(task);
                     }
                 } else {
                     callbackExecutor.joinAll();
@@ -448,16 +453,8 @@ final class HookBuilderImpl implements HookBuilder {
                         var last = now;
                         now = System.nanoTime();
                         nanos -= now - last;
-                        if (nanos <= 0) {
-                            throw new TimeoutException();
-                        }
-                        try {
-                            task.run();
-                        } catch (Throwable e) {
-                            if (exceptionHandler != null) {
-                                exceptionHandler.test(e);
-                            }
-                        }
+                        if (nanos <= 0) throw new TimeoutException();
+                        runTasks(task);
                     }
                 } else {
                     callbackExecutor.joinAll(nanos - (System.nanoTime() - now), TimeUnit.NANOSECONDS);
