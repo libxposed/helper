@@ -1,7 +1,6 @@
 package io.github.libxposed.helper;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
