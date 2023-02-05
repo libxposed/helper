@@ -28,6 +28,92 @@ import io.github.libxposed.api.XposedInterface;
 @SuppressWarnings("unused")
 public interface HookBuilder {
 
+    @NonNull
+    static CountDownLatch buildHooks(@NonNull XposedInterface ctx, @NonNull BaseDexClassLoader classLoader, @NonNull String sourcePath, Consumer<HookBuilder> consumer) {
+        var builder = new HookBuilderImpl(ctx, classLoader, sourcePath);
+        consumer.accept(builder);
+        return builder.build();
+    }
+
+    @DexAnalysis
+    @NonNull
+    HookBuilder setForceDexAnalysis(boolean forceDexAnalysis);
+
+    @NonNull
+    HookBuilder setExecutorService(@NonNull ExecutorService executorService);
+
+    @NonNull
+    HookBuilder setCallbackHandler(@NonNull Handler callbackHandler);
+
+    @NonNull
+    HookBuilder setCacheChecker(@NonNull Predicate<Map<String, Object>> cacheChecker);
+
+    @NonNull
+    HookBuilder setCacheInputStream(@NonNull InputStream cacheInputStream);
+
+    @NonNull
+    HookBuilder setCacheOutputStream(@NonNull OutputStream cacheOutputStream);
+
+    @NonNull
+    HookBuilder setExceptionHandler(@NonNull Predicate<Throwable> handler);
+
+    @NonNull
+    MethodLazySequence methods(@NonNull Consumer<MethodMatcher> matcher);
+
+    @NonNull
+    MethodMatch firstMethod(@NonNull Consumer<MethodMatcher> matcher);
+
+    @NonNull
+    ConstructorLazySequence constructors(@NonNull Consumer<ConstructorMatcher> matcher);
+
+    @NonNull
+    ConstructorMatch firstConstructor(@NonNull Consumer<ConstructorMatcher> matcher);
+
+    @NonNull
+    FieldLazySequence fields(@NonNull Consumer<FieldMatcher> matcher);
+
+    @NonNull
+    FieldMatch firstField(@NonNull Consumer<FieldMatcher> matcher);
+
+    @NonNull
+    ClassLazySequence classes(@NonNull Consumer<ClassMatcher> matcher);
+
+    @NonNull
+    ClassMatch firstClass(@NonNull Consumer<ClassMatcher> matcher);
+
+    @NonNull
+    StringMatch exact(@NonNull String string);
+
+    @NonNull
+    StringMatch prefix(@NonNull String prefix);
+
+    @NonNull
+    StringMatch firstPrefix(@NonNull String prefix);
+
+    @NonNull
+    ClassMatch exactClass(@NonNull String name);
+
+    @NonNull
+    ClassMatch exact(@NonNull Class<?> clazz);
+
+    @NonNull
+    MethodMatch exactMethod(@NonNull String signature);
+
+    @NonNull
+    MethodMatch exact(@NonNull Method method);
+
+    @NonNull
+    ConstructorMatch exactConstructor(@NonNull String signature);
+
+    @NonNull
+    ConstructorMatch exact(@NonNull Constructor<?> constructor);
+
+    @NonNull
+    FieldMatch exactField(@NonNull String signature);
+
+    @NonNull
+    FieldMatch exact(@NonNull Field field);
+
     // replacement for java.lang.reflect.Parameter that is not available before Android O
     interface Parameter {
         @NonNull
@@ -66,6 +152,7 @@ public interface HookBuilder {
         U accept(@NonNull T t);
     }
 
+
     @RequiresOptIn(level = RequiresOptIn.Level.ERROR)
     @Retention(RetentionPolicy.CLASS)
     @Target({ElementType.METHOD})
@@ -76,13 +163,6 @@ public interface HookBuilder {
     @Retention(RetentionPolicy.CLASS)
     @Target({ElementType.METHOD})
     @interface AnnotationAnalysis {
-    }
-
-    @NonNull
-    static CountDownLatch buildHooks(@NonNull XposedInterface ctx, @NonNull BaseDexClassLoader classLoader, @NonNull String sourcePath, Consumer<HookBuilder> consumer) {
-        var builder = new HookBuilderImpl(ctx, classLoader, sourcePath);
-        consumer.accept(builder);
-        return builder.build();
     }
 
     interface ReflectMatcher<Self extends ReflectMatcher<Self>> {
@@ -451,7 +531,6 @@ public interface HookBuilder {
         ClassMatch firstType(@NonNull Consumer<ClassMatcher> matcher);
     }
 
-
     interface ExecutableLazySequence<Self extends ExecutableLazySequence<Self, Match, Reflect, Matcher>, Match extends ExecutableMatch<Match, Reflect, Matcher>, Reflect extends Member, Matcher extends ExecutableMatcher<Matcher>> extends MemberLazySequence<Self, Match, Reflect, Matcher> {
         @NonNull
         ParameterLazySequence parameters(@NonNull Consumer<ParameterMatcher> matcher);
@@ -476,83 +555,4 @@ public interface HookBuilder {
 
         void onMiss();
     }
-
-    @DexAnalysis
-    @NonNull
-    HookBuilder setForceDexAnalysis(boolean forceDexAnalysis);
-
-    @NonNull
-    HookBuilder setExecutorService(@NonNull ExecutorService executorService);
-
-    @NonNull
-    HookBuilder setCallbackHandler(@NonNull Handler callbackHandler);
-
-    @NonNull
-    HookBuilder setCacheChecker(@NonNull Predicate<Map<String, Object>> cacheChecker);
-
-    @NonNull
-    HookBuilder setCacheInputStream(@NonNull InputStream cacheInputStream);
-
-    @NonNull
-    HookBuilder setCacheOutputStream(@NonNull OutputStream cacheOutputStream);
-
-    @NonNull
-    HookBuilder setExceptionHandler(@NonNull Predicate<Throwable> handler);
-
-    @NonNull
-    MethodLazySequence methods(@NonNull Consumer<MethodMatcher> matcher);
-
-    @NonNull
-    MethodMatch firstMethod(@NonNull Consumer<MethodMatcher> matcher);
-
-    @NonNull
-    ConstructorLazySequence constructors(@NonNull Consumer<ConstructorMatcher> matcher);
-
-    @NonNull
-    ConstructorMatch firstConstructor(@NonNull Consumer<ConstructorMatcher> matcher);
-
-    @NonNull
-    FieldLazySequence fields(@NonNull Consumer<FieldMatcher> matcher);
-
-    @NonNull
-    FieldMatch firstField(@NonNull Consumer<FieldMatcher> matcher);
-
-    @NonNull
-    ClassLazySequence classes(@NonNull Consumer<ClassMatcher> matcher);
-
-    @NonNull
-    ClassMatch firstClass(@NonNull Consumer<ClassMatcher> matcher);
-
-    @NonNull
-    StringMatch exact(@NonNull String string);
-
-    @NonNull
-    StringMatch prefix(@NonNull String prefix);
-
-    @NonNull
-    StringMatch firstPrefix(@NonNull String prefix);
-
-    @NonNull
-    ClassMatch exactClass(@NonNull String name);
-
-    @NonNull
-    ClassMatch exact(@NonNull Class<?> clazz);
-
-    @NonNull
-    MethodMatch exactMethod(@NonNull String signature);
-
-    @NonNull
-    MethodMatch exact(@NonNull Method method);
-
-    @NonNull
-    ConstructorMatch exactConstructor(@NonNull String signature);
-
-    @NonNull
-    ConstructorMatch exact(@NonNull Constructor<?> constructor);
-
-    @NonNull
-    FieldMatch exactField(@NonNull String signature);
-
-    @NonNull
-    FieldMatch exact(@NonNull Field field);
 }

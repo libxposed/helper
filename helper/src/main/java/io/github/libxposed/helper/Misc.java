@@ -22,12 +22,25 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 
+interface BaseObserver {
+}
+
+interface MatchObserver<T> extends BaseObserver {
+    void onMatch(@NonNull T result);
+}
+
+interface MissObserver extends BaseObserver {
+    void onMiss();
+}
+
+interface Observer<T> extends MatchObserver<T>, MissObserver {
+}
+
 final class TypeOnlyParameter implements HookBuilder.Parameter {
 
+    final int index;
     @NonNull
     final private Class<?> type;
-
-    final int index;
 
     TypeOnlyParameter(int index, @NonNull Class<?> type) {
         this.type = type;
@@ -127,20 +140,6 @@ final class PendingExecutor extends SimpleExecutor {
     }
 }
 
-interface BaseObserver {
-}
-
-interface MatchObserver<T> extends BaseObserver {
-    void onMatch(@NonNull T result);
-}
-
-interface MissObserver extends BaseObserver {
-    void onMiss();
-}
-
-interface Observer<T> extends MatchObserver<T>, MissObserver {
-}
-
 final class MatchCache {
     @NonNull
     HashMap<String, Object> cacheInfo = new HashMap<>();
@@ -174,6 +173,12 @@ final class TreeSetView<T extends Comparable<T>> implements Set<T>, SortedSet<T>
     final private int start;
     final private int end;
 
+    private TreeSetView(T[] array, int start, int end) {
+        this.array = array;
+        this.start = start;
+        this.end = end;
+    }
+
     static <T extends Comparable<T>> TreeSetView<T> ofSorted(T[] array) {
         return new TreeSetView<>(array, 0, array.length);
     }
@@ -185,13 +190,6 @@ final class TreeSetView<T extends Comparable<T>> implements Set<T>, SortedSet<T>
     static <T extends Comparable<T>> TreeSetView<T> ofSorted(Collection<T> c) {
         //noinspection unchecked
         return new TreeSetView<>((T[]) c.toArray(new Comparable[0]), 0, c.size());
-    }
-
-
-    private TreeSetView(T[] array, int start, int end) {
-        this.array = array;
-        this.start = start;
-        this.end = end;
     }
 
     @Override

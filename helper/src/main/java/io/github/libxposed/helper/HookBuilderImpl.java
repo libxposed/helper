@@ -69,84 +69,57 @@ final class HookBuilderImpl implements HookBuilder {
 
     @NonNull
     private final Reflector reflector;
-
-    @Nullable
-    private Predicate<Throwable> exceptionHandler = null;
-
-    @Nullable
-    private Predicate<Map<String, Object>> cacheChecker = null;
-
-    @Nullable
-    private InputStream cacheInputStream = null;
-
-    @Nullable
-    private OutputStream cacheOutputStream = null;
-
-    private boolean dexAnalysis = false;
-
-    private boolean forceDexAnalysis = false;
-
-    private boolean includeAnnotations = false;
-
     @NonNull
     private final ConcurrentLinkedQueue<ClassMatcherImpl> rootClassMatchers = new ConcurrentLinkedQueue<>();
-
     @NonNull
     private final ConcurrentLinkedQueue<FieldMatcherImpl> rootFieldMatchers = new ConcurrentLinkedQueue<>();
-
     @NonNull
     private final ConcurrentLinkedQueue<MethodMatcherImpl> rootMethodMatchers = new ConcurrentLinkedQueue<>();
-
     @NonNull
     private final ConcurrentLinkedQueue<ConstructorMatcherImpl> rootConstructorMatchers = new ConcurrentLinkedQueue<>();
-
     @NonNull
     private final HashMap<LazyBind, AtomicInteger> binds = new HashMap<>();
-
-    @NonNull
-    private SimpleExecutor executorService = new PendingExecutor();
-
-    @Nullable
-    private SimpleExecutor userExecutorService = null;
-
-    @NonNull
-    private SimpleExecutor callbackHandler = new PendingExecutor();
-
-    @Nullable
-    private SimpleExecutor userCallbackHandler = null;
-
-    @Nullable
-    private MatchCache matchCache = null;
-
     @NonNull
     private final HashMap<String, ClassMatcherImpl> keyedClassMatchers = new HashMap<>();
-
     @NonNull
     private final HashMap<String, ParameterMatcherImpl> keyedParameterMatchers = new HashMap<>();
-
     @NonNull
     private final HashMap<String, FieldMatcherImpl> keyedFieldMatchers = new HashMap<>();
-
     @NonNull
     private final HashMap<String, MethodMatcherImpl> keyedMethodMatchers = new HashMap<>();
-
     @NonNull
     private final HashMap<String, ConstructorMatcherImpl> keyedConstructorMatchers = new HashMap<>();
-
     @NonNull
     private final HashMap<String, ClassMatchImpl> keyedClassMatches = new HashMap<>();
-
     @NonNull
     private final HashMap<String, ParameterMatchImpl> keyedParameterMatches = new HashMap<>();
-
     @NonNull
     private final HashMap<String, FieldMatchImpl> keyedFieldMatches = new HashMap<>();
-
     @NonNull
     private final HashMap<String, MethodMatchImpl> keyedMethodMatches = new HashMap<>();
-
     @NonNull
     private final HashMap<String, ConstructorMatchImpl> keyedConstructorMatches = new HashMap<>();
+    @Nullable
+    private Predicate<Throwable> exceptionHandler = null;
+    @Nullable
+    private Predicate<Map<String, Object>> cacheChecker = null;
+    @Nullable
+    private InputStream cacheInputStream = null;
+    @Nullable
+    private OutputStream cacheOutputStream = null;
+    private boolean dexAnalysis = false;
+    private boolean forceDexAnalysis = false;
+    private boolean includeAnnotations = false;
+    @NonNull
+    private SimpleExecutor executorService = new PendingExecutor();
+    @Nullable
+    private SimpleExecutor userExecutorService = null;
+    @NonNull
+    private SimpleExecutor callbackHandler = new PendingExecutor();
+    @Nullable
+    private SimpleExecutor userCallbackHandler = null;
+    @Nullable
+    private MatchCache matchCache = null;
 
     HookBuilderImpl(@NonNull XposedInterface ctx, @NonNull BaseDexClassLoader classLoader, @NonNull String sourcePath) {
         this.ctx = ctx;
@@ -228,6 +201,674 @@ final class HookBuilderImpl implements HookBuilder {
         return this;
     }
 
+    @NonNull
+    @Override
+    public MethodLazySequence methods(@NonNull Consumer<MethodMatcher> matcher) {
+        final var m = new MethodMatcherImpl(null, false);
+        matcher.accept(m);
+        return m.build();
+    }
+
+    @NonNull
+    @Override
+    public MethodMatch firstMethod(@NonNull Consumer<MethodMatcher> matcher) {
+        final var m = new MethodMatcherImpl(null, true);
+        matcher.accept(m);
+        return m.build().first();
+    }
+
+    @NonNull
+    @Override
+    public ConstructorLazySequence constructors(@NonNull Consumer<ConstructorMatcher> matcher) {
+        final var m = new ConstructorMatcherImpl(null, false);
+        matcher.accept(m);
+        return m.build();
+    }
+
+    @NonNull
+    @Override
+    public ConstructorMatch firstConstructor(@NonNull Consumer<ConstructorMatcher> matcher) {
+        final var m = new ConstructorMatcherImpl(null, true);
+        matcher.accept(m);
+        return m.build().first();
+    }
+
+    @NonNull
+    @Override
+    public FieldLazySequence fields(@NonNull Consumer<FieldMatcher> matcher) {
+        final var m = new FieldMatcherImpl(null, false);
+        matcher.accept(m);
+        return m.build();
+    }
+
+    @NonNull
+    @Override
+    public FieldMatch firstField(@NonNull Consumer<FieldMatcher> matcher) {
+        final var m = new FieldMatcherImpl(null, true);
+        matcher.accept(m);
+        return m.build().first();
+    }
+
+    @NonNull
+    @Override
+    public ClassLazySequence classes(@NonNull Consumer<ClassMatcher> matcher) {
+        final var m = new ClassMatcherImpl(null, false);
+        matcher.accept(m);
+        return m.build();
+    }
+
+    @NonNull
+    @Override
+    public ClassMatch firstClass(@NonNull Consumer<ClassMatcher> matcher) {
+        final var m = new ClassMatcherImpl(null, true);
+        matcher.accept(m);
+        return m.build().first();
+    }
+
+    @NonNull
+    @Override
+    public StringMatch exact(@NonNull String string) {
+        final var m = new StringMatcherImpl(true);
+        m.exact = string;
+        return m.build();
+    }
+
+    @NonNull
+    @Override
+    public StringMatch prefix(@NonNull String prefix) {
+        final var m = new StringMatcherImpl(false);
+        m.prefix = prefix;
+        return m.build();
+    }
+
+    @NonNull
+    @Override
+    public StringMatch firstPrefix(@NonNull String prefix) {
+        final var m = new StringMatcherImpl(true);
+        m.prefix = prefix;
+        return m.build();
+    }
+
+    @NonNull
+    @Override
+    public ClassMatch exactClass(@NonNull String name) {
+        final var m = new ClassMatcherImpl(null, true);
+        Class<?> exact;
+        try {
+            exact = reflector.loadClass(name);
+        } catch (ClassNotFoundException e) {
+            exact = null;
+        }
+        return m.build(exact).first();
+    }
+
+    @NonNull
+    @Override
+    public ClassMatch exact(@NonNull Class<?> clazz) {
+        final var m = new ClassMatcherImpl(null, true);
+        return m.build(clazz).first();
+    }
+
+    @NonNull
+    @Override
+    public MethodMatch exactMethod(@NonNull String signature) {
+        final var m = new MethodMatcherImpl(null, true);
+        @Nullable Method method;
+        try {
+            method = reflector.loadMethod(signature);
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
+            method = null;
+        }
+        return m.build(method).first();
+    }
+
+    @NonNull
+    @Override
+    public MethodMatch exact(@NonNull Method method) {
+        final var m = new MethodMatcherImpl(null, true);
+        return m.build(method).first();
+    }
+
+    @NonNull
+    @Override
+    public ConstructorMatch exactConstructor(@NonNull String signature) {
+        final var m = new ConstructorMatcherImpl(null, true);
+        @Nullable Constructor<?> constructor;
+        try {
+            constructor = reflector.loadConstructor(signature);
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
+            constructor = null;
+        }
+        return m.build(constructor).first();
+    }
+
+    @NonNull
+    @Override
+    public ConstructorMatch exact(@NonNull Constructor<?> constructor) {
+        final var m = new ConstructorMatcherImpl(null, true);
+        return m.build(constructor).first();
+    }
+
+    @NonNull
+    @Override
+    public FieldMatch exactField(@NonNull String signature) {
+        final var m = new FieldMatcherImpl(null, true);
+        @Nullable Field field;
+        try {
+            field = reflector.loadField(signature);
+        } catch (ClassNotFoundException | NoSuchFieldException e) {
+            field = null;
+        }
+        return m.build(field).first();
+    }
+
+    @NonNull
+    @Override
+    public FieldMatch exact(@NonNull Field field) {
+        final var m = new FieldMatcherImpl(null, true);
+        return m.build(field).first();
+    }
+
+    public @NonNull CountDownLatch build() {
+        dexAnalysis = dexAnalysis || forceDexAnalysis;
+        loadMatchCache();
+
+        var pendingTasks = ((PendingExecutor) executorService).pendingTasks;
+
+        if (userExecutorService == null) {
+            var e = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+            executorService = new SimpleExecutor() {
+                @Override
+                <T> Future<T> submit(Callable<T> task) {
+                    return e.submit(task);
+                }
+            };
+        } else {
+            executorService = userExecutorService;
+        }
+
+        var tasks = new ArrayList<Future<?>>(pendingTasks);
+        for (var task : pendingTasks) {
+            tasks.add(executorService.submit(task));
+        }
+        joinAndClearTasks(tasks);
+
+        pendingTasks = ((PendingExecutor) callbackHandler).pendingTasks;
+
+        if (userCallbackHandler == null) {
+            var handler = new Handler(Looper.getMainLooper());
+            callbackHandler = new SimpleExecutor() {
+                @Override
+                <T> Future<T> submit(Callable<T> task) {
+                    var t = new FutureTask<>(task);
+                    handler.post(t);
+                    return t;
+                }
+            };
+        } else {
+            callbackHandler = userCallbackHandler;
+        }
+        for (var task : pendingTasks) {
+            tasks.add(callbackHandler.submit(task));
+        }
+        joinAndClearTasks(tasks);
+
+        if (dexAnalysis) {
+            analysisDex();
+        } else {
+            analysisClassLoader();
+        }
+        CountDownLatch latch = new CountDownLatch(1);
+        callbackHandler.submit(latch::countDown);
+        return latch;
+    }
+
+    private void analysisDex() {
+        var parsers = new ArrayList<DexParser>();
+        try (var apk = new ZipFile(sourcePath)) {
+            for (var i = 1; i <= dexCount; ++i) {
+                var dex = apk.getEntry("classes" + (i == 1 ? "" : i) + ".dex");
+                var buf = ByteBuffer.allocateDirect((int) dex.getSize());
+                try (var in = apk.getInputStream(dex)) {
+                    if (in.read(buf.array()) != buf.capacity()) {
+                        throw new IOException("read dex failed");
+                    }
+                }
+                parsers.add(ctx.parseDex(buf, false));
+            }
+        } catch (Throwable e) {
+            if (exceptionHandler != null) exceptionHandler.test(e);
+            return;
+        }
+        var tasks = new ArrayList<Future<?>>();
+        for (var dex : parsers) {
+            tasks.add(executorService.submit(() -> dex.visitDefinedClasses(new DexParser.ClassVisitor() {
+                @Nullable
+                @Override
+                public DexParser.MemberVisitor visit(int clazz, int accessFlags, int superClass, @NonNull int[] interfaces, int sourceFile, @NonNull int[] staticFields, @NonNull int[] staticFieldsAccessFlags, @NonNull int[] instanceFields, @NonNull int[] instanceFieldsAccessFlags, @NonNull int[] directMethods, @NonNull int[] directMethodsAccessFlags, @NonNull int[] virtualMethods, @NonNull int[] virtualMethodsAccessFlags, @NonNull int[] annotations) {
+                    // TODO
+                    return null;
+                }
+
+                @Override
+                public boolean stop() {
+                    return false;
+                }
+            })));
+        }
+        joinAndClearTasks(tasks);
+        for (var parser : parsers) {
+            try {
+                parser.close();
+            } catch (IOException e) {
+                if (exceptionHandler != null) {
+                    exceptionHandler.test(e);
+                }
+            }
+        }
+    }
+
+    private TreeSetView<String> getAllClassNamesFromClassLoader() throws NoSuchFieldException, IllegalAccessException {
+        TreeSetView<String> res = TreeSetView.ofSorted(new String[0]);
+        @SuppressWarnings("JavaReflectionMemberAccess") @SuppressLint("DiscouragedPrivateApi") var pathListField = BaseDexClassLoader.class.getDeclaredField("pathList");
+        pathListField.setAccessible(true);
+        final var pathList = pathListField.get(classLoader);
+        if (pathList == null) {
+            throw new IllegalStateException("pathList is null");
+        }
+        final var dexElementsField = pathList.getClass().getDeclaredField("dexElements");
+        dexElementsField.setAccessible(true);
+        final var dexElements = (Object[]) dexElementsField.get(pathList);
+        if (dexElements == null) {
+            throw new IllegalStateException("dexElements is null");
+        }
+        for (final var dexElement : dexElements) {
+            final var dexFileField = dexElement.getClass().getDeclaredField("dexFile");
+            dexFileField.setAccessible(true);
+            final var dexFile = dexFileField.get(dexElement);
+            if (dexFile == null) {
+                continue;
+            }
+            final var entriesField = dexFile.getClass().getDeclaredField("entries");
+            entriesField.setAccessible(true);
+            @SuppressWarnings("unchecked") final var entries = (Enumeration<String>) entriesField.get(dexFile);
+            if (entries == null) {
+                continue;
+            }
+            // entries are sorted
+            // perform O(N) merge so that we can have a sorted result and remove duplicates
+            res = res.merge(TreeSetView.ofSorted(Collections.list(entries)));
+        }
+        return res;
+    }
+
+    private void joinAndClearTasks(List<Future<?>> tasks) {
+        for (final var task : tasks) {
+            try {
+                task.get();
+            } catch (Throwable e) {
+                @NonNull Throwable throwable = e;
+                if (throwable instanceof ExecutionException && throwable.getCause() != null) {
+                    throwable = throwable.getCause();
+                }
+                if (exceptionHandler != null) {
+                    exceptionHandler.test(throwable);
+                }
+            }
+        }
+        tasks.clear();
+    }
+
+    @SuppressWarnings("unchecked")
+    private void loadMatchCache() {
+        if (cacheInputStream == null && cacheOutputStream == null) {
+            return;
+        }
+        matchCache = new MatchCache();
+        try {
+            if (cacheInputStream != null) {
+                try (var in = new ObjectInputStream(cacheInputStream)) {
+                    matchCache.cacheInfo = (HashMap<String, Object>) in.readObject();
+                    matchCache.classListCache = (ConcurrentHashMap<String, HashSet<String>>) in.readObject();
+                    matchCache.methodListCache = (ConcurrentHashMap<String, HashSet<String>>) in.readObject();
+                    matchCache.fieldListCache = (ConcurrentHashMap<String, HashSet<String>>) in.readObject();
+                    matchCache.constructorListCache = (ConcurrentHashMap<String, HashSet<String>>) in.readObject();
+                    matchCache.parameterListCache = (ConcurrentHashMap<String, HashSet<AbstractMap.SimpleEntry<Integer, String>>>) in.readObject();
+
+                    matchCache.classCache = (ConcurrentHashMap<String, String>) in.readObject();
+                    matchCache.methodCache = (ConcurrentHashMap<String, String>) in.readObject();
+                    matchCache.fieldCache = (ConcurrentHashMap<String, String>) in.readObject();
+                    matchCache.constructorCache = (ConcurrentHashMap<String, String>) in.readObject();
+                    matchCache.parameterCache = (ConcurrentHashMap<String, AbstractMap.SimpleEntry<Integer, String>>) in.readObject();
+                }
+            }
+            if (cacheChecker != null) {
+                var info = matchCache.cacheInfo;
+                if (!cacheChecker.test(info)) {
+                    matchCache = new MatchCache();
+                    matchCache.cacheInfo = info;
+                }
+            } else {
+                var oldObj = matchCache.cacheInfo.get("lastModifyTime");
+                var old = oldObj instanceof Long ? (long) oldObj : 0;
+                var now = new File(sourcePath).lastModified();
+                if (old != now) {
+                    matchCache = new MatchCache();
+                    matchCache.cacheInfo.put("lastModifyTime", now);
+                }
+            }
+        } catch (Throwable e) {
+            if (exceptionHandler != null) {
+                exceptionHandler.test(e);
+            }
+            matchCache = new MatchCache();
+        }
+        for (var e : matchCache.classCache.entrySet()) {
+            var hit = keyedClassMatches.get(e.getKey());
+            if (hit == null) continue;
+            try {
+                var cache = e.getValue();
+                if (cache.isEmpty()) hit.miss();
+                else hit.match(reflector.loadClass(cache));
+            } catch (Throwable ex) {
+                hit.miss();
+            }
+        }
+        for (var e : matchCache.methodCache.entrySet()) {
+            var hit = keyedMethodMatches.get(e.getKey());
+            if (hit == null) continue;
+            try {
+                var cache = e.getValue();
+                if (cache.isEmpty()) hit.miss();
+                else hit.match(reflector.loadMethod(cache));
+            } catch (Throwable ex) {
+                hit.miss();
+            }
+        }
+
+        for (var e : matchCache.fieldCache.entrySet()) {
+            var hit = keyedFieldMatches.get(e.getKey());
+            if (hit == null) continue;
+            try {
+                var cache = e.getValue();
+                if (cache.isEmpty()) hit.miss();
+                else hit.match(reflector.loadField(cache));
+            } catch (Throwable ex) {
+                hit.miss();
+            }
+        }
+
+        for (var e : matchCache.constructorCache.entrySet()) {
+            var hit = keyedConstructorMatches.get(e.getKey());
+            if (hit == null) continue;
+            try {
+                var cache = e.getValue();
+                if (cache.isEmpty()) hit.miss();
+                else hit.match(reflector.loadConstructor(cache));
+            } catch (Throwable ex) {
+                hit.miss();
+            }
+        }
+
+        for (var e : matchCache.parameterCache.entrySet()) {
+            var hit = keyedParameterMatches.get(e.getKey());
+            if (hit == null) continue;
+            try {
+                var cache = e.getValue();
+                var methodName = cache.getValue();
+                var idx = cache.getKey();
+                if (methodName.isEmpty()) hit.miss();
+                var m = reflector.loadMethod(methodName);
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    var p = m.getParameters()[idx];
+                    hit.match(new ParameterImpl(idx, p.getType(), m, p.getModifiers()));
+                } else {
+                    var p = m.getParameterTypes()[idx];
+                    hit.match(new ParameterImpl(idx, p, m, 0));
+                }
+            } catch (Throwable ex) {
+                hit.miss();
+            }
+        }
+
+        for (var e : matchCache.classListCache.entrySet()) {
+            var hit = keyedClassMatchers.get(e.getKey());
+            if (hit == null) continue;
+            try {
+                var value = e.getValue();
+                if (value.isEmpty()) hit.miss();
+                hit.match(reflector.loadClasses(value));
+            } catch (Throwable ex) {
+                hit.miss();
+            }
+        }
+
+        for (var e : matchCache.methodListCache.entrySet()) {
+            var hit = keyedMethodMatchers.get(e.getKey());
+            if (hit == null) continue;
+            try {
+                var value = e.getValue();
+                if (value.isEmpty()) hit.miss();
+                hit.match(reflector.loadMethods(value));
+            } catch (Throwable ex) {
+                hit.miss();
+            }
+        }
+
+        for (var e : matchCache.fieldListCache.entrySet()) {
+            var hit = keyedFieldMatchers.get(e.getKey());
+            if (hit == null) continue;
+            try {
+                var value = e.getValue();
+                if (value.isEmpty()) hit.miss();
+                hit.match(reflector.loadFields(value));
+            } catch (Throwable ex) {
+                hit.miss();
+            }
+        }
+
+        for (var e : matchCache.constructorListCache.entrySet()) {
+            var hit = keyedConstructorMatchers.get(e.getKey());
+            if (hit == null) continue;
+            try {
+                var value = e.getValue();
+                if (value.isEmpty()) hit.miss();
+                hit.match(reflector.loadConstructors(value));
+            } catch (Throwable ex) {
+                hit.miss();
+            }
+        }
+
+        for (var e : matchCache.parameterListCache.entrySet()) {
+            var hit = keyedParameterMatchers.get(e.getKey());
+            if (hit == null) continue;
+            try {
+                var value = e.getValue();
+                if (value.isEmpty()) hit.miss();
+                var parameters = new ArrayList<Parameter>();
+                for (var v : value) {
+                    var methodName = v.getValue();
+                    var idx = v.getKey();
+                    if (methodName.isEmpty()) continue;
+                    var m = reflector.loadMethod(methodName);
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        var p = m.getParameters()[idx];
+                        parameters.add(new ParameterImpl(idx, p.getType(), m, p.getModifiers()));
+                    } else {
+                        var p = m.getParameterTypes()[idx];
+                        parameters.add(new ParameterImpl(idx, p, m, 0));
+                    }
+                }
+                hit.match(parameters);
+            } catch (Throwable ex) {
+                if (exceptionHandler != null) {
+                    exceptionHandler.test(ex);
+                }
+            }
+        }
+    }
+
+    private void analysisClassLoader() {
+        final TreeSetView<String> classNames;
+        try {
+            classNames = getAllClassNamesFromClassLoader();
+        } catch (Throwable e) {
+            if (exceptionHandler != null) {
+                exceptionHandler.test(e);
+            }
+            return;
+        }
+
+        final boolean[] hasMatched = new boolean[]{false};
+        do {
+            // match class first
+            final List<Future<?>> tasks = new ArrayList<>();
+            for (final var classMatcher : rootClassMatchers) {
+                // not leaf
+                if (classMatcher.leafCount.get() != 1) continue;
+                if (classMatcher.pending) continue;
+                hasMatched[0] = rootClassMatchers.remove(classMatcher) || hasMatched[0];
+                final var task = executorService.submit(() -> {
+                    var candidates = classMatcher.candidates;
+                    if (candidates == null) {
+                        TreeSetView<String> subset = classNames;
+                        if (classMatcher.name != null) {
+                            final var nameMatcher = classMatcher.name.matcher;
+                            if (nameMatcher.exact != null) {
+                                if (classNames.contains(nameMatcher.exact)) {
+                                    subset = TreeSetView.ofSorted(new String[]{nameMatcher.exact});
+                                } else {
+                                    subset = TreeSetView.ofSorted(new String[0]);
+                                }
+                            } else if (nameMatcher.prefix != null) {
+                                subset = classNames.subSet(nameMatcher.prefix, nameMatcher.prefix + Character.MAX_VALUE);
+                            }
+                        }
+                        final ArrayList<Class<?>> c = new ArrayList<>(subset.size());
+                        for (final var className : subset) {
+                            // then check the rest conditions that need to load the class
+                            final Class<?> theClass;
+                            try {
+                                theClass = Class.forName(className, false, classLoader);
+                                c.add(theClass);
+                            } catch (ClassNotFoundException e) {
+                                if (exceptionHandler != null && !exceptionHandler.test(e)) {
+                                    break;
+                                }
+                            }
+                        }
+                        candidates = c;
+                    }
+                    classMatcher.doMatch(candidates);
+                });
+                tasks.add(task);
+            }
+            joinAndClearTasks(tasks);
+
+            for (final var fieldMatcher : rootFieldMatchers) {
+                // not leaf
+                if (fieldMatcher.leafCount.get() != 1) continue;
+                if (fieldMatcher.pending) continue;
+                hasMatched[0] = rootFieldMatchers.remove(fieldMatcher) || hasMatched[0];
+                final var task = executorService.submit(() -> {
+                    var candidates = fieldMatcher.candidates;
+                    if (candidates == null) {
+                        final ArrayList<Class<?>> classList = new ArrayList<>();
+                        if (fieldMatcher.declaringClass != null) {
+                            var declaringClass = fieldMatcher.declaringClass.match;
+                            if (declaringClass != null) classList.add(declaringClass);
+                        } else {
+                            if (exceptionHandler != null) {
+                                exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
+                            }
+                            fieldMatcher.miss();
+                            return;
+                        }
+                        final ArrayList<Field> c = new ArrayList<>();
+                        for (final var theClass : classList) {
+                            final var fields = theClass.getDeclaredFields();
+                            // TODO: if (fieldMatcher.includeSuper)
+                            c.addAll(List.of(fields));
+                        }
+                        candidates = c;
+                    }
+                    fieldMatcher.doMatch(candidates);
+                });
+                tasks.add(task);
+            }
+            joinAndClearTasks(tasks);
+
+            for (final var methodMatcher : rootMethodMatchers) {
+                // not leaf
+                if (methodMatcher.leafCount.get() != 1) continue;
+                if (methodMatcher.pending) continue;
+                hasMatched[0] = rootMethodMatchers.remove(methodMatcher) || hasMatched[0];
+                final var task = executorService.submit(() -> {
+                    var candidates = methodMatcher.candidates;
+                    if (candidates == null) {
+                        final ArrayList<Class<?>> classList = new ArrayList<>();
+                        if (methodMatcher.declaringClass != null) {
+                            var declaringClass = methodMatcher.declaringClass.match;
+                            if (declaringClass != null) classList.add(declaringClass);
+                        } else {
+                            if (exceptionHandler != null) {
+                                exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
+                            }
+                            methodMatcher.miss();
+                            return;
+                        }
+
+                        var c = new ArrayList<Method>();
+                        for (final var clazz : classList) {
+                            final var methods = clazz.getDeclaredMethods();
+                            c.addAll(List.of(methods));
+                        }
+                        candidates = c;
+                    }
+                    methodMatcher.doMatch(candidates);
+                });
+
+                tasks.add(task);
+            }
+            joinAndClearTasks(tasks);
+
+            for (final var constructorMatcher : rootConstructorMatchers) {
+                // not leaf
+                if (constructorMatcher.leafCount.get() != 1) continue;
+                if (constructorMatcher.pending) continue;
+                hasMatched[0] = rootConstructorMatchers.remove(constructorMatcher) || hasMatched[0];
+
+                final var task = executorService.submit(() -> {
+                    var candidates = constructorMatcher.candidates;
+                    if (candidates == null) {
+                        final ArrayList<Class<?>> classList = new ArrayList<>();
+
+                        if (constructorMatcher.declaringClass != null && constructorMatcher.declaringClass.match != null) {
+                            classList.add(constructorMatcher.declaringClass.match);
+                        } else {
+                            if (exceptionHandler != null) {
+                                exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
+                            }
+                            constructorMatcher.miss();
+                            return;
+                        }
+
+                        var c = new ArrayList<Constructor<?>>();
+                        for (final var clazz : classList) {
+                            final var constructors = clazz.getDeclaredConstructors();
+                            c.addAll(List.of(constructors));
+                        }
+                        candidates = c;
+                    }
+                    constructorMatcher.doMatch(candidates);
+                });
+
+                tasks.add(task);
+            }
+            joinAndClearTasks(tasks);
+        } while (hasMatched[0]);
+    }
+
     private abstract static class BaseMatcherImpl<Self extends BaseMatcherImpl<Self, Reflect, DexId>, Reflect, DexId extends DexParser.Id<DexId>> {
         protected final boolean matchFirst;
 
@@ -236,30 +877,27 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
+    private abstract static class BaseMatchImpl<Self extends BaseMatchImpl<Self, Base, Reflect>, Base extends BaseMatch<Base, Reflect>, Reflect> implements BaseMatch<Base, Reflect> {
+    }
+
     @SuppressWarnings("unchecked")
     private abstract class ReflectMatcherImpl<Self extends ReflectMatcherImpl<Self, Base, Reflect, DexId, SeqImpl>, Base extends ReflectMatcher<Base>, Reflect, DexId extends DexParser.Id<DexId>, SeqImpl extends LazySequenceImpl<?, ?, Reflect, Base, ?, Self, DexId>> extends BaseMatcherImpl<Self, Reflect, DexId> implements ReflectMatcher<Base> {
         private final static int packageFlag = Modifier.PUBLIC | Modifier.PRIVATE | Modifier.PROTECTED;
 
         @NonNull
         protected final ReflectMatcherImpl<?, ?, ?, ?, ?> rootMatcher;
-
+        @NonNull
+        protected final AtomicInteger leafCount = new AtomicInteger(1);
         @Nullable
         protected String key = null;
-
-        @Nullable
-        private volatile SeqImpl lazySequence = null;
-
         protected int includeModifiers = 0; // (real & includeModifiers) == includeModifiers
         protected int excludeModifiers = 0; // (real & excludeModifiers) == 0
 
         protected volatile boolean pending = true;
-
-        @NonNull
-        protected final AtomicInteger leafCount = new AtomicInteger(1);
-
         @Nullable
         protected volatile Iterable<Reflect> candidates = null;
-
+        @Nullable
+        private volatile SeqImpl lazySequence = null;
         private final Observer<?> dependencyCallback = new Observer<>() {
             @Override
             public void onMatch(@NonNull Object result) {
@@ -1084,6 +1722,44 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private abstract class BaseSyntaxImpl<Match extends BaseMatch<Match, Reflect>, MatchImpl extends BaseMatchImpl<MatchImpl, Match, Reflect>, Reflect> implements Syntax<Match> {
+        protected final @NonNull Operands operands;
+
+        private BaseSyntaxImpl(@NonNull Syntax<Match> operand, char operator) {
+            this.operands = new UnaryOperands(new Operand(operand), operator);
+        }
+
+        private <M extends ReflectMatch<M, Reflect, ?>, MI extends ReflectMatchImpl<MI, M, Reflect, ?, ?, D>, D extends DexParser.Id<D>> BaseSyntaxImpl(@NonNull LazySequenceImpl<?, M, Reflect, ?, MI, ?, D> operand, char operator) {
+            this.operands = new UnaryOperands(new Operand(operand), operator);
+        }
+
+        private BaseSyntaxImpl(@NonNull MatchImpl operand, char operator) {
+            this.operands = new UnaryOperands(new Operand(operand), operator);
+        }
+
+        private BaseSyntaxImpl(@NonNull Syntax<Match> left, @NonNull Syntax<Match> right, char operator) {
+            this.operands = new BinaryOperands(new Operand(left), new Operand(right), operator);
+        }
+
+        abstract Syntax<Match> newSelf(@Nullable Syntax<Match> other, char operator);
+
+        @NonNull
+        @Override
+        public Syntax<Match> and(@NonNull Syntax<Match> other) {
+            return newSelf(other, '&');
+        }
+
+        @NonNull
+        @Override
+        public Syntax<Match> or(@NonNull Syntax<Match> other) {
+            return newSelf(other, '|');
+        }
+
+        @NonNull
+        @Override
+        public Syntax<Match> not() {
+            return newSelf(null, '!');
+        }
+
         protected final class Operand {
             private @NonNull Object value;
 
@@ -1127,46 +1803,7 @@ final class HookBuilderImpl implements HookBuilder {
                 this.right = right;
             }
         }
-
-        protected final @NonNull Operands operands;
-
-        private BaseSyntaxImpl(@NonNull Syntax<Match> operand, char operator) {
-            this.operands = new UnaryOperands(new Operand(operand), operator);
-        }
-
-        private <M extends ReflectMatch<M, Reflect, ?>, MI extends ReflectMatchImpl<MI, M, Reflect, ?, ?, D>, D extends DexParser.Id<D>> BaseSyntaxImpl(@NonNull LazySequenceImpl<?, M, Reflect, ?, MI, ?, D> operand, char operator) {
-            this.operands = new UnaryOperands(new Operand(operand), operator);
-        }
-
-        private BaseSyntaxImpl(@NonNull MatchImpl operand, char operator) {
-            this.operands = new UnaryOperands(new Operand(operand), operator);
-        }
-
-        private BaseSyntaxImpl(@NonNull Syntax<Match> left, @NonNull Syntax<Match> right, char operator) {
-            this.operands = new BinaryOperands(new Operand(left), new Operand(right), operator);
-        }
-
-        abstract Syntax<Match> newSelf(@Nullable Syntax<Match> other, char operator);
-
-        @NonNull
-        @Override
-        public Syntax<Match> and(@NonNull Syntax<Match> other) {
-            return newSelf(other, '&');
-        }
-
-        @NonNull
-        @Override
-        public Syntax<Match> or(@NonNull Syntax<Match> other) {
-            return newSelf(other, '|');
-        }
-
-        @NonNull
-        @Override
-        public Syntax<Match> not() {
-            return newSelf(null, '!');
-        }
     }
-
 
     @SuppressWarnings("unchecked")
     private final class ReflectSyntaxImpl<Match extends ReflectMatch<Match, Reflect, ?>, MatchImpl extends ReflectMatchImpl<MatchImpl, Match, Reflect, ?, ?, ?>, Reflect> extends BaseSyntaxImpl<Match, MatchImpl, Reflect> implements Syntax<Match> {
@@ -1366,30 +2003,23 @@ final class HookBuilderImpl implements HookBuilder {
     private abstract class LazySequenceImpl<Base extends LazySequence<Base, Match, Reflect, Matcher>, Match extends ReflectMatch<Match, Reflect, Matcher>, Reflect, Matcher extends ReflectMatcher<Matcher>, MatchImpl extends ReflectMatchImpl<MatchImpl, Match, Reflect, Matcher, MatcherImpl, DexId>, MatcherImpl extends ReflectMatcherImpl<MatcherImpl, Matcher, Reflect, DexId, ?>, DexId extends DexParser.Id<DexId>> implements LazySequence<Base, Match, Reflect, Matcher> {
         @NonNull
         protected final ReflectMatcherImpl<?, ?, ?, ?, ?> rootMatcher;
-
-        @Nullable
-        protected volatile Iterable<Reflect> matches = null;
-
         @NonNull
         protected final AtomicReference<TreeSetView<DexId>[]> dexMatches = new AtomicReference<>(null);
-
         @NonNull
         private final Object VALUE = new Object();
-
-        @GuardedBy("this")
-        private volatile boolean done = false;
-
-        // specially cache `first` since it's the only one that do not need to define any callback
-        @Nullable
-        private volatile Match first = null;
-
         @GuardedBy("this")
         @NonNull
         private final Map<BaseObserver, Object> observers = new HashMap<>();
-
         @GuardedBy("this")
         @NonNull
         private final Queue<LazySequenceImpl<Base, Match, Reflect, Matcher, MatchImpl, MatcherImpl, DexId>> missReplacements = new LinkedList<>();
+        @Nullable
+        protected volatile Iterable<Reflect> matches = null;
+        @GuardedBy("this")
+        private volatile boolean done = false;
+        // specially cache `first` since it's the only one that do not need to define any callback
+        @Nullable
+        private volatile Match first = null;
 
         protected LazySequenceImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?, ?> rootMatcher) {
             this.rootMatcher = rootMatcher;
@@ -2055,36 +2685,26 @@ final class HookBuilderImpl implements HookBuilder {
         }
     }
 
-    private abstract static class BaseMatchImpl<Self extends BaseMatchImpl<Self, Base, Reflect>, Base extends BaseMatch<Base, Reflect>, Reflect> implements BaseMatch<Base, Reflect> {
-    }
-
     @SuppressWarnings("unchecked")
     private abstract class ReflectMatchImpl<Self extends ReflectMatchImpl<Self, Base, Reflect, Matcher, MatcherImpl, DexId>, Base extends ReflectMatch<Base, Reflect, Matcher>, Reflect, Matcher extends ReflectMatcher<Matcher>, MatcherImpl extends ReflectMatcherImpl<MatcherImpl, Matcher, Reflect, DexId, ?>, DexId extends DexParser.Id<DexId>> extends BaseMatchImpl<Self, Base, Reflect> implements ReflectMatch<Base, Reflect, Matcher> {
         @NonNull
-        private final Object VALUE = new Object();
-
-        @NonNull
         protected final ReflectMatcherImpl<?, ?, ?, ?, ?> rootMatcher;
-
-        @Nullable
-        protected volatile String key = null;
-
-        @Nullable
-        protected volatile Reflect match = null;
-
         @NonNull
         protected final AtomicReference<DexId[]> dexMatch = new AtomicReference<>(null);
-
-        @GuardedBy("this")
-        private volatile boolean done = false;
-
+        @NonNull
+        private final Object VALUE = new Object();
         @GuardedBy("this")
         @NonNull
         private final Map<BaseObserver, Object> observers = new HashMap<>();
-
         @GuardedBy("this")
         @NonNull
         private final Queue<ReflectMatchImpl<Self, Base, Reflect, Matcher, MatcherImpl, DexId>> missReplacements = new LinkedList<>();
+        @Nullable
+        protected volatile String key = null;
+        @Nullable
+        protected volatile Reflect match = null;
+        @GuardedBy("this")
+        private volatile boolean done = false;
 
         protected ReflectMatchImpl(@NonNull ReflectMatcherImpl<?, ?, ?, ?, ?> rootMatcher) {
             this.rootMatcher = rootMatcher;
@@ -2683,674 +3303,6 @@ final class HookBuilderImpl implements HookBuilder {
         public Syntax<StringMatch> reverse() {
             return new StringSyntaxImpl(this, '-');
         }
-    }
-
-    @NonNull
-    @Override
-    public MethodLazySequence methods(@NonNull Consumer<MethodMatcher> matcher) {
-        final var m = new MethodMatcherImpl(null, false);
-        matcher.accept(m);
-        return m.build();
-    }
-
-    @NonNull
-    @Override
-    public MethodMatch firstMethod(@NonNull Consumer<MethodMatcher> matcher) {
-        final var m = new MethodMatcherImpl(null, true);
-        matcher.accept(m);
-        return m.build().first();
-    }
-
-    @NonNull
-    @Override
-    public ConstructorLazySequence constructors(@NonNull Consumer<ConstructorMatcher> matcher) {
-        final var m = new ConstructorMatcherImpl(null, false);
-        matcher.accept(m);
-        return m.build();
-    }
-
-    @NonNull
-    @Override
-    public ConstructorMatch firstConstructor(@NonNull Consumer<ConstructorMatcher> matcher) {
-        final var m = new ConstructorMatcherImpl(null, true);
-        matcher.accept(m);
-        return m.build().first();
-    }
-
-    @NonNull
-    @Override
-    public FieldLazySequence fields(@NonNull Consumer<FieldMatcher> matcher) {
-        final var m = new FieldMatcherImpl(null, false);
-        matcher.accept(m);
-        return m.build();
-    }
-
-    @NonNull
-    @Override
-    public FieldMatch firstField(@NonNull Consumer<FieldMatcher> matcher) {
-        final var m = new FieldMatcherImpl(null, true);
-        matcher.accept(m);
-        return m.build().first();
-    }
-
-    @NonNull
-    @Override
-    public ClassLazySequence classes(@NonNull Consumer<ClassMatcher> matcher) {
-        final var m = new ClassMatcherImpl(null, false);
-        matcher.accept(m);
-        return m.build();
-    }
-
-    @NonNull
-    @Override
-    public ClassMatch firstClass(@NonNull Consumer<ClassMatcher> matcher) {
-        final var m = new ClassMatcherImpl(null, true);
-        matcher.accept(m);
-        return m.build().first();
-    }
-
-    @NonNull
-    @Override
-    public StringMatch exact(@NonNull String string) {
-        final var m = new StringMatcherImpl(true);
-        m.exact = string;
-        return m.build();
-    }
-
-    @NonNull
-    @Override
-    public StringMatch prefix(@NonNull String prefix) {
-        final var m = new StringMatcherImpl(false);
-        m.prefix = prefix;
-        return m.build();
-    }
-
-    @NonNull
-    @Override
-    public StringMatch firstPrefix(@NonNull String prefix) {
-        final var m = new StringMatcherImpl(true);
-        m.prefix = prefix;
-        return m.build();
-    }
-
-    @NonNull
-    @Override
-    public ClassMatch exactClass(@NonNull String name) {
-        final var m = new ClassMatcherImpl(null, true);
-        Class<?> exact;
-        try {
-            exact = reflector.loadClass(name);
-        } catch (ClassNotFoundException e) {
-            exact = null;
-        }
-        return m.build(exact).first();
-    }
-
-    @NonNull
-    @Override
-    public ClassMatch exact(@NonNull Class<?> clazz) {
-        final var m = new ClassMatcherImpl(null, true);
-        return m.build(clazz).first();
-    }
-
-    @NonNull
-    @Override
-    public MethodMatch exactMethod(@NonNull String signature) {
-        final var m = new MethodMatcherImpl(null, true);
-        @Nullable Method method;
-        try {
-            method = reflector.loadMethod(signature);
-        } catch (ClassNotFoundException | NoSuchMethodException e) {
-            method = null;
-        }
-        return m.build(method).first();
-    }
-
-    @NonNull
-    @Override
-    public MethodMatch exact(@NonNull Method method) {
-        final var m = new MethodMatcherImpl(null, true);
-        return m.build(method).first();
-    }
-
-    @NonNull
-    @Override
-    public ConstructorMatch exactConstructor(@NonNull String signature) {
-        final var m = new ConstructorMatcherImpl(null, true);
-        @Nullable Constructor<?> constructor;
-        try {
-            constructor = reflector.loadConstructor(signature);
-        } catch (ClassNotFoundException | NoSuchMethodException e) {
-            constructor = null;
-        }
-        return m.build(constructor).first();
-    }
-
-    @NonNull
-    @Override
-    public ConstructorMatch exact(@NonNull Constructor<?> constructor) {
-        final var m = new ConstructorMatcherImpl(null, true);
-        return m.build(constructor).first();
-    }
-
-    @NonNull
-    @Override
-    public FieldMatch exactField(@NonNull String signature) {
-        final var m = new FieldMatcherImpl(null, true);
-        @Nullable Field field;
-        try {
-            field = reflector.loadField(signature);
-        } catch (ClassNotFoundException | NoSuchFieldException e) {
-            field = null;
-        }
-        return m.build(field).first();
-    }
-
-    @NonNull
-    @Override
-    public FieldMatch exact(@NonNull Field field) {
-        final var m = new FieldMatcherImpl(null, true);
-        return m.build(field).first();
-    }
-
-    public @NonNull CountDownLatch build() {
-        dexAnalysis = dexAnalysis || forceDexAnalysis;
-        loadMatchCache();
-
-        var pendingTasks = ((PendingExecutor) executorService).pendingTasks;
-
-        if (userExecutorService == null) {
-            var e = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-            executorService = new SimpleExecutor() {
-                @Override
-                <T> Future<T> submit(Callable<T> task) {
-                    return e.submit(task);
-                }
-            };
-        } else {
-            executorService = userExecutorService;
-        }
-
-        var tasks = new ArrayList<Future<?>>(pendingTasks);
-        for (var task : pendingTasks) {
-            tasks.add(executorService.submit(task));
-        }
-        joinAndClearTasks(tasks);
-
-        pendingTasks = ((PendingExecutor) callbackHandler).pendingTasks;
-
-        if (userCallbackHandler == null) {
-            var handler = new Handler(Looper.getMainLooper());
-            callbackHandler = new SimpleExecutor() {
-                @Override
-                <T> Future<T> submit(Callable<T> task) {
-                    var t = new FutureTask<>(task);
-                    handler.post(t);
-                    return t;
-                }
-            };
-        } else {
-            callbackHandler = userCallbackHandler;
-        }
-        for (var task : pendingTasks) {
-            tasks.add(callbackHandler.submit(task));
-        }
-        joinAndClearTasks(tasks);
-
-        if (dexAnalysis) {
-            analysisDex();
-        } else {
-            analysisClassLoader();
-        }
-        CountDownLatch latch = new CountDownLatch(1);
-        callbackHandler.submit(latch::countDown);
-        return latch;
-    }
-
-    private void analysisDex() {
-        var parsers = new ArrayList<DexParser>();
-        try (var apk = new ZipFile(sourcePath)) {
-            for (var i = 1; i <= dexCount; ++i) {
-                var dex = apk.getEntry("classes" + (i == 1 ? "" : i) + ".dex");
-                var buf = ByteBuffer.allocateDirect((int) dex.getSize());
-                try (var in = apk.getInputStream(dex)) {
-                    if (in.read(buf.array()) != buf.capacity()) {
-                        throw new IOException("read dex failed");
-                    }
-                }
-                parsers.add(ctx.parseDex(buf, false));
-            }
-        } catch (Throwable e) {
-            if (exceptionHandler != null) exceptionHandler.test(e);
-            return;
-        }
-        var tasks = new ArrayList<Future<?>>();
-        for (var dex : parsers) {
-            tasks.add(executorService.submit(() -> dex.visitDefinedClasses(new DexParser.ClassVisitor() {
-                @Nullable
-                @Override
-                public DexParser.MemberVisitor visit(int clazz, int accessFlags, int superClass, @NonNull int[] interfaces, int sourceFile, @NonNull int[] staticFields, @NonNull int[] staticFieldsAccessFlags, @NonNull int[] instanceFields, @NonNull int[] instanceFieldsAccessFlags, @NonNull int[] directMethods, @NonNull int[] directMethodsAccessFlags, @NonNull int[] virtualMethods, @NonNull int[] virtualMethodsAccessFlags, @NonNull int[] annotations) {
-                    // TODO
-                    return null;
-                }
-
-                @Override
-                public boolean stop() {
-                    return false;
-                }
-            })));
-        }
-        joinAndClearTasks(tasks);
-        for (var parser : parsers) {
-            try {
-                parser.close();
-            } catch (IOException e) {
-                if (exceptionHandler != null) {
-                    exceptionHandler.test(e);
-                }
-            }
-        }
-    }
-
-    private TreeSetView<String> getAllClassNamesFromClassLoader() throws NoSuchFieldException, IllegalAccessException {
-        TreeSetView<String> res = TreeSetView.ofSorted(new String[0]);
-        @SuppressWarnings("JavaReflectionMemberAccess") @SuppressLint("DiscouragedPrivateApi") var pathListField = BaseDexClassLoader.class.getDeclaredField("pathList");
-        pathListField.setAccessible(true);
-        final var pathList = pathListField.get(classLoader);
-        if (pathList == null) {
-            throw new IllegalStateException("pathList is null");
-        }
-        final var dexElementsField = pathList.getClass().getDeclaredField("dexElements");
-        dexElementsField.setAccessible(true);
-        final var dexElements = (Object[]) dexElementsField.get(pathList);
-        if (dexElements == null) {
-            throw new IllegalStateException("dexElements is null");
-        }
-        for (final var dexElement : dexElements) {
-            final var dexFileField = dexElement.getClass().getDeclaredField("dexFile");
-            dexFileField.setAccessible(true);
-            final var dexFile = dexFileField.get(dexElement);
-            if (dexFile == null) {
-                continue;
-            }
-            final var entriesField = dexFile.getClass().getDeclaredField("entries");
-            entriesField.setAccessible(true);
-            @SuppressWarnings("unchecked") final var entries = (Enumeration<String>) entriesField.get(dexFile);
-            if (entries == null) {
-                continue;
-            }
-            // entries are sorted
-            // perform O(N) merge so that we can have a sorted result and remove duplicates
-            res = res.merge(TreeSetView.ofSorted(Collections.list(entries)));
-        }
-        return res;
-    }
-
-    private void joinAndClearTasks(List<Future<?>> tasks) {
-        for (final var task : tasks) {
-            try {
-                task.get();
-            } catch (Throwable e) {
-                @NonNull Throwable throwable = e;
-                if (throwable instanceof ExecutionException && throwable.getCause() != null) {
-                    throwable = throwable.getCause();
-                }
-                if (exceptionHandler != null) {
-                    exceptionHandler.test(throwable);
-                }
-            }
-        }
-        tasks.clear();
-    }
-
-    @SuppressWarnings("unchecked")
-    private void loadMatchCache() {
-        if (cacheInputStream == null && cacheOutputStream == null) {
-            return;
-        }
-        matchCache = new MatchCache();
-        try {
-            if (cacheInputStream != null) {
-                try (var in = new ObjectInputStream(cacheInputStream)) {
-                    matchCache.cacheInfo = (HashMap<String, Object>) in.readObject();
-                    matchCache.classListCache = (ConcurrentHashMap<String, HashSet<String>>) in.readObject();
-                    matchCache.methodListCache = (ConcurrentHashMap<String, HashSet<String>>) in.readObject();
-                    matchCache.fieldListCache = (ConcurrentHashMap<String, HashSet<String>>) in.readObject();
-                    matchCache.constructorListCache = (ConcurrentHashMap<String, HashSet<String>>) in.readObject();
-                    matchCache.parameterListCache = (ConcurrentHashMap<String, HashSet<AbstractMap.SimpleEntry<Integer, String>>>) in.readObject();
-
-                    matchCache.classCache = (ConcurrentHashMap<String, String>) in.readObject();
-                    matchCache.methodCache = (ConcurrentHashMap<String, String>) in.readObject();
-                    matchCache.fieldCache = (ConcurrentHashMap<String, String>) in.readObject();
-                    matchCache.constructorCache = (ConcurrentHashMap<String, String>) in.readObject();
-                    matchCache.parameterCache = (ConcurrentHashMap<String, AbstractMap.SimpleEntry<Integer, String>>) in.readObject();
-                }
-            }
-            if (cacheChecker != null) {
-                var info = matchCache.cacheInfo;
-                if (!cacheChecker.test(info)) {
-                    matchCache = new MatchCache();
-                    matchCache.cacheInfo = info;
-                }
-            } else {
-                var oldObj = matchCache.cacheInfo.get("lastModifyTime");
-                var old = oldObj instanceof Long ? (long) oldObj : 0;
-                var now = new File(sourcePath).lastModified();
-                if (old != now) {
-                    matchCache = new MatchCache();
-                    matchCache.cacheInfo.put("lastModifyTime", now);
-                }
-            }
-        } catch (Throwable e) {
-            if (exceptionHandler != null) {
-                exceptionHandler.test(e);
-            }
-            matchCache = new MatchCache();
-        }
-        for (var e : matchCache.classCache.entrySet()) {
-            var hit = keyedClassMatches.get(e.getKey());
-            if (hit == null) continue;
-            try {
-                var cache = e.getValue();
-                if (cache.isEmpty()) hit.miss();
-                else hit.match(reflector.loadClass(cache));
-            } catch (Throwable ex) {
-                hit.miss();
-            }
-        }
-        for (var e : matchCache.methodCache.entrySet()) {
-            var hit = keyedMethodMatches.get(e.getKey());
-            if (hit == null) continue;
-            try {
-                var cache = e.getValue();
-                if (cache.isEmpty()) hit.miss();
-                else hit.match(reflector.loadMethod(cache));
-            } catch (Throwable ex) {
-                hit.miss();
-            }
-        }
-
-        for (var e : matchCache.fieldCache.entrySet()) {
-            var hit = keyedFieldMatches.get(e.getKey());
-            if (hit == null) continue;
-            try {
-                var cache = e.getValue();
-                if (cache.isEmpty()) hit.miss();
-                else hit.match(reflector.loadField(cache));
-            } catch (Throwable ex) {
-                hit.miss();
-            }
-        }
-
-        for (var e : matchCache.constructorCache.entrySet()) {
-            var hit = keyedConstructorMatches.get(e.getKey());
-            if (hit == null) continue;
-            try {
-                var cache = e.getValue();
-                if (cache.isEmpty()) hit.miss();
-                else hit.match(reflector.loadConstructor(cache));
-            } catch (Throwable ex) {
-                hit.miss();
-            }
-        }
-
-        for (var e : matchCache.parameterCache.entrySet()) {
-            var hit = keyedParameterMatches.get(e.getKey());
-            if (hit == null) continue;
-            try {
-                var cache = e.getValue();
-                var methodName = cache.getValue();
-                var idx = cache.getKey();
-                if (methodName.isEmpty()) hit.miss();
-                var m = reflector.loadMethod(methodName);
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    var p = m.getParameters()[idx];
-                    hit.match(new ParameterImpl(idx, p.getType(), m, p.getModifiers()));
-                } else {
-                    var p = m.getParameterTypes()[idx];
-                    hit.match(new ParameterImpl(idx, p, m, 0));
-                }
-            } catch (Throwable ex) {
-                hit.miss();
-            }
-        }
-
-        for (var e : matchCache.classListCache.entrySet()) {
-            var hit = keyedClassMatchers.get(e.getKey());
-            if (hit == null) continue;
-            try {
-                var value = e.getValue();
-                if (value.isEmpty()) hit.miss();
-                hit.match(reflector.loadClasses(value));
-            } catch (Throwable ex) {
-                hit.miss();
-            }
-        }
-
-        for (var e : matchCache.methodListCache.entrySet()) {
-            var hit = keyedMethodMatchers.get(e.getKey());
-            if (hit == null) continue;
-            try {
-                var value = e.getValue();
-                if (value.isEmpty()) hit.miss();
-                hit.match(reflector.loadMethods(value));
-            } catch (Throwable ex) {
-                hit.miss();
-            }
-        }
-
-        for (var e : matchCache.fieldListCache.entrySet()) {
-            var hit = keyedFieldMatchers.get(e.getKey());
-            if (hit == null) continue;
-            try {
-                var value = e.getValue();
-                if (value.isEmpty()) hit.miss();
-                hit.match(reflector.loadFields(value));
-            } catch (Throwable ex) {
-                hit.miss();
-            }
-        }
-
-        for (var e : matchCache.constructorListCache.entrySet()) {
-            var hit = keyedConstructorMatchers.get(e.getKey());
-            if (hit == null) continue;
-            try {
-                var value = e.getValue();
-                if (value.isEmpty()) hit.miss();
-                hit.match(reflector.loadConstructors(value));
-            } catch (Throwable ex) {
-                hit.miss();
-            }
-        }
-
-        for (var e : matchCache.parameterListCache.entrySet()) {
-            var hit = keyedParameterMatchers.get(e.getKey());
-            if (hit == null) continue;
-            try {
-                var value = e.getValue();
-                if (value.isEmpty()) hit.miss();
-                var parameters = new ArrayList<Parameter>();
-                for (var v : value) {
-                    var methodName = v.getValue();
-                    var idx = v.getKey();
-                    if (methodName.isEmpty()) continue;
-                    var m = reflector.loadMethod(methodName);
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                        var p = m.getParameters()[idx];
-                        parameters.add(new ParameterImpl(idx, p.getType(), m, p.getModifiers()));
-                    } else {
-                        var p = m.getParameterTypes()[idx];
-                        parameters.add(new ParameterImpl(idx, p, m, 0));
-                    }
-                }
-                hit.match(parameters);
-            } catch (Throwable ex) {
-                if (exceptionHandler != null) {
-                    exceptionHandler.test(ex);
-                }
-            }
-        }
-    }
-
-    private void analysisClassLoader() {
-        final TreeSetView<String> classNames;
-        try {
-            classNames = getAllClassNamesFromClassLoader();
-        } catch (Throwable e) {
-            if (exceptionHandler != null) {
-                exceptionHandler.test(e);
-            }
-            return;
-        }
-
-        final boolean[] hasMatched = new boolean[]{false};
-        do {
-            // match class first
-            final List<Future<?>> tasks = new ArrayList<>();
-            for (final var classMatcher : rootClassMatchers) {
-                // not leaf
-                if (classMatcher.leafCount.get() != 1) continue;
-                if (classMatcher.pending) continue;
-                hasMatched[0] = rootClassMatchers.remove(classMatcher) || hasMatched[0];
-                final var task = executorService.submit(() -> {
-                    var candidates = classMatcher.candidates;
-                    if (candidates == null) {
-                        TreeSetView<String> subset = classNames;
-                        if (classMatcher.name != null) {
-                            final var nameMatcher = classMatcher.name.matcher;
-                            if (nameMatcher.exact != null) {
-                                if (classNames.contains(nameMatcher.exact)) {
-                                    subset = TreeSetView.ofSorted(new String[]{nameMatcher.exact});
-                                } else {
-                                    subset = TreeSetView.ofSorted(new String[0]);
-                                }
-                            } else if (nameMatcher.prefix != null) {
-                                subset = classNames.subSet(nameMatcher.prefix, nameMatcher.prefix + Character.MAX_VALUE);
-                            }
-                        }
-                        final ArrayList<Class<?>> c = new ArrayList<>(subset.size());
-                        for (final var className : subset) {
-                            // then check the rest conditions that need to load the class
-                            final Class<?> theClass;
-                            try {
-                                theClass = Class.forName(className, false, classLoader);
-                                c.add(theClass);
-                            } catch (ClassNotFoundException e) {
-                                if (exceptionHandler != null && !exceptionHandler.test(e)) {
-                                    break;
-                                }
-                            }
-                        }
-                        candidates = c;
-                    }
-                    classMatcher.doMatch(candidates);
-                });
-                tasks.add(task);
-            }
-            joinAndClearTasks(tasks);
-
-            for (final var fieldMatcher : rootFieldMatchers) {
-                // not leaf
-                if (fieldMatcher.leafCount.get() != 1) continue;
-                if (fieldMatcher.pending) continue;
-                hasMatched[0] = rootFieldMatchers.remove(fieldMatcher) || hasMatched[0];
-                final var task = executorService.submit(() -> {
-                    var candidates = fieldMatcher.candidates;
-                    if (candidates == null) {
-                        final ArrayList<Class<?>> classList = new ArrayList<>();
-                        if (fieldMatcher.declaringClass != null) {
-                            var declaringClass = fieldMatcher.declaringClass.match;
-                            if (declaringClass != null) classList.add(declaringClass);
-                        } else {
-                            if (exceptionHandler != null) {
-                                exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
-                            }
-                            fieldMatcher.miss();
-                            return;
-                        }
-                        final ArrayList<Field> c = new ArrayList<>();
-                        for (final var theClass : classList) {
-                            final var fields = theClass.getDeclaredFields();
-                            // TODO: if (fieldMatcher.includeSuper)
-                            c.addAll(List.of(fields));
-                        }
-                        candidates = c;
-                    }
-                    fieldMatcher.doMatch(candidates);
-                });
-                tasks.add(task);
-            }
-            joinAndClearTasks(tasks);
-
-            for (final var methodMatcher : rootMethodMatchers) {
-                // not leaf
-                if (methodMatcher.leafCount.get() != 1) continue;
-                if (methodMatcher.pending) continue;
-                hasMatched[0] = rootMethodMatchers.remove(methodMatcher) || hasMatched[0];
-                final var task = executorService.submit(() -> {
-                    var candidates = methodMatcher.candidates;
-                    if (candidates == null) {
-                        final ArrayList<Class<?>> classList = new ArrayList<>();
-                        if (methodMatcher.declaringClass != null) {
-                            var declaringClass = methodMatcher.declaringClass.match;
-                            if (declaringClass != null) classList.add(declaringClass);
-                        } else {
-                            if (exceptionHandler != null) {
-                                exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
-                            }
-                            methodMatcher.miss();
-                            return;
-                        }
-
-                        var c = new ArrayList<Method>();
-                        for (final var clazz : classList) {
-                            final var methods = clazz.getDeclaredMethods();
-                            c.addAll(List.of(methods));
-                        }
-                        candidates = c;
-                    }
-                    methodMatcher.doMatch(candidates);
-                });
-
-                tasks.add(task);
-            }
-            joinAndClearTasks(tasks);
-
-            for (final var constructorMatcher : rootConstructorMatchers) {
-                // not leaf
-                if (constructorMatcher.leafCount.get() != 1) continue;
-                if (constructorMatcher.pending) continue;
-                hasMatched[0] = rootConstructorMatchers.remove(constructorMatcher) || hasMatched[0];
-
-                final var task = executorService.submit(() -> {
-                    var candidates = constructorMatcher.candidates;
-                    if (candidates == null) {
-                        final ArrayList<Class<?>> classList = new ArrayList<>();
-
-                        if (constructorMatcher.declaringClass != null && constructorMatcher.declaringClass.match != null) {
-                            classList.add(constructorMatcher.declaringClass.match);
-                        } else {
-                            if (exceptionHandler != null) {
-                                exceptionHandler.test(new IllegalStateException("Match members without declaring class is not supported when not using dex analysis; set forceDexAnalysis to true to enable dex analysis."));
-                            }
-                            constructorMatcher.miss();
-                            return;
-                        }
-
-                        var c = new ArrayList<Constructor<?>>();
-                        for (final var clazz : classList) {
-                            final var constructors = clazz.getDeclaredConstructors();
-                            c.addAll(List.of(constructors));
-                        }
-                        candidates = c;
-                    }
-                    constructorMatcher.doMatch(candidates);
-                });
-
-                tasks.add(task);
-            }
-            joinAndClearTasks(tasks);
-        } while (hasMatched[0]);
     }
 
 }

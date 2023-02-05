@@ -14,11 +14,8 @@ import java.util.Map;
 final class Reflector {
     private static final Map<String, Character> abbreviationMap = Map.of("int", 'I', "boolean", 'Z', "float", 'F', "long", 'J', "short", 'S', "byte", 'B', "double", 'D', "char", 'C', "void", 'V');
     private static final Map<Character, Class<?>> primitiveClassMap = Map.of('I', int.class, 'Z', boolean.class, 'F', float.class, 'J', long.class, 'S', short.class, 'B', byte.class, 'D', double.class, 'C', char.class, 'V', void.class);
-
-    private final ClassLoader classLoader;
-
     private static final WeakReference<?> EMPTY = new WeakReference<>(null);
-
+    private final ClassLoader classLoader;
     private final HashMap<String, WeakReference<Class<?>>> classCache = new HashMap<>();
 
     Reflector(ClassLoader classLoader) {
