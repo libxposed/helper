@@ -15,13 +15,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -128,8 +129,7 @@ final class ParameterImpl implements HookBuilder.Parameter {
 }
 
 abstract class SimpleExecutor {
-    private final static Object VALUE = new Object();
-    private Map<Future<?>, Object> allTasks = new ConcurrentHashMap<>();
+    private final Queue<Future<?>> allTasks = new ConcurrentLinkedQueue<>();
 
 
     static SimpleExecutor of(@NonNull ExecutorService executor) {
@@ -155,13 +155,9 @@ abstract class SimpleExecutor {
     abstract <T> Future<T> onSubmit(Callable<T> task);
 
     <T> Future<T> submit(Callable<T> task) {
-        return onSubmit(() -> {
-            Future<T> future = onSubmit(task);
-            allTasks.put(future, VALUE);
-            var res = future.get();
-            allTasks.remove(future);
-            return res;
-        });
+        Future<T> f = onSubmit(task);
+        allTasks.add(f);
+        return f;
     }
 
     final Future<?> submit(Runnable task) {
@@ -172,11 +168,24 @@ abstract class SimpleExecutor {
     }
 
     final void joinAll() throws ExecutionException, InterruptedException {
-        while (!allTasks.isEmpty()) for (var task : allTasks.keySet()) task.get();
+        while (!allTasks.isEmpty()) {
+            var task = allTasks.poll();
+            if (task != null) task.get();
+        }
     }
 
     final void joinAll(long timeout, TimeUnit unit) throws ExecutionException, InterruptedException, TimeoutException {
-        while (!allTasks.isEmpty()) for (var task : allTasks.keySet()) task.get(timeout, unit);
+        var nanos = unit.toNanos(timeout);
+        var now = System.nanoTime();
+        while (!allTasks.isEmpty()) {
+            var task = allTasks.poll();
+            var last = now;
+            now = System.nanoTime();
+            nanos -= now - last;
+            if (nanos < 0) throw new TimeoutException();
+            if (task != null)
+                task.get(unit.convert(nanos, TimeUnit.NANOSECONDS), TimeUnit.NANOSECONDS);
+        }
     }
 }
 

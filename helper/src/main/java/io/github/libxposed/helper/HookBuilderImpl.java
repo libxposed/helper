@@ -369,23 +369,25 @@ final class HookBuilderImpl implements HookBuilder {
         }
         matchExecutor = SimpleExecutor.of(executorService);
 
-        var tasks = new ArrayList<Future<?>>(pendingTasks);
         for (var task : pendingTasks) {
-            tasks.add(matchExecutor.submit(task));
+            matchExecutor.submit(task);
         }
-        joinAndClearTasks(tasks);
+        try {
+            matchExecutor.joinAll();
+        } catch (Throwable e) {
+            if (exceptionHandler != null) {
+                exceptionHandler.test(e);
+            }
+        }
 
         pendingTasks = ((PendingExecutor) callbackExecutor).pendingTasks;
 
-        if (callbackHandler == null) {
-            callbackExecutor = new PendingExecutor();
-        } else {
+        if (callbackHandler != null) {
             callbackExecutor = SimpleExecutor.of(callbackHandler);
+            for (var task : pendingTasks) {
+                callbackExecutor.submit(task);
+            }
         }
-        for (var task : pendingTasks) {
-            tasks.add(callbackExecutor.submit(task));
-        }
-        joinAndClearTasks(tasks);
 
         if (dexAnalysis) {
             analysisDex();
@@ -412,7 +414,6 @@ final class HookBuilderImpl implements HookBuilder {
 
             @Override
             public Object get() throws ExecutionException, InterruptedException {
-                matchExecutor.joinAll();
                 if (callbackHandler != null && callbackHandler.getLooper() == Looper.myLooper()) {
                     throw new InterruptedException("dead lock");
                 }
@@ -434,15 +435,16 @@ final class HookBuilderImpl implements HookBuilder {
             @Override
             public Object get(long timeout, TimeUnit unit) throws ExecutionException, InterruptedException, TimeoutException {
                 var nanos = unit.toNanos(timeout);
-                var now = System.nanoTime();
-                matchExecutor.joinAll(timeout, unit);
                 if (callbackHandler != null && callbackHandler.getLooper() == Looper.myLooper()) {
                     throw new InterruptedException("dead lock");
                 }
+                var now = System.nanoTime();
                 if (callbackExecutor instanceof PendingExecutor) {
                     var pendingTasks = ((PendingExecutor) callbackExecutor).pendingTasks;
                     for (var task : pendingTasks) {
-                        nanos -= System.nanoTime() - now;
+                        var last = now;
+                        now = System.nanoTime();
+                        nanos -= now - last;
                         if (nanos <= 0) {
                             throw new TimeoutException();
                         }
@@ -477,9 +479,8 @@ final class HookBuilderImpl implements HookBuilder {
             if (exceptionHandler != null) exceptionHandler.test(e);
             return;
         }
-        var tasks = new ArrayList<Future<?>>();
         for (var dex : parsers) {
-            tasks.add(matchExecutor.submit(() -> dex.visitDefinedClasses(new DexParser.ClassVisitor() {
+            matchExecutor.submit(() -> dex.visitDefinedClasses(new DexParser.ClassVisitor() {
                 @Nullable
                 @Override
                 public DexParser.MemberVisitor visit(int clazz, int accessFlags, int superClass, @NonNull int[] interfaces, int sourceFile, @NonNull int[] staticFields, @NonNull int[] staticFieldsAccessFlags, @NonNull int[] instanceFields, @NonNull int[] instanceFieldsAccessFlags, @NonNull int[] directMethods, @NonNull int[] directMethodsAccessFlags, @NonNull int[] virtualMethods, @NonNull int[] virtualMethodsAccessFlags, @NonNull int[] annotations) {
@@ -491,9 +492,13 @@ final class HookBuilderImpl implements HookBuilder {
                 public boolean stop() {
                     return false;
                 }
-            })));
+            }));
         }
-        joinAndClearTasks(tasks);
+        try {
+            matchExecutor.joinAll();
+        } catch (Throwable e) {
+            if (exceptionHandler != null) exceptionHandler.test(e);
+        }
         for (var parser : parsers) {
             try {
                 parser.close();
@@ -537,23 +542,6 @@ final class HookBuilderImpl implements HookBuilder {
             res = res.merge(TreeSetView.ofSorted(Collections.list(entries)));
         }
         return res;
-    }
-
-    private void joinAndClearTasks(List<Future<?>> tasks) {
-        for (final var task : tasks) {
-            try {
-                task.get();
-            } catch (Throwable e) {
-                @NonNull Throwable throwable = e;
-                if (throwable instanceof ExecutionException && throwable.getCause() != null) {
-                    throwable = throwable.getCause();
-                }
-                if (exceptionHandler != null) {
-                    exceptionHandler.test(throwable);
-                }
-            }
-        }
-        tasks.clear();
     }
 
     @SuppressWarnings("unchecked")
@@ -775,13 +763,12 @@ final class HookBuilderImpl implements HookBuilder {
         final boolean[] hasMatched = new boolean[]{false};
         do {
             // match class first
-            final List<Future<?>> tasks = new ArrayList<>();
             for (final var classMatcher : rootClassMatchers) {
                 // not leaf
                 if (classMatcher.leafCount.get() != 1) continue;
                 if (classMatcher.pending) continue;
                 hasMatched[0] = rootClassMatchers.remove(classMatcher) || hasMatched[0];
-                final var task = matchExecutor.submit(() -> {
+                matchExecutor.submit(() -> {
                     TreeSetView<String> subset = classNames;
                     if (classMatcher.name != null) {
                         final var nameMatcher = classMatcher.name.matcher;
@@ -810,36 +797,37 @@ final class HookBuilderImpl implements HookBuilder {
                     }
                     classMatcher.doMatch(candidates);
                 });
-                tasks.add(task);
             }
-            joinAndClearTasks(tasks);
-
             for (final var fieldMatcher : rootFieldMatchers) {
                 // not leaf
                 if (fieldMatcher.leafCount.get() != 1) continue;
                 if (fieldMatcher.pending) continue;
                 hasMatched[0] = rootFieldMatchers.remove(fieldMatcher) || hasMatched[0];
-                tasks.add(matchExecutor.submit(() -> memberClassLists(fieldMatcher, Class::getDeclaredFields)));
+                matchExecutor.submit(() -> memberClassLists(fieldMatcher, Class::getDeclaredFields));
             }
-            joinAndClearTasks(tasks);
 
             for (final var methodMatcher : rootMethodMatchers) {
                 // not leaf
                 if (methodMatcher.leafCount.get() != 1) continue;
                 if (methodMatcher.pending) continue;
                 hasMatched[0] = rootMethodMatchers.remove(methodMatcher) || hasMatched[0];
-                tasks.add(matchExecutor.submit(() -> memberClassLists(methodMatcher, Class::getDeclaredMethods)));
+                matchExecutor.submit(() -> memberClassLists(methodMatcher, Class::getDeclaredMethods));
             }
-            joinAndClearTasks(tasks);
 
             for (final var constructorMatcher : rootConstructorMatchers) {
                 // not leaf
                 if (constructorMatcher.leafCount.get() != 1) continue;
                 if (constructorMatcher.pending) continue;
                 hasMatched[0] = rootConstructorMatchers.remove(constructorMatcher) || hasMatched[0];
-                tasks.add(matchExecutor.submit(() -> memberClassLists(constructorMatcher, Class::getDeclaredConstructors)));
+                matchExecutor.submit(() -> memberClassLists(constructorMatcher, Class::getDeclaredConstructors));
             }
-            joinAndClearTasks(tasks);
+            try {
+                matchExecutor.joinAll();
+            } catch (Throwable e) {
+                if (exceptionHandler != null) {
+                    if (!exceptionHandler.test(e)) break;
+                }
+            }
         } while (hasMatched[0]);
     }
 
