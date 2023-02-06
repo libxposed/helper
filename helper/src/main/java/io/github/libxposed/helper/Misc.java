@@ -7,14 +7,12 @@ import androidx.annotation.Nullable;
 
 import java.lang.reflect.Member;
 import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Queue;
@@ -29,6 +27,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import io.github.libxposed.api.utils.DexParser;
 
 interface BaseObserver<T> {
     void update(T result);
@@ -125,8 +125,7 @@ final class ParameterImpl implements HookBuilder.Parameter {
         else if (obj instanceof TypeOnlyParameter) {
             TypeOnlyParameter object = (TypeOnlyParameter) obj;
             return index == object.index && Objects.equals(type, object.getType());
-        }
-        else if (!(obj instanceof ParameterImpl)) return false;
+        } else if (!(obj instanceof ParameterImpl)) return false;
         ParameterImpl object = (ParameterImpl) obj;
         return index == object.index && Objects.equals(type, object.type) && Objects.equals(declaringExecutable, object.declaringExecutable) && modifiers == object.modifiers;
     }
@@ -195,7 +194,7 @@ abstract class SimpleExecutor {
 
 final class PendingExecutor extends SimpleExecutor {
     @NonNull
-    final List<FutureTask<?>> pendingTasks = new ArrayList<>();
+    final Queue<FutureTask<?>> pendingTasks = new ConcurrentLinkedQueue<>();
 
     @Override
     <T> Future<T> onSubmit(Callable<T> task) {
@@ -575,3 +574,238 @@ final class TreeSetView<T extends Comparable<T>> implements Set<T>, SortedSet<T>
     }
 }
 
+@SuppressWarnings("unused")
+final class IdTreeSetView {
+    final private int[] array;
+    // array[start, end);
+    final private int start;
+    final private int end;
+
+    private IdTreeSetView(int[] array, int start, int end) {
+        this.array = array;
+        this.start = start;
+        this.end = end;
+    }
+
+    static IdTreeSetView ofSorted(int[] array) {
+        return new IdTreeSetView(array, 0, array.length);
+    }
+
+    static IdTreeSetView ofSorted(int[] array, int start, int end) {
+        return new IdTreeSetView(array, start, end);
+    }
+
+    public IdTreeSetView subSet(int fromElement, int toElement) {
+        return subSet(fromElement, true, toElement, false);
+    }
+
+    public IdTreeSetView headSet(int toElement) {
+        return headSet(toElement, false);
+    }
+
+    public IdTreeSetView tailSet(int fromElement) {
+        return tailSet(fromElement, true);
+    }
+
+    public int first() {
+        return isEmpty() ? DexParser.NO_INDEX : array[start];
+    }
+
+    public int last() {
+        return isEmpty() ? DexParser.NO_INDEX : array[end - 1];
+    }
+
+    public int size() {
+        return end - start;
+    }
+
+    public boolean isEmpty() {
+        return size() == 0;
+    }
+
+    public boolean contains(int o) {
+        if (size() == 0) return false;
+        return Arrays.binarySearch(array, start, end, o) >= 0;
+    }
+
+    public int lower(int t) {
+        var i = Arrays.binarySearch(array, start, end, t);
+        if (i >= 0) {
+            i = i - 1;
+        } else {
+            i = -i - 2;
+        }
+        return i >= start ? array[i] : DexParser.NO_INDEX;
+    }
+
+    public int floor(int t) {
+        var i = Arrays.binarySearch(array, start, end, t);
+        if (i >= 0) {
+            return array[i];
+        } else {
+            i = -i - 2;
+            return i >= start ? array[i] : DexParser.NO_INDEX;
+        }
+    }
+
+    public int ceiling(int t) {
+        var i = Arrays.binarySearch(array, start, end, t);
+        if (i >= 0) {
+            return array[i];
+        } else {
+            i = -i - 1;
+            return i < end ? array[i] : DexParser.NO_INDEX;
+        }
+    }
+
+    public int higher(int t) {
+        var i = Arrays.binarySearch(array, start, end, t) + 1;
+        i = i >= 0 ? i : -i;
+        return i < end ? array[i] : DexParser.NO_INDEX;
+    }
+//
+//    @NonNull
+//    public Iterator<T> iterator() {
+//        return new Iterator<>() {
+//            int index = start;
+//
+//            @Override
+//            public boolean hasNext() {
+//                return index < end;
+//            }
+//
+//            @Override
+//            public T next() {
+//                return array[index++];
+//            }
+//        };
+//    }
+
+    //    @Override
+//    public Iterator<T> descendingIterator() {
+//        return new Iterator<>() {
+//            int index = end - 1;
+//
+//            @Override
+//            public boolean hasNext() {
+//                return index >= start;
+//            }
+//
+//            @Override
+//            public T next() {
+//                return array[index--];
+//            }
+//        };
+//    }
+//
+    public IdTreeSetView subSet(int fromElement, boolean fromInclusive, int toElement, boolean toInclusive) {
+        int left = Arrays.binarySearch(array, start, end, fromElement);
+        if (!fromInclusive && left >= 0) {
+            left = left + 1;
+        } else if (left < 0) {
+            left = -left - 1;
+        }
+        int right = Arrays.binarySearch(array, start, end, toElement);
+        if (toInclusive && right >= 0) {
+            right = right + 1;
+        } else if (right < 0) {
+            right = -right - 1;
+        }
+        return new IdTreeSetView(array, left, Math.max(right, left));
+    }
+
+    public IdTreeSetView headSet(int toElement, boolean inclusive) {
+        int right = Arrays.binarySearch(array, start, end, toElement);
+        if (inclusive && right >= 0) {
+            right = right + 1;
+        } else if (right < 0) {
+            right = -right - 1;
+        }
+        return new IdTreeSetView(array, start, right);
+    }
+
+    public IdTreeSetView tailSet(int fromElement, boolean inclusive) {
+        int left = Arrays.binarySearch(array, start, end, fromElement);
+        if (!inclusive && left >= 0) {
+            left = left + 1;
+        } else if (left < 0) {
+            left = -left - 1;
+        }
+        return new IdTreeSetView(array, left, array.length);
+    }
+
+    @NonNull
+    public int[] toArray() {
+        return array;
+    }
+
+    public boolean containsAll(@NonNull IdTreeSetView c) {
+        if (c.isEmpty()) return true;
+        if (isEmpty()) return false;
+        var s = start;
+        var p = c.start;
+        while (p < c.end) {
+            try {
+                s = Arrays.binarySearch(array, s, end, c.array[p]);
+            } catch (ClassCastException ignored) {
+                return false;
+            }
+            if (s < 0) return false;
+            p = p + 1;
+        }
+        return true;
+    }
+
+    public boolean containsAny(@NonNull IdTreeSetView c) {
+        if (isEmpty()) return false;
+        if (c.isEmpty()) return true;
+        int i = start, j = c.start;
+        while (i < end && j < c.end) {
+            var a = array[i];
+            var b = c.array[j];
+            int cmp = a - b;
+            if (cmp < 0) {
+                i++;
+            } else if (cmp > 0) {
+                j++;
+            } else {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public IdTreeSetView merge(@NonNull IdTreeSetView other) {
+        if (other.size() == 0) {
+            return this;
+        } else if (size() == 0) {
+            return other;
+        }
+        var res = new int[array.length + other.array.length];
+        int p = 0;
+        int i = start, j = other.start;
+        while (i < end && j < other.end) {
+            var a = array[i];
+            var b = other.array[j];
+            int cmp = a - b;
+            if (cmp < 0) {
+                res[p++] = a;
+                i++;
+            } else if (cmp > 0) {
+                res[p++] = b;
+                j++;
+            } else {
+                res[p++] = a;
+                i++;
+                j++;
+            }
+        }
+        while (i < end) {
+            res[p++] = array[i++];
+        }
+        while (j < other.end) {
+            res[p++] = other.array[j++];
+        }
+        return new IdTreeSetView(res, 0, p);
+    }
+}

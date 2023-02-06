@@ -457,7 +457,7 @@ final class HookBuilderImpl implements HookBuilder {
                         runTasks(task);
                     }
                 } else {
-                    callbackExecutor.joinAll(nanos - (System.nanoTime() - now), TimeUnit.NANOSECONDS);
+                    callbackExecutor.joinAll(unit.convert(nanos - (System.nanoTime() - now), TimeUnit.NANOSECONDS), unit);
                 }
                 done = true;
                 return null;
