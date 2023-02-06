@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [ "kt-bug" ]
+    branches: [ "kt-bug2" ]
   workflow_dispatch:
 
 jobs:

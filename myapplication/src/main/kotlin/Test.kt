@@ -10,9 +10,9 @@ class Test(
 ) : XposedModule(base, param) {
     override fun onPackageLoaded(param: XposedModuleInterface.PackageLoadedParam) {
         buildHooks(param.classLoader as BaseDexClassLoader, param.appInfo.publicSourceDir) {
-            exceptionHandler = {
-                android.util.Log.d("BiliRoaming", "exception", it)
-                true
+            firstClass {
+                key = "response_body_class"
+                name = "okhttp3.ResponseBody".exact
             }
         }
     }
