@@ -122,6 +122,10 @@ final class ParameterImpl implements HookBuilder.Parameter {
     @Override
     public boolean equals(@Nullable Object obj) {
         if (obj == null) return false;
+        else if (obj instanceof TypeOnlyParameter) {
+            TypeOnlyParameter object = (TypeOnlyParameter) obj;
+            return index == object.index && Objects.equals(type, object.getType());
+        }
         else if (!(obj instanceof ParameterImpl)) return false;
         ParameterImpl object = (ParameterImpl) obj;
         return index == object.index && Objects.equals(type, object.type) && Objects.equals(declaringExecutable, object.declaringExecutable) && modifiers == object.modifiers;
