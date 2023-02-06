@@ -471,8 +471,8 @@ final class TreeSetView<T extends Comparable<T>> implements Set<T>, SortedSet<T>
     @Override
     public boolean containsAll(@NonNull Collection<?> c) {
         if (c instanceof Set && c.size() > size()) return false;
-        if (c.size() == 0) return true;
-        if (size() == 0) return false;
+        if (c.isEmpty()) return true;
+        if (isEmpty()) return false;
         if (c instanceof TreeSetView) {
             var other = (TreeSetView<?>) c;
             var s = start;
@@ -492,6 +492,25 @@ final class TreeSetView<T extends Comparable<T>> implements Set<T>, SortedSet<T>
             }
         }
         return true;
+    }
+
+    public boolean containsAny(@NonNull TreeSetView<T> c) {
+        if (isEmpty()) return false;
+        if (c.isEmpty()) return true;
+        int i = start, j = c.start;
+        while (i < end && j < c.end) {
+            var a = array[i];
+            var b = c.array[j];
+            int cmp = a.compareTo(b);
+            if (cmp < 0) {
+                i++;
+            } else if (cmp > 0) {
+                j++;
+            } else {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
