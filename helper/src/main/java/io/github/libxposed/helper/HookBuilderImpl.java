@@ -1469,7 +1469,29 @@ final class HookBuilderImpl implements HookBuilder {
         public final Base setContainsOpcodes(@NonNull byte[] opcodes) {
             ensureNotFinalized();
             dexAnalysis = true;
-            this.opcodes = Arrays.copyOf(opcodes, opcodes.length);
+            if (opcodes.length == 0) return (Base) this;
+            // prepare for KMP
+            int M = opcodes.length;
+            byte[] lps = new byte[M];
+            int l = 0;
+            int i = 1;
+            while (i < M) {
+                if (opcodes[i] == opcodes[l]) {
+                    l++;
+                    lps[i] = (byte) l;
+                    i++;
+                } else {
+                    if (l != 0) {
+                        l = lps[l - 1];
+                    } else {
+                        lps[i] = 0;
+                        i++;
+                    }
+                }
+            }
+            this.opcodes = new byte[2 * M];
+            System.arraycopy(opcodes, 0, this.opcodes, 0, M);
+            System.arraycopy(lps, 0, this.opcodes, M, M);
             return (Base) this;
         }
 
