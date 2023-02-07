@@ -1,15 +1,18 @@
 package io.github.libxposed.helper;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @SuppressWarnings("unused")
 final class Reflector {
@@ -18,6 +21,9 @@ final class Reflector {
     private static final WeakReference<?> EMPTY = new WeakReference<>(null);
     private final ClassLoader classLoader;
     private final HashMap<String, WeakReference<Class<?>>> classCache = new HashMap<>();
+    private final HashMap<MemberKey.Method, WeakReference<Method>> methodCache = new HashMap<>();
+    private final HashMap<MemberKey.Field, WeakReference<Field>> fieldCache = new HashMap<>();
+    private final HashMap<MemberKey.Constructor, WeakReference<Constructor<?>>> constructorCache = new HashMap<>();
 
     Reflector(ClassLoader classLoader) {
         this.classLoader = classLoader;
@@ -43,24 +49,29 @@ final class Reflector {
             className = sb.toString();
         }
         try {
+            WeakReference<Class<?>> ref;
             synchronized (classCache) {
-                WeakReference<Class<?>> ref = classCache.get(className);
-                if (ref == EMPTY) {
-                    throw new ClassNotFoundException(className);
-                }
-                Class<?> clazz = ref != null ? ref.get() : null;
-                if (clazz == null) {
-                    try {
-                        clazz = Class.forName(className, false, classLoader);
-                    } catch (ClassNotFoundException e) {
+                ref = classCache.get(className);
+            }
+            if (ref == EMPTY) {
+                throw new ClassNotFoundException(className);
+            }
+            var clazz = ref != null ? ref.get() : null;
+            if (clazz == null) {
+                try {
+                    clazz = Class.forName(className, false, classLoader);
+                } catch (ClassNotFoundException e) {
+                    synchronized (classCache) {
                         //noinspection unchecked
                         classCache.put(className, (WeakReference<Class<?>>) EMPTY);
-                        throw e;
                     }
+                    throw e;
+                }
+                synchronized (classCache) {
                     classCache.put(className, new WeakReference<>(clazz));
                 }
-                return clazz;
             }
+            return clazz;
         } catch (ClassNotFoundException e) {
             final int lastDot = className.lastIndexOf('.');
             if (lastDot > 0) {
@@ -112,11 +123,34 @@ final class Reflector {
             declaringClass = loadClass(fieldString.substring(lastSpace + 1, lastDot));
             name = fieldString.substring(lastDot + 1);
         }
-        var f = declaringClass.getDeclaredField(name);
-        if (type != null && f.getType() != type) {
+        var key = new MemberKey.Field(declaringClass, name);
+        WeakReference<Field> ref;
+        synchronized (fieldCache) {
+            ref = fieldCache.get(key);
+        }
+        if (ref == EMPTY) {
             throw new NoSuchFieldException(fieldString);
         }
-        return f;
+        var field = ref != null ? ref.get() : null;
+        if (field == null) {
+            try {
+                field = declaringClass.getDeclaredField(name);
+                if (type != null && field.getType() != type) {
+                    throw new NoSuchFieldException(fieldString);
+                }
+            } catch (NoSuchFieldException e) {
+                synchronized (fieldCache) {
+                    //noinspection unchecked
+                    fieldCache.put(key, (WeakReference<Field>) EMPTY);
+                }
+                throw e;
+            }
+            field.setAccessible(true);
+            synchronized (fieldCache) {
+                fieldCache.put(key, new WeakReference<>(field));
+            }
+        }
+        return field;
     }
 
     @NonNull
@@ -219,11 +253,35 @@ final class Reflector {
                 }
             }
         }
-        var m = declaringClass.getDeclaredMethod(name, parameterTypes.toArray(new Class[0]));
-        if (returnType != null && m.getReturnType() != returnType) {
+        var parameterTypesArray = parameterTypes.toArray(new Class<?>[0]);
+        var key = new MemberKey.Method(declaringClass, name, parameterTypesArray);
+        WeakReference<Method> ref;
+        synchronized (methodCache) {
+            ref = methodCache.get(key);
+        }
+        if (ref == EMPTY) {
             throw new NoSuchMethodException(methodString);
         }
-        return m;
+        Method method = ref == null ? null : ref.get();
+        if (method == null) {
+            try {
+                method = declaringClass.getDeclaredMethod(name, parameterTypesArray);
+                if (returnType != null && !returnType.equals(method.getReturnType())) {
+                    throw new NoSuchMethodException(methodString);
+                }
+            } catch (NoSuchMethodException e) {
+                synchronized (methodCache) {
+                    //noinspection unchecked
+                    methodCache.put(key, (WeakReference<Method>) EMPTY);
+                }
+                throw e;
+            }
+            method.setAccessible(true);
+            synchronized (methodCache) {
+                methodCache.put(key, new WeakReference<>(method));
+            }
+        }
+        return method;
     }
 
     @NonNull
@@ -308,7 +366,32 @@ final class Reflector {
                 }
             }
         }
-        return declaringClass.getDeclaredConstructor(parameterTypes.toArray(new Class[0]));
+        var parameterTypesArray = parameterTypes.toArray(new Class<?>[0]);
+        var key = new MemberKey.Constructor(declaringClass, parameterTypesArray);
+        WeakReference<Constructor<?>> ref;
+        synchronized (constructorCache) {
+            ref = constructorCache.get(key);
+        }
+        if (ref == EMPTY) {
+            throw new NoSuchMethodException(constructorString);
+        }
+        Constructor<?> constructor = ref == null ? null : ref.get();
+        if (constructor == null) {
+            try {
+                constructor = declaringClass.getDeclaredConstructor(parameterTypesArray);
+            } catch (NoSuchMethodException e) {
+                synchronized (constructorCache) {
+                    //noinspection unchecked
+                    constructorCache.put(key, (WeakReference<Constructor<?>>) EMPTY);
+                }
+                throw e;
+            }
+            constructor.setAccessible(true);
+            synchronized (constructorCache) {
+                constructorCache.put(key, new WeakReference<>(constructor));
+            }
+        }
+        return constructor;
     }
 
     @NonNull
@@ -345,5 +428,112 @@ final class Reflector {
             constructors.add(loadConstructor(constructorString));
         }
         return constructors;
+    }
+
+    abstract static class MemberKey {
+        private final int hash;
+
+        protected MemberKey(int hash) {
+            this.hash = hash;
+        }
+
+        protected static String[] getClassNames(Class<?>[] classes) {
+            String[] classNames = new String[classes.length];
+            for (int i = 0; i < classes.length; i++) {
+                classNames[i] = classes[i].getName();
+            }
+            return classNames;
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+
+        @Override
+        public abstract boolean equals(@Nullable Object obj);
+
+        static class Field extends MemberKey {
+            private final String declaringClass;
+            private final String name;
+
+            protected Field(String declaringClass, String name) {
+                super(Objects.hash(declaringClass, name));
+                this.declaringClass = declaringClass;
+                this.name = name;
+            }
+
+            protected Field(Class<?> declaringClass, String name) {
+                this(declaringClass.getName(), name);
+            }
+
+            @Override
+            public boolean equals(@Nullable Object obj) {
+                if (obj == this) {
+                    return true;
+                }
+                if (obj instanceof Field) {
+                    Field other = (Field) obj;
+                    return Objects.equals(other.declaringClass, declaringClass) && Objects.equals(other.name, name);
+                }
+                return false;
+            }
+        }
+
+        static class Constructor extends MemberKey {
+            protected final String declaringClass;
+            protected final String[] parameterTypes;
+
+            protected Constructor(String declaringClass, String[] parameterTypes) {
+                super(31 * Objects.hash(declaringClass) + Arrays.hashCode(parameterTypes));
+                this.declaringClass = declaringClass;
+                this.parameterTypes = parameterTypes;
+            }
+
+            protected Constructor(Class<?> declaringClass, Class<?>[] parameterTypes) {
+                this(declaringClass.getName(), getClassNames(parameterTypes));
+            }
+
+            @Override
+            public boolean equals(@Nullable Object obj) {
+                if (obj == this) {
+                    return true;
+                }
+                if (obj instanceof Constructor) {
+                    Constructor other = (Constructor) obj;
+                    return Objects.equals(other.declaringClass, declaringClass) && Arrays.equals(other.parameterTypes, parameterTypes);
+                }
+                return false;
+            }
+        }
+
+        static class Method extends MemberKey {
+            protected final String declaringClass;
+            protected final String name;
+            protected final String[] parameterTypes;
+
+            protected Method(String declaringClass, String name, String[] parameterTypes) {
+                super(31 * Objects.hash(declaringClass, name) + Arrays.hashCode(parameterTypes));
+                this.declaringClass = declaringClass;
+                this.name = name;
+                this.parameterTypes = parameterTypes;
+            }
+
+            protected Method(Class<?> declaringClass, String name, Class<?>[] parameterTypes) {
+                this(declaringClass.getName(), name, getClassNames(parameterTypes));
+            }
+
+            @Override
+            public boolean equals(@Nullable Object obj) {
+                if (obj == this) {
+                    return true;
+                }
+                if (obj instanceof Method) {
+                    Method other = (Method) obj;
+                    return Objects.equals(other.declaringClass, declaringClass) && Objects.equals(other.name, name) && Arrays.equals(other.parameterTypes, parameterTypes);
+                }
+                return false;
+            }
+        }
     }
 }
