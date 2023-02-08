@@ -27,6 +27,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.github.libxposed.api.utils.DexParser;
 
@@ -45,6 +46,9 @@ interface ListObserver<T> extends BaseObserver<Collection<T>> {
 interface Transformer<T, U> {
     @NonNull
     U transform(@NonNull T input);
+}
+
+interface FieldAndMethodVisitor extends DexParser.MethodVisitor, DexParser.FieldVisitor {
 }
 
 final class TypeOnlyParameter implements HookBuilder.Parameter {
@@ -810,5 +814,15 @@ final class IdTreeSetView {
     }
 }
 
-interface AllMemberVisitor extends DexParser.MethodVisitor, DexParser.FieldVisitor {
+class AtomicHelper {
+    public static <T> T updateIfNullAndGet(AtomicReference<T> atomic, HookBuilder.Supplier<T> updateFunction) {
+        T next = null;
+        while (true) {
+            T now = atomic.get();
+            if (now != null) return now;
+            if (next == null) next = updateFunction.get();
+            if (atomic.weakCompareAndSet(null, next))
+                return next;
+        }
+    }
 }

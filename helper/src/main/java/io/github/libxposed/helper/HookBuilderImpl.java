@@ -454,8 +454,9 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private void analysisDex() {
-        var parsers = new ArrayList<DexParser>();
+        DexParser[] parsers;
         try (var apk = new ZipFile(sourcePath)) {
+            var p = new ArrayList<DexParser>();
             for (var i = 1; ; ++i) {
                 var dex = apk.getEntry("classes" + (i == 1 ? "" : i) + ".dex");
                 if (dex == null) break;
@@ -465,14 +466,17 @@ final class HookBuilderImpl implements HookBuilder {
                         throw new IOException("read dex failed");
                     }
                 }
-                parsers.add(ctx.parseDex(buf, false));
+                p.add(ctx.parseDex(buf, false));
             }
+            parsers = p.toArray(new DexParser[0]);
         } catch (Throwable e) {
             if (exceptionHandler != null) exceptionHandler.test(e);
             return;
         }
         // match strings first
-        for (var dex : parsers) {
+        for (var d = 0; d < parsers.length; ++d) {
+            final int dexId = d;
+            final var dex = parsers[dexId];
             matchExecutor.submit(() -> {
                 var stringIds = dex.getStringId();
                 var strings = new String[stringIds.length];
@@ -492,35 +496,36 @@ final class HookBuilderImpl implements HookBuilder {
                     } else {
                         left = -1;
                     }
-                    if (left < 0) {
-                        match.dexMatches.compareAndSet(null, new int[0]);
-                        continue;
-                    }
                     int right;
-                    if (!matcher.matchFirst && matcher.prefix != null) {
-                        right = Arrays.binarySearch(strings, left + 1, strings.length, matcher.prefix + Character.MAX_VALUE);
-                        if (right < 0) {
-                            right = -right - 1;
-                        }
+                    if (left < 0) {
+                        left = right = 0;
                     } else {
-                        right = left + 1;
+                        if (!matcher.matchFirst && matcher.prefix != null) {
+                            right = Arrays.binarySearch(strings, left + 1, strings.length, matcher.prefix + Character.MAX_VALUE);
+                            if (right < 0) {
+                                right = -right - 1;
+                            }
+                        } else {
+                            right = left + 1;
+                        }
                     }
                     var arr = new int[right - left];
                     for (var i = left; i < right; ++i) {
                         arr[i - left] = i;
                     }
-                    match.dexMatches.compareAndSet(null, arr);
+                    var dexMatches = AtomicHelper.updateIfNullAndGet(match.dexMatches, () -> new int[parsers.length][])[dexId] = arr;
                 }
             });
         }
 
 
-        for (var dex : parsers) {
-            var strings = TreeSetView.ofSorted(dex.getStringId());
+        for (var d = 0; d < parsers.length; ++d) {
+            final int dexId = d;
+            final var dex = parsers[dexId];
             matchExecutor.submit(() -> dex.visitDefinedClasses(new DexParser.ClassVisitor() {
                 @Override
                 public DexParser.MemberVisitor visit(int clazz, int accessFlags, int superClass, @NonNull int[] interfaces, int sourceFile, @NonNull int[] staticFields, @NonNull int[] staticFieldsAccessFlags, @NonNull int[] instanceFields, @NonNull int[] instanceFieldsAccessFlags, @NonNull int[] directMethods, @NonNull int[] directMethodsAccessFlags, @NonNull int[] virtualMethods, @NonNull int[] virtualMethodsAccessFlags, @NonNull int[] annotations) {
-                    return new AllMemberVisitor() {
+                    return new FieldAndMethodVisitor() {
                         @Override
                         public void visit(int field, int accessFlags, @NonNull int[] annotations) {
 
@@ -529,7 +534,6 @@ final class HookBuilderImpl implements HookBuilder {
                         @Override
                         public DexParser.MethodBodyVisitor visit(int method, int accessFlags, boolean hasBody, @NonNull int[] annotations, @NonNull int[] parameterAnnotations) {
                             return (ignored1, ignored2, referredStrings, invokedMethods, accessedFields, assignedFields, opcodes) -> {
-                                var s = IdTreeSetView.ofSorted(referredStrings);
                             };
                         }
 
@@ -3005,7 +3009,7 @@ final class HookBuilderImpl implements HookBuilder {
         private final StringMatcherImpl matcher;
 
         @NonNull
-        private final AtomicReference<int[]> dexMatches = new AtomicReference<>(null);
+        private final AtomicReference<int[][]> dexMatches = new AtomicReference<>(null);
 
         private StringMatchImpl(@NonNull StringMatcherImpl matcher) {
             this.matcher = matcher;
