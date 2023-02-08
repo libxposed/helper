@@ -809,3 +809,6 @@ final class IdTreeSetView {
         return new IdTreeSetView(res, 0, p);
     }
 }
+
+interface AllMemberVisitor extends DexParser.MethodVisitor, DexParser.FieldVisitor {
+}

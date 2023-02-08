@@ -66,9 +66,6 @@ final class HookBuilderImpl implements HookBuilder {
     private final BaseDexClassLoader classLoader;
     @NonNull
     private final String sourcePath;
-
-    private final int dexCount;
-
     @NonNull
     private final Reflector reflector;
     @NonNull
@@ -79,6 +76,8 @@ final class HookBuilderImpl implements HookBuilder {
     private final ConcurrentLinkedQueue<MethodMatcherImpl> rootMethodMatchers = new ConcurrentLinkedQueue<>();
     @NonNull
     private final ConcurrentLinkedQueue<ConstructorMatcherImpl> rootConstructorMatchers = new ConcurrentLinkedQueue<>();
+    @NonNull
+    private final ConcurrentLinkedQueue<StringMatchImpl> stringMatches = new ConcurrentLinkedQueue<>();
     @NonNull
     private final HashMap<LazyBind, AtomicInteger> binds = new HashMap<>();
     @NonNull
@@ -127,17 +126,6 @@ final class HookBuilderImpl implements HookBuilder {
         this.ctx = ctx;
         this.classLoader = classLoader;
         this.sourcePath = sourcePath;
-        var count = 0;
-        try (var file = new ZipFile(sourcePath)) {
-            for (var i = 1; ; i++) {
-                if (file.getEntry("classes" + (i == 1 ? "" : i) + ".dex") == null) {
-                    count = i - 1;
-                    break;
-                }
-            }
-        } catch (IOException ignored) {
-        }
-        dexCount = count;
         reflector = new Reflector(classLoader);
     }
 
@@ -468,8 +456,9 @@ final class HookBuilderImpl implements HookBuilder {
     private void analysisDex() {
         var parsers = new ArrayList<DexParser>();
         try (var apk = new ZipFile(sourcePath)) {
-            for (var i = 1; i <= dexCount; ++i) {
+            for (var i = 1; ; ++i) {
                 var dex = apk.getEntry("classes" + (i == 1 ? "" : i) + ".dex");
+                if (dex == null) break;
                 var buf = ByteBuffer.allocateDirect((int) dex.getSize());
                 try (var in = apk.getInputStream(dex)) {
                     if (in.read(buf.array()) != buf.capacity()) {
@@ -482,13 +471,73 @@ final class HookBuilderImpl implements HookBuilder {
             if (exceptionHandler != null) exceptionHandler.test(e);
             return;
         }
+        // match strings first
         for (var dex : parsers) {
+            matchExecutor.submit(() -> {
+                var stringIds = dex.getStringId();
+                var strings = new String[stringIds.length];
+                for (var i = 0; i < strings.length; ++i) {
+                    strings[i] = stringIds[i].getString();
+                }
+                for (var match : stringMatches) {
+                    var matcher = match.matcher;
+                    int left;
+                    if (matcher.exact != null) {
+                        left = Arrays.binarySearch(strings, matcher.exact);
+                    } else if (matcher.prefix != null) {
+                        left = Arrays.binarySearch(strings, matcher.prefix);
+                        if (left < 0 && -left - 1 < strings.length && strings[-left - 1].startsWith(matcher.prefix)) {
+                            left = -left - 1;
+                        }
+                    } else {
+                        left = -1;
+                    }
+                    if (left < 0) {
+                        match.dexMatches.compareAndSet(null, new int[0]);
+                        continue;
+                    }
+                    int right;
+                    if (!matcher.matchFirst && matcher.prefix != null) {
+                        right = Arrays.binarySearch(strings, left + 1, strings.length, matcher.prefix + Character.MAX_VALUE);
+                        if (right < 0) {
+                            right = -right - 1;
+                        }
+                    } else {
+                        right = left + 1;
+                    }
+                    var arr = new int[right - left];
+                    for (var i = left; i < right; ++i) {
+                        arr[i - left] = i;
+                    }
+                    match.dexMatches.compareAndSet(null, arr);
+                }
+            });
+        }
+
+
+        for (var dex : parsers) {
+            var strings = TreeSetView.ofSorted(dex.getStringId());
             matchExecutor.submit(() -> dex.visitDefinedClasses(new DexParser.ClassVisitor() {
-                @Nullable
                 @Override
                 public DexParser.MemberVisitor visit(int clazz, int accessFlags, int superClass, @NonNull int[] interfaces, int sourceFile, @NonNull int[] staticFields, @NonNull int[] staticFieldsAccessFlags, @NonNull int[] instanceFields, @NonNull int[] instanceFieldsAccessFlags, @NonNull int[] directMethods, @NonNull int[] directMethodsAccessFlags, @NonNull int[] virtualMethods, @NonNull int[] virtualMethodsAccessFlags, @NonNull int[] annotations) {
-                    // TODO
-                    return null;
+                    return new AllMemberVisitor() {
+                        @Override
+                        public void visit(int field, int accessFlags, @NonNull int[] annotations) {
+
+                        }
+
+                        @Override
+                        public DexParser.MethodBodyVisitor visit(int method, int accessFlags, boolean hasBody, @NonNull int[] annotations, @NonNull int[] parameterAnnotations) {
+                            return (ignored1, ignored2, referredStrings, invokedMethods, accessedFields, assignedFields, opcodes) -> {
+                                var s = IdTreeSetView.ofSorted(referredStrings);
+                            };
+                        }
+
+                        @Override
+                        public boolean stop() {
+                            return false;
+                        }
+                    };
                 }
 
                 @Override
@@ -1690,7 +1739,9 @@ final class HookBuilderImpl implements HookBuilder {
         }
 
         private StringMatch build() {
-            return new StringMatchImpl(this);
+            var match = new StringMatchImpl(this);
+            stringMatches.add(match);
+            return match;
         }
     }
 
@@ -1979,7 +2030,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         protected final ReflectMatcherImpl<?, ?, ?, ?, ?> rootMatcher;
         @NonNull
-        protected final AtomicReference<TreeSetView<DexId>[]> dexMatches = new AtomicReference<>(null);
+        protected final AtomicReference<int[][]> dexMatches = new AtomicReference<>(null);
         @NonNull
         protected final AtomicReference<Collection<Reflect>> matches = new AtomicReference<>(null);
         @GuardedBy("this")
@@ -2516,7 +2567,7 @@ final class HookBuilderImpl implements HookBuilder {
         @NonNull
         protected final ReflectMatcherImpl<?, ?, ?, ?, ?> rootMatcher;
         @NonNull
-        protected final AtomicReference<DexId[]> dexMatch = new AtomicReference<>(null);
+        protected final AtomicReference<int[]> dexMatch = new AtomicReference<>(null);
         @GuardedBy("this")
         @NonNull
         private final Set<BaseObserver<Reflect>> observers = new HashSet<>();
@@ -2954,7 +3005,7 @@ final class HookBuilderImpl implements HookBuilder {
         private final StringMatcherImpl matcher;
 
         @NonNull
-        private final AtomicReference<TreeSetView<DexParser.StringId>[]> dexMatches = new AtomicReference<>(null);
+        private final AtomicReference<int[]> dexMatches = new AtomicReference<>(null);
 
         private StringMatchImpl(@NonNull StringMatcherImpl matcher) {
             this.matcher = matcher;
