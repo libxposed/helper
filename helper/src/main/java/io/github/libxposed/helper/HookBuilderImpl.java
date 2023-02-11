@@ -246,24 +246,21 @@ final class HookBuilderImpl implements HookBuilder {
     @NonNull
     @Override
     public StringMatch exact(@NonNull String string) {
-        final var m = new StringMatcherImpl(true);
-        m.exact = string;
+        final var m = new StringMatcherImpl(string, true, false);
         return m.build();
     }
 
     @NonNull
     @Override
     public StringMatch prefix(@NonNull String prefix) {
-        final var m = new StringMatcherImpl(false);
-        m.prefix = prefix;
+        final var m = new StringMatcherImpl(prefix, false, true);
         return m.build();
     }
 
     @NonNull
     @Override
     public StringMatch firstPrefix(@NonNull String prefix) {
-        final var m = new StringMatcherImpl(true);
-        m.prefix = prefix;
+        final var m = new StringMatcherImpl(prefix, true, true);
         return m.build();
     }
 
@@ -486,22 +483,20 @@ final class HookBuilderImpl implements HookBuilder {
                 for (var match : stringMatches) {
                     var matcher = match.matcher;
                     int left;
-                    if (matcher.exact != null) {
-                        left = Arrays.binarySearch(strings, matcher.exact);
-                    } else if (matcher.prefix != null) {
-                        left = Arrays.binarySearch(strings, matcher.prefix);
-                        if (left < 0 && -left - 1 < strings.length && strings[-left - 1].startsWith(matcher.prefix)) {
+                    if (matcher.matchPrefix) {
+                        left = Arrays.binarySearch(strings, matcher.pattern);
+                        if (left < 0 && -left - 1 < strings.length && strings[-left - 1].startsWith(matcher.pattern)) {
                             left = -left - 1;
                         }
                     } else {
-                        left = -1;
+                        left = Arrays.binarySearch(strings, matcher.pattern);
                     }
                     int right;
                     if (left < 0) {
                         left = right = 0;
                     } else {
-                        if (!matcher.matchFirst && matcher.prefix != null) {
-                            right = Arrays.binarySearch(strings, left + 1, strings.length, matcher.prefix + Character.MAX_VALUE);
+                        if (!matcher.matchFirst && matcher.matchPrefix) {
+                            right = Arrays.binarySearch(strings, left + 1, strings.length, matcher.pattern + Character.MAX_VALUE);
                             if (right < 0) {
                                 right = -right - 1;
                             }
@@ -517,7 +512,6 @@ final class HookBuilderImpl implements HookBuilder {
                 }
             });
         }
-
 
         for (var d = 0; d < parsers.length; ++d) {
             final int dexId = d;
@@ -828,14 +822,12 @@ final class HookBuilderImpl implements HookBuilder {
                     TreeSetView<String> subset = classNames;
                     if (classMatcher.name != null) {
                         final var nameMatcher = classMatcher.name.matcher;
-                        if (nameMatcher.exact != null) {
-                            if (classNames.contains(nameMatcher.exact)) {
-                                subset = TreeSetView.ofSorted(new String[]{nameMatcher.exact});
-                            } else {
-                                subset = TreeSetView.ofSorted(new String[0]);
-                            }
-                        } else if (nameMatcher.prefix != null) {
-                            subset = classNames.subSet(nameMatcher.prefix, nameMatcher.prefix + Character.MAX_VALUE);
+                        if (nameMatcher.matchPrefix) {
+                            subset = classNames.subSet(nameMatcher.pattern, nameMatcher.pattern + Character.MAX_VALUE);
+                        } else if (classNames.contains(nameMatcher.pattern)) {
+                            subset = TreeSetView.ofSorted(new String[]{nameMatcher.pattern});
+                        } else {
+                            subset = TreeSetView.ofSorted(new String[0]);
                         }
                     }
                     final ArrayList<Class<?>> candidates = new ArrayList<>(subset.size());
@@ -1732,14 +1724,15 @@ final class HookBuilderImpl implements HookBuilder {
     }
 
     private final class StringMatcherImpl extends BaseMatcherImpl<StringMatcherImpl, String, DexParser.StringId> {
-        @Nullable
-        private String exact = null;
+        @NonNull
+        private final String pattern;
 
-        @Nullable
-        private String prefix = null;
+        private final boolean matchPrefix;
 
-        private StringMatcherImpl(boolean matchFirst) {
+        private StringMatcherImpl(@NonNull String pattern, boolean matchFirst, boolean matchPrefix) {
             super(matchFirst);
+            this.pattern = pattern;
+            this.matchPrefix = matchPrefix;
         }
 
         private StringMatch build() {
@@ -1994,10 +1987,10 @@ final class HookBuilderImpl implements HookBuilder {
         private boolean operandTest(Operand operand, TreeSetView<String> set) {
             if (operand.value instanceof StringMatchImpl) {
                 var matcher = ((StringMatchImpl) operand.value).matcher;
-                if (matcher.exact != null) {
-                    return set.contains(matcher.exact);
-                } else if (matcher.prefix != null) {
-                    return !set.subSet(matcher.prefix, matcher.prefix + Character.MAX_VALUE).isEmpty();
+                if (matcher.matchPrefix) {
+                    return !set.subSet(matcher.pattern, matcher.pattern + Character.MAX_VALUE).isEmpty();
+                } else {
+                    return set.contains(matcher.pattern);
                 }
             } else if (operand.value instanceof StringSyntaxImpl) {
                 return ((StringSyntaxImpl) operand.value).test(set);
@@ -3017,8 +3010,8 @@ final class HookBuilderImpl implements HookBuilder {
 
         @SuppressWarnings("BooleanMethodIsAlwaysInverted")
         private boolean test(@NonNull String value) {
-            if (matcher.prefix != null && !value.startsWith(matcher.prefix)) return false;
-            return matcher.exact == null || matcher.exact.equals(value);
+            if (matcher.matchPrefix && !value.startsWith(matcher.pattern)) return false;
+            return matcher.pattern.equals(value);
         }
 
         @NonNull
