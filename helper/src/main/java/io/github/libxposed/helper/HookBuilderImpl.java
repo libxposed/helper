@@ -38,8 +38,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -76,8 +78,9 @@ final class HookBuilderImpl implements HookBuilder {
     private final ConcurrentLinkedQueue<MethodMatcherImpl> rootMethodMatchers = new ConcurrentLinkedQueue<>();
     @NonNull
     private final ConcurrentLinkedQueue<ConstructorMatcherImpl> rootConstructorMatchers = new ConcurrentLinkedQueue<>();
+    @SuppressWarnings("ComparatorCombinators")
     @NonNull
-    private final ConcurrentLinkedQueue<StringMatchImpl> stringMatches = new ConcurrentLinkedQueue<>();
+    private final SortedSet<StringMatchImpl> stringMatches = new ConcurrentSkipListSet<>((o1, o2) -> o1.matcher.pattern.compareTo(o2.matcher.pattern));
     @NonNull
     private final HashMap<LazyBind, AtomicInteger> binds = new HashMap<>();
     @NonNull
@@ -476,27 +479,28 @@ final class HookBuilderImpl implements HookBuilder {
             final var dex = parsers[dexId];
             matchExecutor.submit(() -> {
                 var stringIds = dex.getStringId();
-                var strings = new String[stringIds.length];
-                for (var i = 0; i < strings.length; ++i) {
+                int length = stringIds.length;
+                var strings = new String[length];
+                for (var i = 0; i < length; ++i) {
                     strings[i] = stringIds[i].getString();
                 }
+                int left = 0;
                 for (var match : stringMatches) {
                     var matcher = match.matcher;
-                    int left;
                     if (matcher.matchPrefix) {
-                        left = Arrays.binarySearch(strings, matcher.pattern);
-                        if (left < 0 && -left - 1 < strings.length && strings[-left - 1].startsWith(matcher.pattern)) {
+                        left = Arrays.binarySearch(strings, left, length, matcher.pattern);
+                        if (left < 0 && -left - 1 < length && strings[-left - 1].startsWith(matcher.pattern)) {
                             left = -left - 1;
                         }
                     } else {
-                        left = Arrays.binarySearch(strings, matcher.pattern);
+                        left = Arrays.binarySearch(strings, left, length, matcher.pattern);
                     }
                     int right;
                     if (left < 0) {
-                        left = right = 0;
+                        left = right = -left - 1;
                     } else {
                         if (!matcher.matchFirst && matcher.matchPrefix) {
-                            right = Arrays.binarySearch(strings, left + 1, strings.length, matcher.pattern + Character.MAX_VALUE);
+                            right = Arrays.binarySearch(strings, left + 1, length, matcher.pattern + Character.MAX_VALUE);
                             if (right < 0) {
                                 right = -right - 1;
                             }
@@ -508,7 +512,7 @@ final class HookBuilderImpl implements HookBuilder {
                     for (var i = left; i < right; ++i) {
                         arr[i - left] = i;
                     }
-                    var dexMatches = AtomicHelper.updateIfNullAndGet(match.dexMatches, () -> new int[parsers.length][])[dexId] = arr;
+                    AtomicHelper.updateIfNullAndGet(match.dexMatches, () -> new int[length][])[dexId] = arr;
                 }
             });
         }
