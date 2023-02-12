@@ -456,19 +456,24 @@ final class HookBuilderImpl implements HookBuilder {
     private void analysisDex() {
         DexParser[] parsers;
         try (var apk = new ZipFile(sourcePath)) {
-            var p = new ArrayList<DexParser>();
+            var tasks = new ArrayList<Future<DexParser>>();
             for (var i = 1; ; ++i) {
                 var dex = apk.getEntry("classes" + (i == 1 ? "" : i) + ".dex");
                 if (dex == null) break;
-                var buf = ByteBuffer.allocateDirect((int) dex.getSize());
-                try (var in = apk.getInputStream(dex)) {
-                    if (in.read(buf.array()) != buf.capacity()) {
-                        throw new IOException("read dex failed");
+                tasks.add(matchExecutor.submit(() -> {
+                    var buf = ByteBuffer.allocateDirect((int) dex.getSize());
+                    try (var in = apk.getInputStream(dex)) {
+                        if (in.read(buf.array()) != buf.capacity()) {
+                            throw new IOException("read dex failed");
+                        }
                     }
-                }
-                p.add(ctx.parseDex(buf, false));
+                    return ctx.parseDex(buf, false);
+                }));
             }
-            parsers = p.toArray(new DexParser[0]);
+            parsers = new DexParser[tasks.size()];
+            for (var i = 0; i < parsers.length; ++i) {
+                parsers[i] = tasks.get(i).get();
+            }
         } catch (Throwable e) {
             if (exceptionHandler != null) exceptionHandler.test(e);
             return;
