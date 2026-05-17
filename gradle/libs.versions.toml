@@ -1,0 +1,11 @@
+[versions]
+agp = "9.2.1"
+api = "101.0.1"
+
+[plugins]
+agp-lib = { id = "com.android.library", version.ref = "agp" }
+
+[libraries]
+libxposed-api = { module = "io.github.libxposed:api", version.ref = "api" }
+androidx-annotation = { module = "androidx.annotation:annotation", version = "1.10.0" }
+commons-lang3 = { module = "org.apache.commons:commons-lang3", version = "3.20.0" }
